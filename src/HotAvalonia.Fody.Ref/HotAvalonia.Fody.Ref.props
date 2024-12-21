@@ -1,0 +1,10 @@
+<Project>
+  <ItemGroup>
+    <WeaverFiles Include="$(MsBuildThisFileDirectory)..\weaver\HotAvalonia.Fody.dll" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <WeaverConfiguration><Weavers><HotAvalonia/></Weavers></WeaverConfiguration>
+    <FodyAfterTargets>$(FodyAfterTargets);CompileAvaloniaXaml</FodyAfterTargets>
+  </PropertyGroup>
+</Project>

@@ -4,6 +4,7 @@
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
     <PackageId>HotAvalonia.Fody</PackageId>
     <WeaverDirPath>../$(PackageId)/bin/$(Configuration)/</WeaverDirPath>
+    <WeaverPropsFile>HotAvalonia.Fody.Ref.props</WeaverPropsFile>
   </PropertyGroup>
 
   <PropertyGroup>
