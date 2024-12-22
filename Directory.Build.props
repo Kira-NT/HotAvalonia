@@ -12,6 +12,7 @@
 
   <PropertyGroup>
     <IsPackable>false</IsPackable>
+    <DevelopmentDependency>true</DevelopmentDependency>
     <Version>2.1.0</Version>
     <Authors>Kir_Antipov</Authors>
     <Company>$(Authors)</Company>
