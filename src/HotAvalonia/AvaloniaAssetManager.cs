@@ -8,7 +8,6 @@ using Avalonia.Markup.Xaml.Converters;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
-using HotAvalonia.Assets;
 using HotAvalonia.DependencyInjection;
 using HotAvalonia.Helpers;
 using HotAvalonia.Reflection.Inject;
@@ -45,6 +44,8 @@ public sealed class AvaloniaAssetManager : IDisposable
     public AvaloniaAssetManager(IServiceProvider serviceProvider)
     {
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        IconTypeConverter = new();
+        BitmapTypeConverter = new();
 
         if (!TryInjectAssetCallbacks(out _injections))
             LoggingHelper.Log("Failed to subscribe to asset loading events. Icons and images won't be reloaded upon file changes.");
@@ -66,6 +67,24 @@ public sealed class AvaloniaAssetManager : IDisposable
     }
 
     /// <summary>
+    /// Gets or sets the <see cref="TypeConverter"/> used for loading icons.
+    /// </summary>
+    public IconTypeConverter IconTypeConverter
+    {
+        get => field;
+        set => field = value ?? throw new ArgumentNullException(nameof(value));
+    }
+
+    /// <summary>
+    /// Gets or sets the <see cref="TypeConverter"/> used for loading images.
+    /// </summary>
+    public BitmapTypeConverter BitmapTypeConverter
+    {
+        get => field;
+        set => field = value ?? throw new ArgumentNullException(nameof(value));
+    }
+
+    /// <summary>
     /// Disposes of the resources used by the <see cref="AvaloniaAssetManager"/>.
     /// </summary>
     public void Dispose()
@@ -75,10 +94,32 @@ public sealed class AvaloniaAssetManager : IDisposable
     }
 
     /// <summary>
-    /// Attempts to load a dynamic asset.
+    /// Attempts to load an icon.
     /// </summary>
-    /// <typeparam name="TAsset">The type of the asset to load.</typeparam>
-    /// <typeparam name="TAssetTypeConverter">The type converter to use for loading the asset.</typeparam>
+    /// <inheritdoc cref="TryLoadAsset"/>
+    private bool TryLoadIcon(
+        ITypeDescriptorContext? context,
+        CultureInfo? culture,
+        object value,
+        [NotNullWhen(true), CallbackResult] out object? result
+    )
+        => TryLoadAsset(IconTypeConverter, context, culture, value, out result);
+
+    /// <summary>
+    /// Attempts to load an image.
+    /// </summary>
+    /// <inheritdoc cref="TryLoadAsset"/>
+    private bool TryLoadBitmap(
+        ITypeDescriptorContext? context,
+        CultureInfo? culture,
+        object value,
+        [NotNullWhen(true), CallbackResult] out object? result
+    )
+        => TryLoadAsset(BitmapTypeConverter, context, culture, value, out result);
+
+    /// <summary>
+    /// Attempts to load an asset.
+    /// </summary>
     /// <param name="context">An optional context providing information about the conversion environment.</param>
     /// <param name="culture">The culture to use for the conversion.</param>
     /// <param name="value">The value representing the asset source (e.g., a file path).</param>
@@ -90,16 +131,13 @@ public sealed class AvaloniaAssetManager : IDisposable
     /// <c>true</c> if the asset was successfully loaded;
     /// otherwise, <c>false</c>.
     /// </returns>
-    private static bool TryLoadDynamicAsset<TAsset, TAssetTypeConverter>(
+    private static bool TryLoadAsset(
+        TypeConverter converter,
         ITypeDescriptorContext? context,
         CultureInfo? culture,
         object value,
-        [NotNullWhen(true), CallbackResult] out object? result
-    )
-        where TAsset : notnull
-        where TAssetTypeConverter : TypeConverter
+        [NotNullWhen(true)] out object? result)
     {
-        TAssetTypeConverter converter = DynamicAssetTypeConverter<TAsset, TAssetTypeConverter>.Instance;
         if (converter.CanConvertFrom(context, value?.GetType() ?? typeof(object)))
         {
             result = converter.ConvertFrom(context, culture, value!);
@@ -117,7 +155,7 @@ public sealed class AvaloniaAssetManager : IDisposable
     /// <param name="obj">The target <see cref="AvaloniaObject"/> to which the value will be bound.</param>
     /// <param name="property">The <see cref="AvaloniaProperty"/> representing the property to bind.</param>
     /// <param name="value">The value representing the asset to bind.</param>
-    private static void TryBindDynamicAsset(AvaloniaObject obj, AvaloniaProperty property, object? value)
+    private static void TryBindAsset(AvaloniaObject obj, AvaloniaProperty property, object? value)
     {
         if (value is IObservable<object> observableValue)
             obj.Bind(property, observableValue);
@@ -134,7 +172,7 @@ public sealed class AvaloniaAssetManager : IDisposable
     /// <c>true</c> if the callback injections were successful;
     /// otherwise, <c>false</c>.
     /// </returns>
-    private static bool TryInjectAssetCallbacks(out IInjection[] injections)
+    private bool TryInjectAssetCallbacks(out IInjection[] injections)
     {
         if (!CallbackInjector.SupportsOptimizedMethods)
         {
@@ -164,11 +202,11 @@ public sealed class AvaloniaAssetManager : IDisposable
                 (typeof(ImageDrawing), nameof(ImageDrawing.ImageSource), ImageDrawing.ImageSourceProperty),
             }.Select(static x => CallbackInjector.Inject(
                 x.Type.GetProperty(x.Name).SetMethod,
-                ([Caller] AvaloniaObject obj, object value) => TryBindDynamicAsset(obj, x.Property, value))
+                ([Caller] AvaloniaObject obj, object value) => TryBindAsset(obj, x.Property, value))
             ),
 
-            CallbackInjector.Inject(toIcon, TryLoadDynamicAsset<WindowIcon, IconTypeConverter>),
-            CallbackInjector.Inject(toBitmap, TryLoadDynamicAsset<Bitmap, BitmapTypeConverter>),
+            CallbackInjector.Inject(toIcon, TryLoadIcon),
+            CallbackInjector.Inject(toBitmap, TryLoadBitmap),
         ];
         return true;
     }

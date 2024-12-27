@@ -89,25 +89,43 @@ type internal AvaloniaHotReloadExtensions =
     /// Enables hot reload functionality for the given Avalonia application.
     /// </summary>
     /// <param name="app">The Avalonia application instance for which hot reload should be enabled.</param>
-    /// <param name="appFilePath">The file path of the application's main source file. Optional if the method called within the file of interest.</param>
+    /// <param name="projectLocator">The project locator used to find source directories of assemblies.</param>
     [<DebuggerStepThrough>]
-    [<Extension>]
-    static member EnableHotReload(app: Application, [<CallerFilePath; Optional; DefaultParameterValue("")>] appFilePath: string) =
+    static member private EnableHotReload(app: Application, projectLocator: AvaloniaProjectLocator) =
         match s_apps.TryGetValue(app) with
         | true, context -> context.EnableHotReload()
         | _ ->
-            if not (String.IsNullOrEmpty(appFilePath) || File.Exists(appFilePath)) then
-                raise (FileNotFoundException("The corresponding XAML file could not be found.", appFilePath))
-
-            if not (String.IsNullOrEmpty(appFilePath)) then
-                AvaloniaProjectLocator.AddHint(app.GetType(), appFilePath)
-
             let appDomainContext = AvaloniaHotReloadContext.FromAppDomain()
             let assetContext = AvaloniaHotReloadContext.ForAssets()
             let context = HotReloadContext.Combine(appDomainContext, assetContext)
             s_apps.Add(app, context)
 
             context.EnableHotReload()
+
+    /// <summary>
+    /// Creates a new instance of the <see cref="AvaloniaProjectLocator"/> class.
+    /// </summary>
+    /// <returns>A new instance of the <see cref="AvaloniaProjectLocator"/> class.</returns>
+    [<DebuggerStepThrough>]
+    static member private CreateAvaloniaProjectLocator() =
+        AvaloniaProjectLocator()
+
+    /// <summary>
+    /// Enables hot reload functionality for the given Avalonia application.
+    /// </summary>
+    /// <param name="app">The Avalonia application instance for which hot reload should be enabled.</param>
+    /// <param name="appFilePath">The file path of the application's main source file. Optional if the method called within the file of interest.</param>
+    [<DebuggerStepThrough>]
+    [<Extension>]
+    static member EnableHotReload(app: Application, [<CallerFilePath; Optional; DefaultParameterValue("")>] appFilePath: string) =
+        if not (String.IsNullOrEmpty(appFilePath) || File.Exists(appFilePath)) then
+            raise (FileNotFoundException("The corresponding XAML file could not be found.", appFilePath))
+
+        let projectLocator = AvaloniaHotReloadExtensions.CreateAvaloniaProjectLocator()
+        if not (String.IsNullOrEmpty(appFilePath)) then
+            projectLocator.AddHint(app.GetType(), appFilePath)
+
+        AvaloniaHotReloadExtensions.EnableHotReload(app, projectLocator)
 
     /// <summary>
     /// Enables hot reload functionality for the given Avalonia application.
@@ -117,8 +135,10 @@ type internal AvaloniaHotReloadExtensions =
     [<DebuggerStepThrough>]
     [<Extension>]
     static member EnableHotReload(app: Application, projectPathResolver: Assembly -> string) =
-        AvaloniaProjectLocator.AddHint(projectPathResolver)
-        app.EnableHotReload(String.Empty)
+        let projectLocator = AvaloniaHotReloadExtensions.CreateAvaloniaProjectLocator()
+        projectLocator.AddHint(projectPathResolver)
+
+        AvaloniaHotReloadExtensions.EnableHotReload(app, projectLocator)
 
     /// <summary>
     /// Disables hot reload functionality for the given Avalonia application.

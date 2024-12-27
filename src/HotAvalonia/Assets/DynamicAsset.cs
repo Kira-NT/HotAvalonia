@@ -112,8 +112,9 @@ internal sealed class DynamicAsset<TAsset> : IObservable<TAsset> where TAsset : 
     /// </summary>
     /// <param name="uri">The URI of the asset to create.</param>
     /// <param name="baseUri">An optional base URI to resolve relative URIs.</param>
+    /// <param name="projectLocator">The project locator used to find source directories of assets.</param>
     /// <returns>A new instance of the asset.</returns>
-    public static TAsset Create(Uri uri, Uri? baseUri = null)
+    public static TAsset Create(Uri uri, Uri? baseUri, AvaloniaProjectLocator projectLocator)
     {
         _ = uri ?? throw new ArgumentNullException(nameof(uri));
 
@@ -127,7 +128,7 @@ internal sealed class DynamicAsset<TAsset> : IObservable<TAsset> where TAsset : 
         if (!uri.IsAbsoluteUri || uri.Scheme != UriHelper.AvaloniaResourceScheme)
             return s_fromStream(stream);
 
-        if (!AvaloniaProjectLocator.TryGetDirectoryName(assembly, out string? rootPath))
+        if (!projectLocator.TryGetDirectoryName(assembly, out string? rootPath))
             return s_fromStream(stream);
 
         string fileName = UriHelper.ResolvePathFromUri(rootPath, uri);

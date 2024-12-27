@@ -10,29 +10,29 @@ namespace HotAvalonia;
 /// Provides methods to locate the source code of assemblies
 /// containing Avalonia controls.
 /// </summary>
-public static class AvaloniaProjectLocator
+public sealed class AvaloniaProjectLocator
 {
     /// <summary>
     /// A cache for storing the project paths associated with assemblies.
     /// </summary>
-    private static readonly ConditionalWeakTable<Assembly, string> s_cache = new();
+    private readonly ConditionalWeakTable<Assembly, string> _cache = new();
 
     /// <summary>
     /// A collection of hint-providing functions used to infer
     /// the project paths of assemblies.
     /// </summary>
-    private static readonly ConcurrentBag<Func<Assembly, string?>> s_hints = new();
+    private readonly ConcurrentBag<Func<Assembly, string?>> _hints = new();
 
     /// <summary>
     /// Registers a hint-providing function that can be used
     /// to infer the project path of an assembly.
     /// </summary>
     /// <param name="hint">The hint-providing function to register.</param>
-    public static void AddHint(Func<Assembly, string?> hint)
+    public void AddHint(Func<Assembly, string?> hint)
     {
         _ = hint ?? throw new ArgumentNullException(nameof(hint));
 
-        s_hints.Add(hint);
+        _hints.Add(hint);
     }
 
     /// <summary>
@@ -40,7 +40,7 @@ public static class AvaloniaProjectLocator
     /// </summary>
     /// <param name="assemblyName">The name of the assembly.</param>
     /// <param name="directoryName">The project path associated with the assembly.</param>
-    public static void AddHint(string assemblyName, string directoryName)
+    public void AddHint(string assemblyName, string directoryName)
     {
         _ = assemblyName ?? throw new ArgumentNullException(nameof(assemblyName));
         _ = directoryName ?? throw new ArgumentNullException(nameof(directoryName));
@@ -53,16 +53,16 @@ public static class AvaloniaProjectLocator
     /// </summary>
     /// <param name="assembly">The assembly.</param>
     /// <param name="directoryName">The project path associated with the assembly.</param>
-    public static void AddHint(Assembly assembly, string directoryName)
+    public void AddHint(Assembly assembly, string directoryName)
     {
         _ = assembly ?? throw new ArgumentNullException(nameof(assembly));
 
 #if NETSTANDARD2_0
         // Technically, this is not thread-safe, but who cares.
-        s_cache.Remove(assembly);
-        s_cache.Add(assembly, Path.GetFullPath(directoryName));
+        _cache.Remove(assembly);
+        _cache.Add(assembly, Path.GetFullPath(directoryName));
 #else
-        s_cache.AddOrUpdate(assembly, Path.GetFullPath(directoryName));
+        _cache.AddOrUpdate(assembly, Path.GetFullPath(directoryName));
 #endif
     }
 
@@ -71,7 +71,7 @@ public static class AvaloniaProjectLocator
     /// </summary>
     /// <param name="type">The control type.</param>
     /// <param name="fileName">The file name of the type's associated XAML file.</param>
-    public static void AddHint(Type type, string fileName)
+    public void AddHint(Type type, string fileName)
     {
         _ = type ?? throw new ArgumentNullException(nameof(type));
         _ = fileName ?? throw new ArgumentNullException(nameof(fileName));
@@ -95,12 +95,12 @@ public static class AvaloniaProjectLocator
     /// <c>true</c> if the project path was found in the cache;
     /// otherwise, <c>false</c>.
     /// </returns>
-    private static bool TryGetCachedDirectoryName(Assembly assembly, [NotNullWhen(true)] out string? directoryName)
+    private bool TryGetCachedDirectoryName(Assembly assembly, [NotNullWhen(true)] out string? directoryName)
     {
-        if (s_cache.TryGetValue(assembly, out directoryName))
+        if (_cache.TryGetValue(assembly, out directoryName))
             return true;
 
-        directoryName = s_hints
+        directoryName = _hints
             .Select(x => x(assembly))
             .Where(static x => !string.IsNullOrWhiteSpace(x))
             .OrderByDescending(Directory.Exists)
@@ -117,7 +117,7 @@ public static class AvaloniaProjectLocator
     }
 
     /// <inheritdoc cref="TryGetDirectoryName(Assembly, AvaloniaControlInfo?, out string?)"/>
-    public static bool TryGetDirectoryName(Assembly assembly, [NotNullWhen(true)] out string? directoryName)
+    public bool TryGetDirectoryName(Assembly assembly, [NotNullWhen(true)] out string? directoryName)
     {
         if (TryGetCachedDirectoryName(assembly, out directoryName))
             return true;
@@ -128,7 +128,7 @@ public static class AvaloniaProjectLocator
 
     /// <inheritdoc cref="TryGetDirectoryName(Assembly, AvaloniaControlInfo?, out string?)"/>
     /// <param name="controls">The Avalonia controls located within the assembly.</param>
-    internal static bool TryGetDirectoryName(Assembly assembly, IEnumerable<AvaloniaControlInfo> controls, [NotNullWhen(true)] out string? directoryName)
+    internal bool TryGetDirectoryName(Assembly assembly, IEnumerable<AvaloniaControlInfo> controls, [NotNullWhen(true)] out string? directoryName)
         => TryGetDirectoryName(assembly, controls.FirstOrDefault(), out directoryName);
 
     /// <summary>
@@ -144,7 +144,7 @@ public static class AvaloniaProjectLocator
     /// <c>true</c> if the project path was found;
     /// otherwise, <c>false</c>.
     /// </returns>
-    internal static bool TryGetDirectoryName(Assembly assembly, AvaloniaControlInfo? control, [NotNullWhen(true)] out string? directoryName)
+    internal bool TryGetDirectoryName(Assembly assembly, AvaloniaControlInfo? control, [NotNullWhen(true)] out string? directoryName)
     {
         if (TryGetCachedDirectoryName(assembly, out directoryName))
             return true;
@@ -162,7 +162,7 @@ public static class AvaloniaProjectLocator
     }
 
     /// <inheritdoc cref="GetDirectoryName(Assembly, AvaloniaControlInfo?)"/>
-    public static string GetDirectoryName(Assembly assembly)
+    public string GetDirectoryName(Assembly assembly)
     {
         if (!TryGetDirectoryName(assembly, out string? directoryName))
             return ThrowDirectoryNotFoundException(assembly);
@@ -172,7 +172,7 @@ public static class AvaloniaProjectLocator
 
     /// <inheritdoc cref="GetDirectoryName(Assembly, AvaloniaControlInfo?)"/>
     /// <param name="controls">The Avalonia controls located within the assembly.</param>
-    internal static string GetDirectoryName(Assembly assembly, IEnumerable<AvaloniaControlInfo> controls)
+    internal string GetDirectoryName(Assembly assembly, IEnumerable<AvaloniaControlInfo> controls)
         => GetDirectoryName(assembly, controls.FirstOrDefault());
 
     /// <summary>
@@ -182,7 +182,7 @@ public static class AvaloniaProjectLocator
     /// <param name="control">An Avalonia control located within the assembly.</param>
     /// <returns>The project path of the specified assembly.</returns>
     /// <exception cref="DirectoryNotFoundException">Thrown if the project path cannot be found.</exception>
-    internal static string GetDirectoryName(Assembly assembly, AvaloniaControlInfo? control)
+    internal string GetDirectoryName(Assembly assembly, AvaloniaControlInfo? control)
     {
         if (!TryGetDirectoryName(assembly, control, out string? directoryName))
             return ThrowDirectoryNotFoundException(assembly);

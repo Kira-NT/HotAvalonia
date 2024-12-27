@@ -87,24 +87,11 @@ Namespace Global.HotAvalonia
         ''' Enables hot reload functionality for the given Avalonia application.
         ''' </summary>
         ''' <param name="app">The Avalonia application instance for which hot reload should be enabled.</param>
-        ''' <param name="appFilePath">The file path of the application's main source file. Optional if the method called within the file of interest.</param>
+        ''' <param name="projectLocator">The project locator used to find source directories of assemblies.</param>
         <DebuggerStepThrough>
-        <Extension>
-        Public Sub EnableHotReload(ByVal app As Application, <CallerFilePath> Optional ByVal appFilePath As String = Nothing)
-            If app Is Nothing Then
-                Throw New ArgumentNullException(NameOf(app))
-            End If
-
+        Private Sub EnableHotReload(ByVal app As Application, ByVal projectLocator As AvaloniaProjectLocator)
             Dim context As IHotReloadContext = Nothing
             If Not s_apps.TryGetValue(app, context) Then
-                If Not String.IsNullOrEmpty(appFilePath) AndAlso Not File.Exists(appFilePath) Then
-                    Throw New FileNotFoundException("The corresponding XAML file could not be found.", appFilePath)
-                End If
-
-                If Not String.IsNullOrEmpty(appFilePath) Then
-                    AvaloniaProjectLocator.AddHint(app.GetType(), appFilePath)
-                End If
-
                 Dim appDomainContext As IHotReloadContext = AvaloniaHotReloadContext.FromAppDomain()
                 Dim assetContext As IHotReloadContext = AvaloniaHotReloadContext.ForAssets()
                 context = HotReloadContext.Combine(appDomainContext, assetContext)
@@ -115,6 +102,39 @@ Namespace Global.HotAvalonia
         End Sub
 
         ''' <summary>
+        ''' Creates a new instance of the <see cref="AvaloniaProjectLocator"/> class.
+        ''' </summary>
+        ''' <returns>A new instance of the <see cref="AvaloniaProjectLocator"/> class.</returns>
+        <DebuggerStepThrough>
+        Private Function CreateAvaloniaProjectLocator() As AvaloniaProjectLocator
+            Return New AvaloniaProjectLocator()
+        End Function
+
+        ''' <summary>
+        ''' Enables hot reload functionality for the given Avalonia application.
+        ''' </summary>
+        ''' <param name="app">The Avalonia application instance for which hot reload should be enabled.</param>
+        ''' <param name="appFilePath">The file path of the application's main source file. Optional if the method called within the file of interest.</param>
+        <DebuggerStepThrough>
+        <Extension>
+        Public Sub EnableHotReload(ByVal app As Application, <CallerFilePath> Optional ByVal appFilePath As String = Nothing)
+            If app Is Nothing Then
+                Throw New ArgumentNullException(NameOf(app))
+            End If
+
+            If Not String.IsNullOrEmpty(appFilePath) AndAlso Not File.Exists(appFilePath) Then
+                Throw New FileNotFoundException("The corresponding XAML file could not be found.", appFilePath)
+            End If
+
+            Dim projectLocator as AvaloniaProjectLocator = CreateAvaloniaProjectLocator()
+            If Not String.IsNullOrEmpty(appFilePath) Then
+                projectLocator.AddHint(app.GetType(), appFilePath)
+            End If
+
+            EnableHotReload(app, projectLocator)
+        End Sub
+
+        ''' <summary>
         ''' Enables hot reload functionality for the given Avalonia application.
         ''' </summary>
         ''' <param name="app">The Avalonia application instance for which hot reload should be enabled.</param>
@@ -122,8 +142,14 @@ Namespace Global.HotAvalonia
         <DebuggerStepThrough>
         <Extension>
         Public Sub EnableHotReload(ByVal app As Application, ByVal projectPathResolver As Func(Of Assembly, String))
-            AvaloniaProjectLocator.AddHint(projectPathResolver)
-            EnableHotReload(app, String.Empty)
+            If app Is Nothing Then
+                Throw New ArgumentNullException(NameOf(app))
+            End If
+
+            Dim projectLocator as AvaloniaProjectLocator = CreateAvaloniaProjectLocator()
+            projectLocator.AddHint(projectPathResolver)
+
+            EnableHotReload(app, projectLocator)
         End Sub
 
         ''' <summary>

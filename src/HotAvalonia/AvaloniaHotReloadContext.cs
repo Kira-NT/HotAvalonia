@@ -1,4 +1,7 @@
 using System.Reflection;
+using Avalonia.Controls;
+using Avalonia.Markup.Xaml.Converters;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using HotAvalonia.Assets;
 using HotAvalonia.DependencyInjection;
@@ -16,16 +19,22 @@ public static class AvaloniaHotReloadContext
     public static IHotReloadContext ForAssets()
         => ForAssets(AvaloniaServiceProvider.Current);
 
+    /// <inheritdoc cref="ForAssets(IServiceProvider, AvaloniaProjectLocator)"/>
+    public static IHotReloadContext ForAssets(IServiceProvider serviceProvider)
+        => ForAssets(serviceProvider, new AvaloniaProjectLocator());
+
     /// <summary>
     /// Creates a hot reload context for Avalonia assets.
     /// </summary>
     /// <param name="serviceProvider">The service provider defining <c>IAssetLoader</c>.</param>
+    /// <param name="projectLocator">The project locator used to find source directories of assets.</param>
     /// <returns>A hot reload context for Avalonia assets.</returns>
-    public static IHotReloadContext ForAssets(IServiceProvider serviceProvider)
+    public static IHotReloadContext ForAssets(IServiceProvider serviceProvider, AvaloniaProjectLocator projectLocator)
     {
         _ = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _ = projectLocator ?? throw new ArgumentNullException(nameof(projectLocator));
 
-        return new AvaloniaAssetsHotReloadContext(serviceProvider);
+        return new AvaloniaAssetsHotReloadContext(serviceProvider, projectLocator);
     }
 
     /// <summary>
@@ -36,6 +45,10 @@ public static class AvaloniaHotReloadContext
     public static IHotReloadContext FromAppDomain()
         => FromAppDomain(AppDomain.CurrentDomain);
 
+    /// <inheritdoc cref="FromAppDomain(AppDomain, AvaloniaProjectLocator)"/>
+    public static IHotReloadContext FromAppDomain(AppDomain appDomain)
+        => FromAppDomain(appDomain, new AvaloniaProjectLocator());
+
     /// <summary>
     /// Creates a hot reload context for all assemblies within the specified <see cref="AppDomain"/>.
     /// </summary>
@@ -45,12 +58,14 @@ public static class AvaloniaHotReloadContext
     /// source project directories can be located.
     /// </remarks>
     /// <param name="appDomain">The <see cref="AppDomain"/> to create the hot reload context from.</param>
+    /// <param name="projectLocator">The project locator used to find source directories of assemblies.</param>
     /// <returns>A hot reload context for the specified application domain.</returns>
-    public static IHotReloadContext FromAppDomain(AppDomain appDomain)
+    public static IHotReloadContext FromAppDomain(AppDomain appDomain, AvaloniaProjectLocator projectLocator)
     {
         _ = appDomain ?? throw new ArgumentNullException(nameof(appDomain));
+        _ = projectLocator ?? throw new ArgumentNullException(nameof(projectLocator));
 
-        return HotReloadContext.FromAppDomain(appDomain, static (_, asm) => FromUnverifiedAssembly(asm));
+        return HotReloadContext.FromAppDomain(appDomain, (_, asm) => FromUnverifiedAssembly(asm, projectLocator));
     }
 
     /// <summary>
@@ -58,17 +73,18 @@ public static class AvaloniaHotReloadContext
     /// otherwise, returns <c>null</c>.
     /// </summary>
     /// <param name="assembly">The assembly to create the hot reload context from.</param>
+    /// <param name="projectLocator">The project locator used to find the source directory of the assembly.</param>
     /// <returns>
     /// A hot reload context for the specified assembly, or <c>null</c> if the assembly
     /// does not contain Avalonia controls or if its source project cannot be located.
     /// </returns>
-    private static IHotReloadContext? FromUnverifiedAssembly(Assembly assembly)
+    private static IHotReloadContext? FromUnverifiedAssembly(Assembly assembly, AvaloniaProjectLocator projectLocator)
     {
         AvaloniaControlInfo[] controls = AvaloniaRuntimeXamlScanner.FindAvaloniaControls(assembly).ToArray();
         if (controls.Length == 0)
             return null;
 
-        if (!AvaloniaProjectLocator.TryGetDirectoryName(assembly, controls, out string? rootPath))
+        if (!projectLocator.TryGetDirectoryName(assembly, controls, out string? rootPath))
         {
             LoggingHelper.Log("Found an assembly containing Avalonia controls ({AssemblyName}). However, its source project location could not be determined. Skipping.", assembly.GetName().Name);
             return null;
@@ -86,11 +102,17 @@ public static class AvaloniaHotReloadContext
 
     /// <inheritdoc cref="FromAssembly(Assembly, string)"/>
     public static IHotReloadContext FromAssembly(Assembly assembly)
+        => FromAssembly(assembly, new AvaloniaProjectLocator());
+
+    /// <param name="projectLocator">The project locator used to find source directories of assemblies.</param>
+    /// <inheritdoc cref="FromAssembly(Assembly, string)"/>
+    public static IHotReloadContext FromAssembly(Assembly assembly, AvaloniaProjectLocator projectLocator)
     {
         _ = assembly ?? throw new ArgumentNullException(nameof(assembly));
+        _ = projectLocator ?? throw new ArgumentNullException(nameof(projectLocator));
 
         AvaloniaControlInfo[] controls = AvaloniaRuntimeXamlScanner.FindAvaloniaControls(assembly).ToArray();
-        string rootPath = AvaloniaProjectLocator.GetDirectoryName(assembly, controls);
+        string rootPath = projectLocator.GetDirectoryName(assembly, controls);
         return new AvaloniaProjectHotReloadContext(rootPath, controls);
     }
 
@@ -310,14 +332,23 @@ file sealed class AvaloniaAssetsHotReloadContext : IHotReloadContext
     private readonly AvaloniaAssetManager _assetManager;
 
     /// <summary>
+    /// The project locator used to find source directories of assets.
+    /// </summary>
+    private readonly AvaloniaProjectLocator _projectLocator;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="AvaloniaAssetsHotReloadContext"/> class.
     /// </summary>
     /// <param name="serviceProvider">
     /// The service provider for resolving dependencies required by the asset manager.
     /// </param>
-    public AvaloniaAssetsHotReloadContext(IServiceProvider serviceProvider)
+    /// <param name="projectLocator">
+    /// The project locator used to find source directories of assets.
+    /// </param>
+    public AvaloniaAssetsHotReloadContext(IServiceProvider serviceProvider, AvaloniaProjectLocator projectLocator)
     {
         _assetManager = new AvaloniaAssetManager(serviceProvider);
+        _projectLocator = projectLocator;
     }
 
     /// <inheritdoc/>
@@ -328,8 +359,12 @@ file sealed class AvaloniaAssetsHotReloadContext : IHotReloadContext
     {
         LoggingHelper.Log("Enabling hot reload for assets...");
         IAssetLoader? currentAssetLoader = _assetManager.AssetLoader;
-        if (currentAssetLoader is not null and not DynamicAssetLoader)
-            _assetManager.AssetLoader = DynamicAssetLoader.Create(currentAssetLoader);
+        if (currentAssetLoader is null or DynamicAssetLoader)
+            return;
+
+        _assetManager.AssetLoader = DynamicAssetLoader.Create(currentAssetLoader, _projectLocator);
+        _assetManager.IconTypeConverter = DynamicAssetTypeConverter<WindowIcon, IconTypeConverter>.Create(_projectLocator);
+        _assetManager.BitmapTypeConverter = DynamicAssetTypeConverter<Bitmap, BitmapTypeConverter>.Create(_projectLocator);
     }
 
     /// <inheritdoc/>
@@ -337,8 +372,12 @@ file sealed class AvaloniaAssetsHotReloadContext : IHotReloadContext
     {
         LoggingHelper.Log("Disabling hot reload for assets...");
         IAssetLoader? currentAssetLoader = _assetManager.AssetLoader;
-        if (currentAssetLoader is DynamicAssetLoader dynamicAssetLoader)
-            _assetManager.AssetLoader = dynamicAssetLoader.FallbackAssetLoader;
+        if (currentAssetLoader is not DynamicAssetLoader dynamicAssetLoader)
+            return;
+
+        _assetManager.AssetLoader = dynamicAssetLoader.FallbackAssetLoader;
+        _assetManager.IconTypeConverter = new();
+        _assetManager.BitmapTypeConverter = new();
     }
 
     /// <inheritdoc/>

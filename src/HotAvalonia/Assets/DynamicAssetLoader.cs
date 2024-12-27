@@ -13,15 +13,19 @@ namespace HotAvalonia.Assets;
 internal class DynamicAssetLoader
 {
     /// <summary>
-    /// A factory delegate that can be used to construct new
-    /// <see cref="DynamicAssetLoader"/> instances.
+    /// The type of the dynamic asset loader.
     /// </summary>
-    private static readonly Func<IAssetLoader, IAssetLoader> s_factory = DynamicAssetLoaderBuilder.CreateDynamicAssetLoaderFactory();
+    private static readonly Type s_type = DynamicAssetLoaderBuilder.CreateDynamicAssetLoaderType();
 
     /// <summary>
     /// The fallback asset loader used when dynamic asset loading fails.
     /// </summary>
     protected readonly IAssetLoader _assetLoader;
+
+    /// <summary>
+    /// The project locator used to find source directories of assets.
+    /// </summary>
+    protected readonly AvaloniaProjectLocator _projectLocator;
 
     /// <summary>
     /// The file system accessor.
@@ -34,11 +38,19 @@ internal class DynamicAssetLoader
     /// <param name="fallbackAssetLoader">
     /// The fallback <see cref="IAssetLoader"/> to use when dynamic asset loading fails.
     /// </param>
-    protected DynamicAssetLoader(IAssetLoader fallbackAssetLoader)
+    /// <param name="projectLocator">
+    /// The project locator used to find source directories of assets.
+    /// </param>
+    protected DynamicAssetLoader(IAssetLoader fallbackAssetLoader, AvaloniaProjectLocator projectLocator)
     {
         _assetLoader = fallbackAssetLoader ?? throw new ArgumentNullException(nameof(fallbackAssetLoader));
+        _projectLocator = projectLocator ?? throw new ArgumentNullException(nameof(projectLocator));
         _fileSystem = new();
     }
+
+    /// <inheritdoc cref="Create(IAssetLoader, AvaloniaProjectLocator)"/>
+    public static IAssetLoader Create(IAssetLoader fallbackAssetLoader)
+        => Create(fallbackAssetLoader, new());
 
     /// <summary>
     /// Creates a new instance of the <see cref="DynamicAssetLoader"/> class.
@@ -46,8 +58,11 @@ internal class DynamicAssetLoader
     /// <param name="fallbackAssetLoader">
     /// The fallback <see cref="IAssetLoader"/> to use when dynamic asset loading fails.
     /// </param>
-    public static IAssetLoader Create(IAssetLoader fallbackAssetLoader)
-        => s_factory(fallbackAssetLoader);
+    /// <param name="projectLocator">
+    /// The project locator used to find source directories of assets.
+    /// </param>
+    public static IAssetLoader Create(IAssetLoader fallbackAssetLoader, AvaloniaProjectLocator projectLocator)
+        => (IAssetLoader)Activator.CreateInstance(s_type, fallbackAssetLoader, projectLocator);
 
     /// <summary>
     /// Gets the fallback asset loader that is used when dynamic asset loading fails.
@@ -126,7 +141,7 @@ internal class DynamicAssetLoader
         if (assembly is null)
             return false;
 
-        if (!AvaloniaProjectLocator.TryGetDirectoryName(assembly, out string? rootPath))
+        if (!_projectLocator.TryGetDirectoryName(assembly, out string? rootPath))
             return false;
 
         assetInfo = new(absoluteUri, assembly, rootPath);
@@ -140,27 +155,6 @@ internal class DynamicAssetLoader
 /// </summary>
 file static class DynamicAssetLoaderBuilder
 {
-    /// <summary>
-    /// Creates a delegate for constructing dynamic asset loader instances.
-    /// </summary>
-    /// <returns>A delegate that can be used to construct dynamic asset loader instances.</returns>
-    public static Func<IAssetLoader, IAssetLoader> CreateDynamicAssetLoaderFactory()
-    {
-        Type delegateType = typeof(Func<IAssetLoader, IAssetLoader>);
-        Type loaderType = CreateDynamicAssetLoaderType();
-        ConstructorInfo ctor = loaderType.GetConstructor([typeof(IAssetLoader)])!;
-
-        // public static DynamicAssetLoaderImpl CreateDynamicAssetLoaderImpl(IAssetLoader loader)
-        //     => new(loader);
-        using IDisposable context = MethodHelper.DefineDynamicMethod($"Create{loaderType.Name}", loaderType, [typeof(IAssetLoader)], out DynamicMethod factory);
-        ILGenerator il = factory.GetILGenerator();
-        il.Emit(OpCodes.Ldarg_0);
-        il.Emit(OpCodes.Newobj, ctor);
-        il.Emit(OpCodes.Ret);
-
-        return (Func<IAssetLoader, IAssetLoader>)factory.CreateDelegate(delegateType);
-    }
-
     /// <summary>
     /// Creates a <see cref="DynamicAssetLoader"/> that implements <see cref="IAssetLoader"/>.
     /// </summary>
@@ -186,19 +180,21 @@ file static class DynamicAssetLoaderBuilder
         typeBuilder.SetParent(parentType);
         typeBuilder.AddInterfaceImplementation(typeof(IAssetLoader));
 
-        //     public DynamicAssetLoaderImpl(IAssetLoader fallbackAssetLoader)
-        //         : base(fallbackAssetLoader)
+        //     public DynamicAssetLoaderImpl(IAssetLoader fallbackAssetLoader, AvaloniaProjectLocator projectLocator)
+        //         : base(fallbackAssetLoader, projectLocator)
         //     {
         //     }
+        Type[] ctorParameterTypes = [typeof(IAssetLoader), typeof(AvaloniaProjectLocator)];
         ConstructorBuilder ctorBuilder = typeBuilder.DefineConstructor(
             MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
             CallingConventions.Standard | CallingConventions.HasThis,
-            [typeof(IAssetLoader)]
+            ctorParameterTypes
         );
         ILGenerator ctorIl = ctorBuilder.GetILGenerator();
         ctorIl.Emit(OpCodes.Ldarg_0);
         ctorIl.Emit(OpCodes.Ldarg_1);
-        ctorIl.Emit(OpCodes.Call, parentType.GetInstanceConstructor(typeof(IAssetLoader))!);
+        ctorIl.Emit(OpCodes.Ldarg_2);
+        ctorIl.Emit(OpCodes.Call, parentType.GetInstanceConstructor(ctorParameterTypes)!);
         ctorIl.Emit(OpCodes.Ret);
 
         //     public IAssetLoader.<...>(...)

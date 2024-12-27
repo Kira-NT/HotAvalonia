@@ -14,9 +14,18 @@ namespace HotAvalonia.Assets;
 internal sealed class DynamicAssetTypeConverter<TAsset> : TypeConverter where TAsset : notnull
 {
     /// <summary>
-    /// Gets a singleton instance of the <see cref="DynamicAssetTypeConverter{TAsset}"/>.
+    /// The project locator used to find source directories of assets.
     /// </summary>
-    public static DynamicAssetTypeConverter<TAsset> Instance { get; } = new();
+    private readonly AvaloniaProjectLocator _projectLocator;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DynamicAssetTypeConverter{TAsset}"/> class.
+    /// </summary>
+    /// <param name="projectLocator">The project locator used to find source directories of assets.</param>
+    public DynamicAssetTypeConverter(AvaloniaProjectLocator projectLocator)
+    {
+        _projectLocator = projectLocator ?? throw new ArgumentNullException(nameof(projectLocator));
+    }
 
     /// <inheritdoc/>
     public override bool CanConvertFrom(ITypeDescriptorContext? context, Type sourceType)
@@ -32,7 +41,7 @@ internal sealed class DynamicAssetTypeConverter<TAsset> : TypeConverter where TA
         Uri uri = new(path, path.StartsWith("/") ? UriKind.Relative : UriKind.RelativeOrAbsolute);
         Uri? baseUri = uriContext?.BaseUri;
 
-        return DynamicAsset<TAsset>.Create(uri, baseUri);
+        return DynamicAsset<TAsset>.Create(uri, baseUri, _projectLocator);
     }
 }
 
@@ -46,11 +55,17 @@ internal static class DynamicAssetTypeConverter<TAsset, TAssetTypeConverter>
     where TAssetTypeConverter : TypeConverter
 {
     /// <summary>
-    /// Gets a singleton instance of the <typeparamref name="TAssetTypeConverter"/>.
+    /// The type of the dynamic asset type converter.
     /// </summary>
-    public static TAssetTypeConverter Instance { get; } = (TAssetTypeConverter)Activator.CreateInstance(
-        DynamicAssetTypeConverterBuilder.CreateDynamicAssetConverterType(typeof(TAsset), typeof(TAssetTypeConverter))
-    );
+    private static readonly Type s_type = DynamicAssetTypeConverterBuilder.CreateDynamicAssetConverterType(typeof(TAsset), typeof(TAssetTypeConverter));
+
+    /// <summary>
+    /// Creates a new instance of the <typeparamref name="TAssetTypeConverter"/> class.
+    /// </summary>
+    /// <param name="projectLocator">The project locator used to find source directories of assets.</param>
+    /// <returns>A new instance of the <typeparamref name="TAssetTypeConverter"/> class.</returns>
+    public static TAssetTypeConverter Create(AvaloniaProjectLocator projectLocator)
+        => (TAssetTypeConverter)Activator.CreateInstance(s_type, projectLocator);
 }
 
 /// <summary>
@@ -83,19 +98,35 @@ file static class DynamicAssetTypeConverterBuilder
         assemblyBuilder.AllowAccessTo(assetType);
         assemblyBuilder.AllowAccessTo(assetConverterType);
 
-        Type dynamicConverterType = typeof(DynamicAssetTypeConverter<>).MakeGenericType(assetType);
-        MethodInfo dynamicConverterGetInstance = dynamicConverterType.GetProperty("Instance")!.GetMethod;
-
         // public sealed class {TAssetTypeConverter}$Dynamic : TAssetTypeConverter
         // {
         TypeBuilder typeBuilder = moduleBuilder.DefineType(fullName, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Class);
         typeBuilder.SetParent(assetConverterType);
 
-        //     public override bool CanConvertFrom(ITypeDescriptorContext? context, Type sourceType)
+        //     private readonly DynamicAssetTypeConverter<TAsset> _converter;
+        Type dynamicConverterType = typeof(DynamicAssetTypeConverter<>).MakeGenericType(assetType);
+        FieldBuilder converterFieldBuilder = typeBuilder.DefineField("_converter", dynamicConverterType, FieldAttributes.Private | FieldAttributes.InitOnly);
+
+        //     public {TAssetTypeConverter}$Dynamic(AvaloniaProjectLocator projectLocator)
         //     {
-        //         DynamicAssetTypeConverter<TAsset> converter = DynamicAssetTypeConverter<TAsset>.Instance;
-        //         return converter.CanConvertFrom(context, sourceType) || base.CanConvertFrom(context, sourceType);
+        //          _converter = new(projectLocator);
         //     }
+        ConstructorBuilder ctorBuilder = typeBuilder.DefineConstructor(
+            MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
+            CallingConventions.Standard | CallingConventions.HasThis,
+            [typeof(AvaloniaProjectLocator)]
+        );
+        ILGenerator ctorIl = ctorBuilder.GetILGenerator();
+        ctorIl.Emit(OpCodes.Ldarg_0);
+        ctorIl.Emit(OpCodes.Call, assetConverterType.GetInstanceConstructor()!);
+        ctorIl.Emit(OpCodes.Ldarg_0);
+        ctorIl.Emit(OpCodes.Ldarg_1);
+        ctorIl.Emit(OpCodes.Newobj, dynamicConverterType.GetInstanceConstructor(typeof(AvaloniaProjectLocator))!);
+        ctorIl.Emit(OpCodes.Stfld, converterFieldBuilder);
+        ctorIl.Emit(OpCodes.Ret);
+
+        //     public override bool CanConvertFrom(ITypeDescriptorContext? context, Type sourceType)
+        //         => _converter.CanConvertFrom(context, sourceType) || base.CanConvertFrom(context, sourceType);
         MethodBuilder canConvertBuilder = typeBuilder.DefineMethod(
             nameof(TypeConverter.CanConvertFrom), MethodOverride,
             typeof(bool), [typeof(ITypeDescriptorContext), typeof(Type)]
@@ -103,7 +134,8 @@ file static class DynamicAssetTypeConverterBuilder
         ILGenerator canConvertIl = canConvertBuilder.GetILGenerator();
         Label canConvertEnd = canConvertIl.DefineLabel();
 
-        canConvertIl.Emit(OpCodes.Call, dynamicConverterGetInstance);
+        canConvertIl.Emit(OpCodes.Ldarg_0);
+        canConvertIl.Emit(OpCodes.Ldfld, converterFieldBuilder);
         canConvertIl.Emit(OpCodes.Ldarg_1);
         canConvertIl.Emit(OpCodes.Ldarg_2);
         canConvertIl.Emit(OpCodes.Call, dynamicConverterType.GetMethod(nameof(TypeConverter.CanConvertFrom), [typeof(ITypeDescriptorContext), typeof(Type)])!);
@@ -121,11 +153,10 @@ file static class DynamicAssetTypeConverterBuilder
 
         //     public override object ConvertFrom(ITypeDescriptorContext? context, CultureInfo? culture, object value)
         //     {
-        //         DynamicAssetTypeConverter<TAsset> converter = DynamicAssetTypeConverter<TAsset>.Instance;
-        //         if (value is null || !converter.CanConvertFrom(context, value.GetType()))
+        //         if (value is null || !_converter.CanConvertFrom(context, value.GetType()))
         //             return base.ConvertFrom(context, culture, value!);
         //
-        //         return converter.ConvertFrom(context, culture, value);
+        //         return _converter.ConvertFrom(context, culture, value);
         //     }
         MethodBuilder convertBuilder = typeBuilder.DefineMethod(
             nameof(TypeConverter.ConvertFrom), MethodOverride,
@@ -138,14 +169,16 @@ file static class DynamicAssetTypeConverterBuilder
         convertIl.Emit(OpCodes.Ldarg_3);
         convertIl.Emit(OpCodes.Brfalse_S, convertStart);
 
-        convertIl.Emit(OpCodes.Call, dynamicConverterGetInstance);
+        convertIl.Emit(OpCodes.Ldarg_0);
+        convertIl.Emit(OpCodes.Ldfld, converterFieldBuilder);
         convertIl.Emit(OpCodes.Ldarg_1);
         convertIl.Emit(OpCodes.Ldarg_3);
         convertIl.Emit(OpCodes.Call, typeof(object).GetMethod(nameof(GetType))!);
         convertIl.Emit(OpCodes.Call, dynamicConverterType.GetMethod(nameof(TypeConverter.CanConvertFrom), [typeof(ITypeDescriptorContext), typeof(Type)])!);
         convertIl.Emit(OpCodes.Brfalse_S, convertStart);
 
-        convertIl.Emit(OpCodes.Call, dynamicConverterGetInstance);
+        convertIl.Emit(OpCodes.Ldarg_0);
+        convertIl.Emit(OpCodes.Ldfld, converterFieldBuilder);
         convertIl.Emit(OpCodes.Ldarg_1);
         convertIl.Emit(OpCodes.Ldarg_2);
         convertIl.Emit(OpCodes.Ldarg_3);
