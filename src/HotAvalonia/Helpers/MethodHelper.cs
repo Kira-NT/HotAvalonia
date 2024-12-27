@@ -2,7 +2,6 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Mono.Cecil;
 
 namespace HotAvalonia.Helpers;
@@ -149,41 +148,6 @@ internal static class MethodHelper
         RuntimeHelpers.PrepareMethod(method.MethodHandle);
 
         return method.MethodHandle.GetFunctionPointer();
-    }
-
-    /// <summary>
-    /// Obtains the memory address at which a method's function pointer is stored.
-    /// </summary>
-    /// <param name="method">The method for which to obtain the function pointer address.</param>
-    /// <returns>The memory address of the method's function pointer.</returns>
-    public static nint GetFunctionPointerAddress(this MethodBase method)
-    {
-        RuntimeHelpers.PrepareMethod(method.MethodHandle);
-        nint address;
-
-        if (method.IsVirtual && method.DeclaringType is not null)
-        {
-            const int methodTableOffset32 = 40;
-            const int methodTableOffset64 = 64;
-            int methodTableOffset = IntPtr.Size == sizeof(int) ? methodTableOffset32 : methodTableOffset64;
-
-            nint methodDescriptor = method.MethodHandle.Value;
-            nint methodTable = method.DeclaringType.TypeHandle.Value;
-
-            int methodIndex = (int)((Marshal.ReadInt64(methodDescriptor) >> 32) & 0xFFFF);
-            nint firstVirtualMethodAddress = Marshal.ReadIntPtr(methodTable + methodTableOffset);
-
-            address = firstVirtualMethodAddress + methodIndex * IntPtr.Size;
-        }
-        else
-        {
-            address = method.MethodHandle.Value + sizeof(long);
-        }
-
-        if (Marshal.ReadIntPtr(address) != method.MethodHandle.GetFunctionPointer())
-            throw new InvalidOperationException("Unable to determine the function pointer address.");
-
-        return address;
     }
 
     /// <summary>

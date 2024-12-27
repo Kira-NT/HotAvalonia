@@ -11,23 +11,6 @@ internal enum InjectionType
     None,
 
     /// <summary>
-    /// Represents a bytecode-level injection.
-    /// </summary>
-    /// <remarks>
-    /// This technique is pretty portable, however it has some notable limitations:
-    /// <list type="bullet">
-    ///   <item>
-    ///     It is only supported for unoptimized assemblies.
-    ///   </item>
-    ///   <item>
-    ///     Starting with .NET 7, it is only possible while a debugger is
-    ///     attached to the app referencing the injectable assembly.
-    ///   </item>
-    /// </list>
-    /// </remarks>
-    Bytecode,
-
-    /// <summary>
     /// Represents a native-level injection.
     /// </summary>
     /// <remarks>
