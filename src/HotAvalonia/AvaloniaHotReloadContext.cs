@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml.Converters;
@@ -15,6 +16,51 @@ namespace HotAvalonia;
 /// </summary>
 public static class AvaloniaHotReloadContext
 {
+    /// <inheritdoc cref="Create(AvaloniaProjectLocator)"/>
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public static IHotReloadContext Create()
+        => Create(new AvaloniaProjectLocator());
+
+    /// <summary>
+    /// Creates a hot reload context for the current environment.
+    /// </summary>
+    /// <remarks>
+    /// This method is opinionated and represents the "best" way to create
+    /// a hot reload context for the current environment.
+    /// However, the specific details of what constitutes "best" are subject to change.
+    /// </remarks>
+    /// <param name="projectLocator">The project locator used to find source directories of assemblies.</param>
+    /// <returns>A hot reload context for the current environment.</returns>
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public static IHotReloadContext Create(AvaloniaProjectLocator projectLocator)
+    {
+        IHotReloadContext appDomainContext = FromAppDomain(AppDomain.CurrentDomain, projectLocator);
+        IHotReloadContext assetContext = ForAssets(AvaloniaServiceProvider.Current, projectLocator);
+        return HotReloadContext.Combine([appDomainContext, assetContext]);
+    }
+
+    /// <inheritdoc cref="CreateLite(AvaloniaProjectLocator)"/>
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public static IHotReloadContext CreateLite()
+        => CreateLite(new AvaloniaProjectLocator());
+
+    /// <summary>
+    /// Creates a lightweight hot reload context for the current environment.
+    /// </summary>
+    /// <remarks>
+    /// This method is opinionated and represents the "best" lightweight way to create
+    /// a hot reload context for the current environment. However, the specific details
+    /// of what constitutes "best" are subject to change.
+    /// </remarks>
+    /// <param name="projectLocator">The project locator used to find source directories of assemblies.</param>
+    /// <returns>A lightweight hot reload context for the current environment.</returns>
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public static IHotReloadContext CreateLite(AvaloniaProjectLocator projectLocator)
+    {
+        IHotReloadContext appDomainContext = FromAppDomain(AppDomain.CurrentDomain, projectLocator);
+        return appDomainContext;
+    }
+
     /// <inheritdoc cref="ForAssets(IServiceProvider)"/>
     public static IHotReloadContext ForAssets()
         => ForAssets(AvaloniaServiceProvider.Current);

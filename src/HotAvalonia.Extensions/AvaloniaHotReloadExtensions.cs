@@ -101,9 +101,11 @@ namespace HotAvalonia
         {
             if (!s_apps.TryGetValue(app, out IHotReloadContext? context))
             {
-                IHotReloadContext appDomainContext = AvaloniaHotReloadContext.FromAppDomain();
-                IHotReloadContext assetContext = AvaloniaHotReloadContext.ForAssets();
-                context = HotReloadContext.Combine(appDomainContext, assetContext);
+#if ENABLE_LITE_XAML_HOT_RELOAD
+                context = AvaloniaHotReloadContext.CreateLite(projectLocator);
+#else
+                context = AvaloniaHotReloadContext.Create(projectLocator);
+#endif
                 s_apps.Add(app, context);
             }
 

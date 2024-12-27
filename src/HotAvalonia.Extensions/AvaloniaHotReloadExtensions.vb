@@ -92,9 +92,11 @@ Namespace Global.HotAvalonia
         Private Sub EnableHotReload(ByVal app As Application, ByVal projectLocator As AvaloniaProjectLocator)
             Dim context As IHotReloadContext = Nothing
             If Not s_apps.TryGetValue(app, context) Then
-                Dim appDomainContext As IHotReloadContext = AvaloniaHotReloadContext.FromAppDomain()
-                Dim assetContext As IHotReloadContext = AvaloniaHotReloadContext.ForAssets()
-                context = HotReloadContext.Combine(appDomainContext, assetContext)
+#If ENABLE_LITE_XAML_HOT_RELOAD Then
+                context = AvaloniaHotReloadContext.CreateLite(projectLocator)
+#Else
+                context = AvaloniaHotReloadContext.Create(projectLocator)
+#End If
                 s_apps.Add(app, context)
             End If
 

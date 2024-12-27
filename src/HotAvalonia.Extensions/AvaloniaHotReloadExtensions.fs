@@ -95,9 +95,11 @@ type internal AvaloniaHotReloadExtensions =
         match s_apps.TryGetValue(app) with
         | true, context -> context.EnableHotReload()
         | _ ->
-            let appDomainContext = AvaloniaHotReloadContext.FromAppDomain()
-            let assetContext = AvaloniaHotReloadContext.ForAssets()
-            let context = HotReloadContext.Combine(appDomainContext, assetContext)
+#if ENABLE_LITE_XAML_HOT_RELOAD
+            let context = AvaloniaHotReloadContext.CreateLite(projectLocator)
+#else
+            let context = AvaloniaHotReloadContext.Create(projectLocator)
+#endif
             s_apps.Add(app, context)
 
             context.EnableHotReload()
