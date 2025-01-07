@@ -17,7 +17,7 @@ namespace HotAvalonia;
 /// <summary>
 /// Manages the lifecycle and state of Avalonia assets.
 /// </summary>
-public sealed class AvaloniaAssetManager : IDisposable
+internal sealed class AvaloniaAssetManager : IDisposable
 {
     /// <summary>
     /// The service provider used to resolve dependencies required by the asset manager.

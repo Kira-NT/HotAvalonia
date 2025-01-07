@@ -9,7 +9,7 @@ namespace HotAvalonia;
 /// <summary>
 /// Manages the lifecycle and state of Avalonia controls.
 /// </summary>
-public sealed class AvaloniaControlManager : IDisposable
+internal sealed class AvaloniaControlManager : IDisposable
 {
     /// <summary>
     /// The information about the Avalonia control being managed.

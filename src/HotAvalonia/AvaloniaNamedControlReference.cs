@@ -7,7 +7,7 @@ namespace HotAvalonia;
 /// <summary>
 /// Represents a reference to a named control within an Avalonia UI.
 /// </summary>
-public sealed class AvaloniaNamedControlReference
+internal sealed class AvaloniaNamedControlReference
 {
     /// <summary>
     /// The name of the control.
