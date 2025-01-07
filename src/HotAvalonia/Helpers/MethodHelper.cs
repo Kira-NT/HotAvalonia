@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
+using HotAvalonia.IO;
 using Mono.Cecil;
 
 namespace HotAvalonia.Helpers;
@@ -154,51 +155,54 @@ internal static class MethodHelper
     /// Gets the file path of the source code file where the specified method is defined.
     /// </summary>
     /// <param name="method">The method to get the file path for.</param>
+    /// <param name="fileSystem">The file system where the method's assembly resides.</param>
     /// <returns>
     /// The file path of the source code file where the specified method is defined,
     /// or <c>null</c> if the path cannot be determined.
     /// </returns>
-    public static string? GetFilePath(this MethodBase method)
+    public static string? GetFilePath(this MethodBase method, IFileSystem fileSystem)
     {
         if (method is not { DeclaringType: { FullName.Length: > 0, Assembly.IsDynamic: false } })
             return null;
 
         string? location = method.DeclaringType.Assembly.Location;
-        if (location is null || !File.Exists(location))
+        string? pdbLocation = fileSystem.ChangeExtension(location, ".pdb");
+        if (!fileSystem.FileExists(location) || !fileSystem.FileExists(pdbLocation))
             return null;
 
-        ParameterInfo[] parameters = method.GetParameters();
-        TypeDefinition typeDefinition;
         try
         {
-            AssemblyDefinition asmDefinition = AssemblyDefinition.ReadAssembly(location, new() { ReadSymbols = true });
-            typeDefinition = asmDefinition.MainModule.GetType(method.DeclaringType.FullName);
+            using Stream asmStream = fileSystem.OpenRead(location);
+            using Stream pdbStream = fileSystem.OpenRead(pdbLocation);
+
+            ReaderParameters asmParameters = new() { ReadSymbols = true, SymbolStream = pdbStream };
+            using AssemblyDefinition asmDefinition = AssemblyDefinition.ReadAssembly(asmStream, asmParameters);
+
+            ParameterInfo[] parameters = method.GetParameters();
+            TypeDefinition typeDefinition = asmDefinition.MainModule.GetType(method.DeclaringType.FullName);
+            foreach (MethodDefinition methodDefinition in typeDefinition.Methods)
+            {
+                if (methodDefinition.Name != method.Name)
+                    continue;
+
+                if (methodDefinition.ReturnType.Name != method.GetReturnType().Name)
+                    continue;
+
+                if (methodDefinition.Parameters.Count != parameters.Length)
+                    continue;
+
+                bool hasSameParameters = parameters
+                    .Zip(methodDefinition.Parameters, static (x, y) => x.ParameterType.Name == y.ParameterType.Name)
+                    .All(static x => x);
+
+                if (!hasSameParameters)
+                    continue;
+
+                return methodDefinition.DebugInformation.SequencePoints.FirstOrDefault()?.Document.Url;
+            }
         }
-        catch
-        {
-            return null;
-        }
+        catch { }
 
-        foreach (MethodDefinition methodDefinition in typeDefinition.Methods)
-        {
-            if (methodDefinition.Name != method.Name)
-                continue;
-
-            if (methodDefinition.ReturnType.Name != method.GetReturnType().Name)
-                continue;
-
-            if (methodDefinition.Parameters.Count != parameters.Length)
-                continue;
-
-            bool hasSameParameters = parameters
-                .Zip(methodDefinition.Parameters, static (x, y) => x.ParameterType.Name == y.ParameterType.Name)
-                .All(static x => x);
-
-            if (!hasSameParameters)
-                continue;
-
-            return methodDefinition.DebugInformation.SequencePoints.FirstOrDefault()?.Document.Url;
-        }
         return null;
     }
 }

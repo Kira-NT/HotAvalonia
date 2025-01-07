@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using HotAvalonia.Helpers;
+using HotAvalonia.IO;
 
 namespace HotAvalonia;
 
@@ -13,15 +14,43 @@ namespace HotAvalonia;
 public sealed class AvaloniaProjectLocator
 {
     /// <summary>
+    /// The file system provider used for locating projects
+    /// </summary>
+    private readonly IFileSystem _fileSystem;
+
+    /// <summary>
     /// A cache for storing the project paths associated with assemblies.
     /// </summary>
-    private readonly ConditionalWeakTable<Assembly, string> _cache = new();
+    private readonly ConditionalWeakTable<Assembly, string> _cache;
 
     /// <summary>
     /// A collection of hint-providing functions used to infer
     /// the project paths of assemblies.
     /// </summary>
-    private readonly ConcurrentBag<Func<Assembly, string?>> _hints = new();
+    private readonly ConcurrentBag<Func<Assembly, string?>> _hints;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AvaloniaProjectLocator"/> class.
+    /// </summary>
+    public AvaloniaProjectLocator() : this(IO.FileSystem.Current)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AvaloniaProjectLocator"/> class.
+    /// </summary>
+    /// <param name="fileSystem">The file system provider used for locating projects.</param>
+    public AvaloniaProjectLocator(IFileSystem fileSystem)
+    {
+        _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        _cache = new();
+        _hints = new();
+    }
+
+    /// <summary>
+    /// Gets the file system provider used for locating projects
+    /// </summary>
+    public IFileSystem FileSystem => _fileSystem;
 
     /// <summary>
     /// Registers a hint-providing function that can be used
@@ -59,10 +88,11 @@ public sealed class AvaloniaProjectLocator
 
 #if NETSTANDARD2_0
         // Technically, this is not thread-safe, but who cares.
+        string fullDirectoryName = _fileSystem.GetFullPath(directoryName);
         _cache.Remove(assembly);
-        _cache.Add(assembly, Path.GetFullPath(directoryName));
+        _cache.Add(assembly, fullDirectoryName);
 #else
-        _cache.AddOrUpdate(assembly, Path.GetFullPath(directoryName));
+        _cache.AddOrUpdate(assembly, _fileSystem.GetFullPath(directoryName));
 #endif
     }
 
@@ -103,8 +133,8 @@ public sealed class AvaloniaProjectLocator
         directoryName = _hints
             .Select(x => x(assembly))
             .Where(static x => !string.IsNullOrWhiteSpace(x))
-            .OrderByDescending(Directory.Exists)
-            .Select(Path.GetFullPath)
+            .OrderByDescending(_fileSystem.DirectoryExists)
+            .Select(_fileSystem.GetFullPath!)
             .FirstOrDefault();
 
         if (directoryName is not null)
@@ -152,11 +182,11 @@ public sealed class AvaloniaProjectLocator
         if (control is null)
             return false;
 
-        string? controlPath = control.PopulateMethod.GetFilePath();
-        if (controlPath is null || !File.Exists(controlPath))
+        string? controlPath = control.PopulateMethod.GetFilePath(_fileSystem);
+        if (!_fileSystem.FileExists(controlPath))
             return false;
 
-        directoryName = UriHelper.ResolveHostPath(control.Uri, Path.GetFullPath(controlPath));
+        directoryName = UriHelper.ResolveHostPath(control.Uri, _fileSystem.GetFullPath(controlPath));
         AddHint(assembly, directoryName);
         return true;
     }

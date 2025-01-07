@@ -22,11 +22,6 @@ public sealed class AvaloniaControlManager : IDisposable
     private readonly WeakSet<object> _controls;
 
     /// <summary>
-    /// The name of the XAML file associated with the control.
-    /// </summary>
-    private string _fileName;
-
-    /// <summary>
     /// The dynamically compiled populate method associated with the control.
     /// </summary>
     private MethodInfo? _dynamicPopulate;
@@ -41,14 +36,9 @@ public sealed class AvaloniaControlManager : IDisposable
     /// Initializes a new instance of the <see cref="AvaloniaControlManager"/> class.
     /// </summary>
     /// <param name="controlInfo">The Avalonia control information.</param>
-    /// <param name="fileName">The name of the XAML file.</param>
-    public AvaloniaControlManager(AvaloniaControlInfo controlInfo, string fileName)
+    public AvaloniaControlManager(AvaloniaControlInfo controlInfo)
     {
-        _ = controlInfo ?? throw new ArgumentNullException(nameof(controlInfo));
-        _ = fileName ?? throw new ArgumentNullException(nameof(fileName));
-
-        _controlInfo = controlInfo;
-        _fileName = fileName;
+        _controlInfo = controlInfo ?? throw new ArgumentNullException(nameof(controlInfo));
         _controls = new();
 
         if (!TryInjectPopulateCallback(controlInfo, OnPopulate, out _populateInjection))
@@ -60,15 +50,6 @@ public sealed class AvaloniaControlManager : IDisposable
     /// </summary>
     public AvaloniaControlInfo Control => _controlInfo;
 
-    /// <summary>
-    /// The name of the XAML file associated with the control.
-    /// </summary>
-    public string FileName
-    {
-        get => _fileName;
-        set => _fileName = value ?? throw new ArgumentNullException(nameof(value));
-    }
-
     /// <inheritdoc/>
     public void Dispose()
         => _populateInjection?.Dispose();
@@ -76,22 +57,13 @@ public sealed class AvaloniaControlManager : IDisposable
     /// <summary>
     /// Reloads the controls associated with this manager asynchronously.
     /// </summary>
-    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
-    public async Task ReloadAsync(CancellationToken cancellationToken = default)
-    {
-        if (!File.Exists(_fileName))
-            return;
-
-        string xaml = await FileHelper.ReadAllTextAsync(_fileName, cancellationToken: cancellationToken).ConfigureAwait(true);
-        await Dispatcher.UIThread.InvokeAsync(() => ReloadAsync(xaml, cancellationToken), DispatcherPriority.Render);
-    }
-
-    /// <summary>
-    /// Reloads the controls associated with this manager on the UI thread.
-    /// </summary>
     /// <param name="xaml">The XAML markup to reload the control from.</param>
     /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
-    private async Task ReloadAsync(string xaml, CancellationToken cancellationToken)
+    public Task ReloadAsync(string xaml, CancellationToken cancellationToken = default)
+        => Dispatcher.UIThread.InvokeAsync(() => UnsafeReloadAsync(xaml, cancellationToken), DispatcherPriority.Render);
+
+    /// <inheritdoc cref="ReloadAsync(string, CancellationToken)"/>
+    private async Task UnsafeReloadAsync(string xaml, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 

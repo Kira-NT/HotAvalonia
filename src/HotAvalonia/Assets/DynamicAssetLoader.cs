@@ -30,7 +30,7 @@ internal class DynamicAssetLoader
     /// <summary>
     /// The file system accessor.
     /// </summary>
-    protected readonly CachingFileSystemAccessor _fileSystem;
+    protected readonly IFileSystem _fileSystem;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DynamicAssetLoader"/> class.
@@ -45,7 +45,7 @@ internal class DynamicAssetLoader
     {
         _assetLoader = fallbackAssetLoader ?? throw new ArgumentNullException(nameof(fallbackAssetLoader));
         _projectLocator = projectLocator ?? throw new ArgumentNullException(nameof(projectLocator));
-        _fileSystem = new();
+        _fileSystem = new CachingFileSystem(projectLocator.FileSystem);
     }
 
     /// <inheritdoc cref="Create(IAssetLoader, AvaloniaProjectLocator)"/>
@@ -76,7 +76,7 @@ internal class DynamicAssetLoader
             return true;
 
         if (TryGetAssetInfo(uri, baseUri, out AssetInfo? asset))
-            return File.Exists(asset.Path);
+            return _fileSystem.FileExists(asset.Path);
 
         return false;
     }
@@ -86,13 +86,13 @@ internal class DynamicAssetLoader
     {
         IEnumerable<Uri> assets = _assetLoader.GetAssets(uri, baseUri);
 
-        if (TryGetAssetInfo(uri, baseUri, out AssetInfo? asset) && Directory.Exists(asset.Path))
+        if (TryGetAssetInfo(uri, baseUri, out AssetInfo? asset) && _fileSystem.DirectoryExists(asset.Path))
         {
             Uri assemblyUri = new UriBuilder(asset.Uri.Scheme, asset.Uri.Host).Uri;
             Uri projectUri = asset.Project;
-            IEnumerable<Uri> fileAssets = Directory
+            IEnumerable<Uri> fileAssets = _fileSystem
                 .EnumerateFiles(asset.Path, "*", SearchOption.AllDirectories)
-                .Select(x => projectUri.MakeRelativeUri(new(Path.GetFullPath(x))))
+                .Select(x => projectUri.MakeRelativeUri(new(x)))
                 .Select(x => new Uri(assemblyUri, x));
 
             assets = assets.Concat(fileAssets).Distinct();
@@ -108,10 +108,10 @@ internal class DynamicAssetLoader
     /// <inheritdoc cref="IAssetLoader.OpenAndGetAssembly(Uri, Uri?)"/>
     public (Stream stream, Assembly assembly) OpenAndGetAssembly(Uri uri, Uri? baseUri = null)
     {
-        if (!TryGetAssetInfo(uri, baseUri, out AssetInfo? asset) || !_fileSystem.Exists(asset.Path))
+        if (!TryGetAssetInfo(uri, baseUri, out AssetInfo? asset) || !_fileSystem.FileExists(asset.Path))
             return _assetLoader.OpenAndGetAssembly(uri, baseUri);
 
-        return (_fileSystem.Open(asset.Path), asset.Assembly);
+        return (_fileSystem.OpenRead(asset.Path), asset.Assembly);
     }
 
     /// <summary>
@@ -144,8 +144,25 @@ internal class DynamicAssetLoader
         if (!_projectLocator.TryGetDirectoryName(assembly, out string? rootPath))
             return false;
 
-        assetInfo = new(absoluteUri, assembly, rootPath);
+        assetInfo = ResolveAssetInfo(absoluteUri, assembly, rootPath);
         return true;
+    }
+
+    /// <summary>
+    /// Resolves an asset from the given URI.
+    /// </summary>
+    /// <param name="uri">The URI of the asset.</param>
+    /// <param name="assembly">The assembly associated with the asset.</param>
+    /// <param name="project">The path of the project root containing the asset.</param>
+    /// <returns>A resolved <see cref="AssetInfo"/> instance.</returns>
+    private AssetInfo ResolveAssetInfo(Uri uri, Assembly assembly, string project)
+    {
+        project = _fileSystem.GetFullPath(project);
+        char projectEnd = project.Length > 0 ? project[project.Length - 1] : _fileSystem.DirectorySeparatorChar;
+        if (projectEnd != _fileSystem.DirectorySeparatorChar && projectEnd != _fileSystem.AltDirectorySeparatorChar)
+            project += _fileSystem.DirectorySeparatorChar;
+
+        return new(uri, assembly, new(project), _fileSystem.ResolvePathFromUri(project, uri));
     }
 }
 

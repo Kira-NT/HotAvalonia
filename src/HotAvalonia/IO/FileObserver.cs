@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using HotAvalonia.Helpers;
+using System.Runtime.CompilerServices;
 
 namespace HotAvalonia.IO;
 
@@ -22,17 +22,19 @@ internal sealed class FileObserver<T> : IObservable<T>, IObserver<FileSystemEven
     /// <summary>
     /// Initializes a new instance of the <see cref="FileObserver{T}"/> class.
     /// </summary>
+    /// <param name="fileSystem">The file system where <paramref name="fileName"/> can be found.</param>
     /// <param name="fileName">The name of the file being observed.</param>
     /// <param name="provider">The function that provides the observed data.</param>
-    public FileObserver(string fileName, Func<T> provider)
+    public FileObserver(IFileSystem fileSystem, string fileName, Func<T> provider)
     {
+        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
         _ = fileName ?? throw new ArgumentNullException(nameof(fileName));
         _ = provider ?? throw new ArgumentNullException(nameof(provider));
 
         _provider = provider;
         _entries = new();
 
-        SharedFileObserver.Subscribe(this, fileName);
+        SharedFileObserver.Subscribe(this, fileName, fileSystem);
     }
 
     /// <inheritdoc/>
@@ -136,7 +138,7 @@ internal sealed class FileObserver<T> : IObservable<T>, IObserver<FileSystemEven
 /// reducing resource consumption, and notifying subscribers of updates.
 /// </summary>
 /// <remarks>
-/// The sole reason this exists is that the Linux implementation of <see cref="FileSystemWatcher"/>
+/// The sole reason this exists is that the Linux implementation of <see cref="IFileSystemWatcher"/>
 /// is, to say the least, an utter and complete disaster. Each new instantiation of the said class
 /// creates its own <c>inotify</c> instance, quickly exhausting the available pool limit, which is
 /// often quite low by itself. Therefore, under no circumstances is it viable to waste so many
@@ -145,9 +147,9 @@ internal sealed class FileObserver<T> : IObservable<T>, IObserver<FileSystemEven
 /// <br/><br/>
 ///
 /// Thus, we do something similar to what should have been done on the .NET side from
-/// the very start: we maintain a single <see cref="FileSystemWatcher"/> to monitor
+/// the very start: we maintain a single <see cref="IFileSystemWatcher"/> to monitor
 /// every file we need. However, this introduces a challenge: due to the design of
-/// <see cref="FileSystemWatcher"/>, we cannot monitor a specific set of directories.
+/// <see cref="IFileSystemWatcher"/>, we cannot monitor a specific set of directories.
 /// We <b>must</b> monitor some root directory and <b>all</b> its descendants.
 /// To solve this, we determine the common path shared by two file paths and watch it,
 /// because this is guaranteed to include the files we care about. This <i>should</i>
@@ -175,21 +177,13 @@ file sealed class SharedFileObserver : IDisposable
     /// A dictionary that maintains a mapping of volume identifiers to
     /// their corresponding <see cref="SharedFileObserver"/> instances.
     /// </summary>
-    private static readonly ConcurrentDictionary<string, SharedFileObserver> s_volumeObservers;
-
-    /// <summary>
-    /// Initializes static members of the <see cref="SharedFileObserver"/> class.
-    /// </summary>
-    static SharedFileObserver()
-    {
-        s_volumeObservers = new(PathHelper.PathComparer);
-    }
+    private static readonly ConditionalWeakTable<IFileSystem, ConcurrentDictionary<string, SharedFileObserver>> s_volumeObservers = new();
 
 
     /// <summary>
-    /// The <see cref="FileSystemWatcher"/> instance used to monitor the files.
+    /// The <see cref="IFileSystemWatcher"/> instance used to monitor the files.
     /// </summary>
-    private readonly FileSystemWatcher _watcher;
+    private readonly IFileSystemWatcher _watcher;
 
     /// <summary>
     /// A dictionary that maintains a mapping of the monitored files to their
@@ -206,12 +200,12 @@ file sealed class SharedFileObserver : IDisposable
     /// <summary>
     /// Initializes a new instance of the <see cref="SharedFileObserver"/> class.
     /// </summary>
-    public SharedFileObserver()
+    public SharedFileObserver(IFileSystem fileSystem)
     {
-        _observers = new(PathHelper.PathComparer);
+        _observers = new(fileSystem.PathComparer);
         _lock = new();
 
-        _watcher = new();
+        _watcher = fileSystem.CreateFileSystemWatcher();
         _watcher.Changed += OnChanged;
         _watcher.Renamed += OnChanged;
         _watcher.Created += OnChanged;
@@ -224,29 +218,36 @@ file sealed class SharedFileObserver : IDisposable
             | NotifyFilters.DirectoryName;
     }
 
+    /// <summary>
+    /// Gets the file system associated with this observer.
+    /// </summary>
+    public IFileSystem FileSystem => _watcher.FileSystem;
 
     /// <summary>
     /// Subscribes an observer to changes for the specified file.
     /// </summary>
     /// <param name="observer">The observer to be notified of file events.</param>
     /// <param name="fileName">The name of the file to monitor.</param>
-    public static void Subscribe(IObserver<FileSystemEventArgs> observer, string fileName)
+    /// <param name="fileSystem">The file system where <paramref name="fileName"/> can be found.</param>
+    public static void Subscribe(IObserver<FileSystemEventArgs> observer, string fileName, IFileSystem fileSystem)
     {
         _ = observer ?? throw new ArgumentNullException(nameof(observer));
         _ = fileName ?? throw new ArgumentNullException(nameof(fileName));
+        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
 
-        fileName = Path.GetFullPath(fileName);
-        string volumeName = PathHelper.GetVolumeName(fileName);
+        fileName = fileSystem.GetFullPath(fileName);
+        string volumeName = fileSystem.GetVolumeName(fileName);
 
         s_volumeObservers
-            .GetOrAdd(volumeName, static key => new())
+            .GetOrCreateValue(fileSystem)
+            .GetOrAdd(volumeName, key => new(fileSystem))
             .SubscribeCore(observer, fileName);
     }
 
     /// <inheritdoc cref="Subscribe"/>
     private void SubscribeCore(IObserver<FileSystemEventArgs> observer, string fileName)
     {
-        fileName = Path.GetFullPath(fileName);
+        fileName = _watcher.FileSystem.GetFullPath(fileName);
         _observers.AddOrUpdate(
             fileName,
             key => new() { new(observer) },
@@ -262,13 +263,13 @@ file sealed class SharedFileObserver : IDisposable
     /// <param name="fileName">The name of the file to watch.</param>
     private void Watch(string fileName)
     {
-        fileName = Path.GetFullPath(fileName);
+        fileName = FileSystem.GetFullPath(fileName);
 
         lock (_lock)
         {
             string newPath = string.IsNullOrEmpty(_watcher.Path)
-                ? Path.GetDirectoryName(fileName)
-                : PathHelper.GetCommonPath(fileName, _watcher.Path);
+                ? FileSystem.GetDirectoryName(fileName)
+                : FileSystem.GetCommonPath(fileName, _watcher.Path);
             if (string.IsNullOrEmpty(newPath))
                 return;
 
@@ -278,7 +279,7 @@ file sealed class SharedFileObserver : IDisposable
     }
 
     /// <summary>
-    /// Handles the <see cref="FileSystemWatcher"/> events to notify
+    /// Handles the <see cref="IFileSystemWatcher"/> events to notify
     /// observers of file changes.
     /// </summary>
     /// <param name="sender">The source of the event.</param>
@@ -298,7 +299,7 @@ file sealed class SharedFileObserver : IDisposable
     /// <param name="args">The event data.</param>
     private void OnNext(string fileName, FileSystemEventArgs args)
     {
-        fileName = Path.GetFullPath(fileName);
+        fileName = FileSystem.GetFullPath(fileName);
         if (!_observers.TryGetValue(fileName, out ConcurrentBag<WeakReference<IObserver<FileSystemEventArgs>>>? weakObservers))
             return;
 

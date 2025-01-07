@@ -1,5 +1,4 @@
 using HotAvalonia.Collections;
-using HotAvalonia.Helpers;
 
 namespace HotAvalonia.IO;
 
@@ -24,26 +23,34 @@ internal sealed class FileWatcher : IDisposable
     private readonly object _lock;
 
     /// <summary>
+    /// The file system associated with this instance.
+    /// </summary>
+    private readonly IFileSystem _fileSystem;
+
+    /// <summary>
     /// The native file system watcher used for monitoring.
     /// </summary>
-    private FileSystemWatcher? _systemWatcher;
+    private IFileSystemWatcher? _systemWatcher;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="FileWatcher"/> class.
     /// </summary>
     /// <param name="rootPath">The root directory to be watched.</param>
-    public FileWatcher(string rootPath)
+    /// <param name="fileSystem">The file system where <paramref name="rootPath"/> can be found.</param>
+    public FileWatcher(string rootPath, IFileSystem fileSystem)
     {
         // The minimum time difference required to consider a write operation as unique.
         // See: https://en.wikipedia.org/wiki/Mental_chronometry#Measurement_and_mathematical_descriptions
         const double MinWriteTimeDifference = 150;
 
         _ = rootPath ?? throw new ArgumentNullException(nameof(rootPath));
-        _ = Directory.Exists(rootPath) ? rootPath : throw new DirectoryNotFoundException(rootPath);
+        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        _ = fileSystem.DirectoryExists(rootPath) ? rootPath : throw new DirectoryNotFoundException(rootPath);
 
         DirectoryName = rootPath;
-        _systemWatcher = CreateFileSystemWatcher(rootPath);
-        _files = new(PathHelper.PathComparer);
+        _fileSystem = fileSystem;
+        _systemWatcher = CreateFileSystemWatcher(rootPath, fileSystem);
+        _files = new(fileSystem.PathComparer);
         _eventCache = new(TimeSpan.FromMilliseconds(MinWriteTimeDifference));
         _lock = new();
     }
@@ -53,8 +60,9 @@ internal sealed class FileWatcher : IDisposable
     /// </summary>
     /// <param name="rootPath">The root directory to be watched.</param>
     /// <param name="fileNames">The initial list of file names to be tracked.</param>
-    public FileWatcher(string rootPath, IEnumerable<string> fileNames)
-        : this(rootPath)
+    /// <param name="fileSystem">The file system where <paramref name="rootPath"/> can be found.</param>
+    public FileWatcher(string rootPath, IFileSystem fileSystem, IEnumerable<string> fileNames)
+        : this(rootPath, fileSystem)
     {
         _ = fileNames ?? throw new ArgumentNullException(nameof(fileNames));
 
@@ -62,7 +70,7 @@ internal sealed class FileWatcher : IDisposable
         {
             _ = fileName ?? throw new ArgumentNullException(nameof(fileName));
 
-            string fullFileName = Path.GetFullPath(fileName);
+            string fullFileName = fileSystem.GetFullPath(fileName);
             _files.Add(fullFileName);
         }
     }
@@ -75,7 +83,7 @@ internal sealed class FileWatcher : IDisposable
     /// <summary>
     /// Occurs when a move operation for a file is detected.
     /// </summary>
-    public event MovedEventHandler? Moved;
+    public event RenamedEventHandler? Renamed;
 
     /// <summary>
     /// Occurs when an error is encountered during file monitoring.
@@ -86,6 +94,11 @@ internal sealed class FileWatcher : IDisposable
     /// The root directory being watched.
     /// </summary>
     public string DirectoryName { get; }
+
+    /// <summary>
+    /// The file system associated with this instance.
+    /// </summary>
+    public IFileSystem FileSystem => _fileSystem;
 
     /// <summary>
     /// The list of tracked files.
@@ -107,7 +120,7 @@ internal sealed class FileWatcher : IDisposable
     {
         _ = fileName ?? throw new ArgumentNullException(nameof(fileName));
 
-        fileName = Path.GetFullPath(fileName);
+        fileName = _fileSystem.GetFullPath(fileName);
 
         lock (_lock)
             _files.Add(fileName);
@@ -121,7 +134,7 @@ internal sealed class FileWatcher : IDisposable
     {
         _ = fileName ?? throw new ArgumentNullException(nameof(fileName));
 
-        fileName = Path.GetFullPath(fileName);
+        fileName = _fileSystem.GetFullPath(fileName);
 
         lock (_lock)
             _files.Remove(fileName);
@@ -145,24 +158,16 @@ internal sealed class FileWatcher : IDisposable
         => OnFileSystemEvent(args, () => Changed?.Invoke(this, args));
 
     /// <summary>
-    /// Handles the event when a file is moved.
-    /// </summary>
-    /// <param name="sender">The source of the event.</param>
-    /// <param name="args">Event arguments containing the old and new name of the file.</param>
-    private void OnMoved(object sender, MovedEventArgs args)
-        => OnFileSystemEvent(args, () => Moved?.Invoke(this, args), () =>
-        {
-            _files.Remove(Path.GetFullPath(args.OldFullPath));
-            _files.Add(Path.GetFullPath(args.FullPath));
-        });
-
-    /// <summary>
     /// Handles the event when a file is renamed.
     /// </summary>
     /// <param name="sender">The source of the event.</param>
     /// <param name="args">Event arguments containing the old and new name of the file.</param>
     private void OnRenamed(object sender, RenamedEventArgs args)
-        => OnMoved(sender, new(args.FullPath, args.OldFullPath));
+        => OnFileSystemEvent(args, () => Renamed?.Invoke(this, args), () =>
+        {
+            _files.Remove(args.OldFullPath);
+            _files.Add(args.FullPath);
+        });
 
     /// <summary>
     /// Handles any error that occurs during file watching.
@@ -184,7 +189,7 @@ internal sealed class FileWatcher : IDisposable
         lock (_lock)
         {
             bool isFullPathWatched = IsWatchingFile(args.FullPath);
-            bool isOldFullPathWatched = args is MovedEventArgs moved && IsWatchingFile(moved.OldFullPath);
+            bool isOldFullPathWatched = args is RenamedEventArgs renamed && IsWatchingFile(renamed.OldFullPath);
             if (!isFullPathWatched && !isOldFullPathWatched)
             {
                 _eventCache.Add(args);
@@ -211,7 +216,7 @@ internal sealed class FileWatcher : IDisposable
     /// <param name="fileName">The name of the file to check.</param>
     /// <returns><c>true</c> if the file is being watched; otherwise, <c>false</c>.</returns>
     private bool IsWatchingFile(string fileName)
-        => _files.Contains(Path.GetFullPath(fileName));
+        => _files.Contains(fileName);
 
     /// <summary>
     /// Checks if the given filesystem event is a duplicate of any previously cached event.
@@ -231,10 +236,10 @@ internal sealed class FileWatcher : IDisposable
             return false;
 
         WatcherChangeTypes type = args.ChangeType;
-        string path = Path.GetFullPath(args.FullPath);
-        StringComparer fileNameComparer = PathHelper.PathComparer;
+        string path = args.FullPath;
+        IEqualityComparer<string> fileNameComparer = _fileSystem.PathComparer;
 
-        return _eventCache.Any(x => x.ChangeType == type && fileNameComparer.Equals(Path.GetFullPath(x.FullPath), path));
+        return _eventCache.Any(x => x.ChangeType == type && fileNameComparer.Equals(x.FullPath, path));
     }
 
     /// <summary>
@@ -271,14 +276,14 @@ internal sealed class FileWatcher : IDisposable
             return false;
 
         WatcherChangeTypes oppositeChangeType = args.ChangeType is WatcherChangeTypes.Created ? WatcherChangeTypes.Deleted : WatcherChangeTypes.Created;
-        string fileName = Path.GetFileName(args.FullPath);
-        StringComparer fileNameComparer = PathHelper.PathComparer;
+        string fileName = _fileSystem.GetFileName(args.FullPath);
+        StringComparer fileNameComparer = _fileSystem.PathComparer;
         string? newFullPath = null;
         string? oldFullPath = null;
 
         lock (_lock)
         {
-            FileSystemEventArgs? oppositeEvent = _eventCache.FirstOrDefault(x => x.ChangeType == oppositeChangeType && fileNameComparer.Equals(Path.GetFileName(x.FullPath), fileName));
+            FileSystemEventArgs? oppositeEvent = _eventCache.FirstOrDefault(x => x.ChangeType == oppositeChangeType && fileNameComparer.Equals(x.FullPath, fileName));
             if (oppositeEvent is null)
                 return false;
 
@@ -287,7 +292,7 @@ internal sealed class FileWatcher : IDisposable
                 : (oppositeEvent.FullPath, args.FullPath);
         }
 
-        OnMoved(this, new(newFullPath, oldFullPath));
+        OnRenamed(this, _fileSystem.CreateFileSystemEventArgs(WatcherChangeTypes.Renamed, newFullPath, oldFullPath));
         return true;
     }
 
@@ -322,28 +327,27 @@ internal sealed class FileWatcher : IDisposable
         if (args.ChangeType is not WatcherChangeTypes.Deleted)
             return false;
 
-        string path = Path.GetFullPath(args.FullPath);
-        StringComparer fileNameComparer = PathHelper.PathComparer;
+        string path = args.FullPath;
+        StringComparer fileNameComparer = _fileSystem.PathComparer;
         string? previousPath;
         lock (_lock)
         {
             previousPath = _eventCache
-                .OfType<MovedEventArgs>()
-                .FirstOrDefault(x => fileNameComparer.Equals(Path.GetFullPath(x.FullPath), path))?.OldFullPath;
+                .OfType<RenamedEventArgs>()
+                .FirstOrDefault(x => fileNameComparer.Equals(x.FullPath, path))?.OldFullPath;
         }
 
-        if (!File.Exists(previousPath))
+        if (!_fileSystem.FileExists(previousPath))
             return false;
 
-        previousPath = Path.GetFullPath(previousPath);
         lock (_lock)
         {
             _files.Remove(path);
             _files.Add(previousPath);
         }
 
-        Moved?.Invoke(this, new(previousPath, path));
-        Changed?.Invoke(this, new(WatcherChangeTypes.Changed, Path.GetDirectoryName(previousPath), Path.GetFileName(previousPath)));
+        Renamed?.Invoke(this, _fileSystem.CreateFileSystemEventArgs(WatcherChangeTypes.Renamed, previousPath, path));
+        Changed?.Invoke(this, _fileSystem.CreateFileSystemEventArgs(WatcherChangeTypes.Changed, previousPath));
         return true;
     }
 
@@ -372,30 +376,30 @@ internal sealed class FileWatcher : IDisposable
     /// <returns><c>true</c> if a complex change operation was successfully processed; otherwise, <c>false</c>.</returns>
     private bool TryProcessComplexChange_ReFS(FileSystemEventArgs args)
     {
-        if (args is not MovedEventArgs movedArgs)
+        if (args is not RenamedEventArgs renamedArgs)
             return false;
 
         // We only want to catch an event when an untracked file
         // takes place of the one we're actually watching.
-        if (!IsWatchingFile(movedArgs.FullPath) || IsWatchingFile(movedArgs.OldFullPath))
+        if (!IsWatchingFile(renamedArgs.FullPath) || IsWatchingFile(renamedArgs.OldFullPath))
             return false;
 
-        string path = Path.GetFullPath(args.FullPath);
-        StringComparer fileNameComparer = PathHelper.PathComparer;
+        string path = args.FullPath;
+        StringComparer fileNameComparer = _fileSystem.PathComparer;
         bool wasDeleted;
         lock (_lock)
         {
             wasDeleted = _eventCache
                 .Any(x => x.ChangeType is WatcherChangeTypes.Deleted
-                    && fileNameComparer.Equals(Path.GetFullPath(x.FullPath), path));
+                    && fileNameComparer.Equals(x.FullPath, path));
         }
 
-        if (!wasDeleted || !File.Exists(path))
+        if (!wasDeleted || !_fileSystem.FileExists(path))
             return false;
 
         // `FileWatcher` currently does not propagate `Deleted` events to its subscribers.
         // However, if this ever changes, we will need to create a synthetic `Created` event here as well.
-        Changed?.Invoke(this, new(WatcherChangeTypes.Changed, Path.GetDirectoryName(path), Path.GetFileName(path)));
+        Changed?.Invoke(this, _fileSystem.CreateFileSystemEventArgs(WatcherChangeTypes.Changed, path));
         return true;
     }
 
@@ -409,35 +413,33 @@ internal sealed class FileWatcher : IDisposable
     }
 
     /// <summary>
-    /// Creates and configures a new <see cref="FileSystemWatcher"/> for the specified root path.
+    /// Creates and configures a new <see cref="IFileSystemWatcher"/> for the specified root path.
     /// </summary>
     /// <param name="rootPath">The root directory to watch.</param>
-    /// <returns>The created and configured <see cref="FileSystemWatcher"/>.</returns>
-    private FileSystemWatcher CreateFileSystemWatcher(string rootPath)
+    /// <param name="fileSystem">The file system where <paramref name="rootPath"/> can be found.</param>
+    /// <returns>The created and configured <see cref="IFileSystemWatcher"/>.</returns>
+    private IFileSystemWatcher CreateFileSystemWatcher(string rootPath, IFileSystem fileSystem)
     {
-        FileSystemWatcher watcher = new(rootPath)
-        {
-            EnableRaisingEvents = false,
-            IncludeSubdirectories = true,
-            NotifyFilter = NotifyFilters.LastWrite
+        IFileSystemWatcher watcher = fileSystem.CreateFileSystemWatcher();
+        watcher.Path = rootPath;
+        watcher.IncludeSubdirectories = true;
+        watcher.NotifyFilter = NotifyFilters.LastWrite
                 | NotifyFilters.DirectoryName
-                | NotifyFilters.FileName,
-        };
+                | NotifyFilters.FileName;
         watcher.Created += OnCreatedOrDeleted;
         watcher.Deleted += OnCreatedOrDeleted;
         watcher.Changed += OnChanged;
         watcher.Renamed += OnRenamed;
         watcher.Error += OnError;
         watcher.EnableRaisingEvents = true;
-
         return watcher;
     }
 
     /// <summary>
-    /// Disposes a given <see cref="FileSystemWatcher"/> and detaches all its event handlers.
+    /// Disposes a given <see cref="IFileSystemWatcher"/> and detaches all its event handlers.
     /// </summary>
-    /// <param name="watcher">The <see cref="FileSystemWatcher"/> to dispose.</param>
-    private void DisposeFileSystemWatcher(FileSystemWatcher? watcher)
+    /// <param name="watcher">The <see cref="IFileSystemWatcher"/> to dispose.</param>
+    private void DisposeFileSystemWatcher(IFileSystemWatcher? watcher)
     {
         if (watcher is null)
             return;

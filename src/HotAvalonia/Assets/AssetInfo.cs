@@ -1,6 +1,4 @@
 using System.Reflection;
-using HotAvalonia.Helpers;
-using Paths = System.IO.Path;
 
 namespace HotAvalonia.Assets;
 
@@ -42,28 +40,5 @@ internal class AssetInfo
         Assembly = assembly;
         Project = project;
         Path = path;
-    }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="AssetInfo"/> class.
-    /// </summary>
-    /// <param name="uri">The URI of the asset.</param>
-    /// <param name="assembly">The assembly associated with the asset.</param>
-    /// <param name="project">The path of the project root containing the asset.</param>
-    /// <param name="path">
-    /// The path of the asset. If <c>null</c>, the path is resolved automatically
-    /// from the <paramref name="project"/> and <paramref name="uri"/>.
-    /// </param>
-    public AssetInfo(Uri uri, Assembly assembly, string project, string? path = null)
-    {
-        project = Paths.GetFullPath(project);
-        char projectEnd = project.Length > 0 ? project[project.Length - 1] : Paths.DirectorySeparatorChar;
-        if (projectEnd != Paths.DirectorySeparatorChar && projectEnd != Paths.AltDirectorySeparatorChar)
-            project += Paths.DirectorySeparatorChar;
-
-        Uri = uri;
-        Assembly = assembly;
-        Project = new(project);
-        Path = path ?? UriHelper.ResolvePathFromUri(project, uri);
     }
 }

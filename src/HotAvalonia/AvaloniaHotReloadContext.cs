@@ -136,19 +136,23 @@ public static class AvaloniaHotReloadContext
             return null;
         }
 
-        if (!Directory.Exists(rootPath))
+        if (!projectLocator.FileSystem.DirectoryExists(rootPath))
         {
             LoggingHelper.Log("Found an assembly containing Avalonia controls ({AssemblyName}) with its source project located at {ProjectLocation}. However, the project could not be found on the local system. Skipping.", assembly.GetName().Name, rootPath);
             return null;
         }
 
         LoggingHelper.Log("Found an assembly containing Avalonia controls ({AssemblyName}) with its source project located at {ProjectLocation}.", assembly.GetName().Name, rootPath);
-        return new AvaloniaProjectHotReloadContext(rootPath, controls);
+        return new AvaloniaProjectHotReloadContext(rootPath, projectLocator.FileSystem, controls);
     }
 
     /// <inheritdoc cref="FromAssembly(Assembly, string)"/>
     public static IHotReloadContext FromAssembly(Assembly assembly)
         => FromAssembly(assembly, new AvaloniaProjectLocator());
+
+    /// <inheritdoc cref="FromAssembly(Assembly, string, IFileSystem)"/>
+    public static IHotReloadContext FromAssembly(Assembly assembly, string rootPath)
+        => FromAssembly(assembly, rootPath, FileSystem.Current);
 
     /// <param name="projectLocator">The project locator used to find source directories of assemblies.</param>
     /// <inheritdoc cref="FromAssembly(Assembly, string)"/>
@@ -159,7 +163,7 @@ public static class AvaloniaHotReloadContext
 
         AvaloniaControlInfo[] controls = AvaloniaRuntimeXamlScanner.FindAvaloniaControls(assembly).ToArray();
         string rootPath = projectLocator.GetDirectoryName(assembly, controls);
-        return new AvaloniaProjectHotReloadContext(rootPath, controls);
+        return new AvaloniaProjectHotReloadContext(rootPath, projectLocator.FileSystem, controls);
     }
 
     /// <summary>
@@ -170,13 +174,15 @@ public static class AvaloniaHotReloadContext
     /// The root path associated with the specified assembly,
     /// which is the directory containing its source code.
     /// </param>
+    /// <param name="fileSystem">The file system where <paramref name="assembly"/> resides.</param>
     /// <returns>A hot reload context for the specified assembly.</returns>
-    public static IHotReloadContext FromAssembly(Assembly assembly, string rootPath)
+    public static IHotReloadContext FromAssembly(Assembly assembly, string rootPath, IFileSystem fileSystem)
     {
         _ = assembly ?? throw new ArgumentNullException(nameof(assembly));
+        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
 
         IEnumerable<AvaloniaControlInfo> controls = AvaloniaRuntimeXamlScanner.FindAvaloniaControls(assembly);
-        return new AvaloniaProjectHotReloadContext(rootPath, controls);
+        return new AvaloniaProjectHotReloadContext(rootPath, fileSystem, controls);
     }
 
     /// <inheritdoc cref="FromControl(object, string)"/>
@@ -208,24 +214,30 @@ public static class AvaloniaHotReloadContext
         return FromControl(control.GetType(), controlPath);
     }
 
+    /// <inheritdoc cref="FromControl(Type, string, IFileSystem)"/>
+    public static IHotReloadContext FromControl(Type controlType, string controlPath)
+        => FromControl(controlType, controlPath, FileSystem.Current);
+
     /// <summary>
     /// Creates a hot reload context for the assembly containing the specified control.
     /// </summary>
     /// <param name="controlType">The type of the control to create the hot reload context from.</param>
     /// <param name="controlPath">The path to the control's XAML file.</param>
+    /// <param name="fileSystem">The file system where <paramref name="controlPath"/> can be found.</param>
     /// <returns>A hot reload context for the specified control type.</returns>
-    public static IHotReloadContext FromControl(Type controlType, string controlPath)
+    public static IHotReloadContext FromControl(Type controlType, string controlPath, IFileSystem fileSystem)
     {
         _ = controlType ?? throw new ArgumentNullException(nameof(controlType));
         _ = controlPath ?? throw new ArgumentNullException(nameof(controlPath));
-        _ = File.Exists(controlPath) ? controlPath : throw new FileNotFoundException(controlPath);
+        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        _ = fileSystem.FileExists(controlPath) ? controlPath : throw new FileNotFoundException(controlPath);
 
-        controlPath = Path.GetFullPath(controlPath);
+        controlPath = fileSystem.GetFullPath(controlPath);
         if (!AvaloniaRuntimeXamlScanner.TryExtractControlUri(controlType, out string? controlUri))
             throw new ArgumentException("The provided control is not a valid user-defined Avalonia control. Could not determine its URI.", nameof(controlType));
 
         string rootPath = UriHelper.ResolveHostPath(controlUri, controlPath);
-        return FromAssembly(controlType.Assembly, rootPath);
+        return FromAssembly(controlType.Assembly, rootPath, fileSystem);
     }
 }
 
@@ -253,20 +265,25 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext
     /// Initializes a new instance of the <see cref="AvaloniaProjectHotReloadContext"/> class.
     /// </summary>
     /// <param name="rootPath">The root directory of the Avalonia project to watch.</param>
+    /// <param name="fileSystem">The file system where <paramref name="rootPath"/> can be found.</param>
     /// <param name="controls">The list of Avalonia controls to manage.</param>
-    public AvaloniaProjectHotReloadContext(string rootPath, IEnumerable<AvaloniaControlInfo> controls)
+    public AvaloniaProjectHotReloadContext(string rootPath, IFileSystem fileSystem, IEnumerable<AvaloniaControlInfo> controls)
     {
         _ = rootPath ?? throw new ArgumentNullException(nameof(rootPath));
-        _ = Directory.Exists(rootPath) ? rootPath : throw new DirectoryNotFoundException(rootPath);
+        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        _ = fileSystem.DirectoryExists(rootPath) ? rootPath : throw new DirectoryNotFoundException(rootPath);
 
-        rootPath = Path.GetFullPath(rootPath);
-        _controls = controls
-            .Select(x => ResolveControlManager(x, rootPath))
-            .ToDictionary(static x => x.FileName, PathHelper.PathComparer);
+        rootPath = fileSystem.GetFullPath(rootPath);
+        _controls = controls.ToDictionary
+        (
+            x => fileSystem.GetFullPath(fileSystem.ResolvePathFromUri(rootPath, x.Uri)),
+            x => new AvaloniaControlManager(x),
+            fileSystem.PathComparer
+        );
 
-        _watcher = new(rootPath, _controls.Keys);
+        _watcher = new(rootPath, fileSystem, _controls.Keys);
         _watcher.Changed += OnChanged;
-        _watcher.Moved += OnMoved;
+        _watcher.Renamed += OnRenamed;
         _watcher.Error += OnError;
     }
 
@@ -293,7 +310,7 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext
         DisableHotReload();
 
         _watcher.Changed -= OnChanged;
-        _watcher.Moved -= OnMoved;
+        _watcher.Renamed -= OnRenamed;
         _watcher.Error -= OnError;
         _watcher.Dispose();
 
@@ -313,14 +330,22 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext
         if (!_enabled)
             return;
 
-        string path = Path.GetFullPath(args.FullPath);
+        IFileSystem fileSystem = _watcher.FileSystem;
+        string path = fileSystem.GetFullPath(args.FullPath);
         if (!_controls.TryGetValue(path, out AvaloniaControlManager? controlManager))
             return;
 
         try
         {
+            // Since this is an `async void` method, ensure that it does not hang indefinitely.
+            using CancellationTokenSource cancellationTokenSource = new(TimeSpan.FromSeconds(10));
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+            if (!await fileSystem.FileExistsAsync(path, cancellationToken).ConfigureAwait(false))
+                return;
+
             LoggingHelper.Log("Reloading {ControlUri}...", controlManager.Control.Uri);
-            await controlManager.ReloadAsync().ConfigureAwait(false);
+            string xaml = await fileSystem.ReadAllTextAsync(path, TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
+            await controlManager.ReloadAsync(xaml, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception e)
         {
@@ -329,21 +354,20 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext
     }
 
     /// <summary>
-    /// Handles the moved files by updating their corresponding <see cref="AvaloniaControlManager"/> entries.
+    /// Handles the renamed files by updating their corresponding <see cref="AvaloniaControlManager"/> entries.
     /// </summary>
     /// <param name="sender">The source of the event.</param>
-    /// <param name="args">The event arguments containing details of the moved file.</param>
-    private void OnMoved(object sender, MovedEventArgs args)
+    /// <param name="args">The event arguments containing details of the renamed file.</param>
+    private void OnRenamed(object sender, RenamedEventArgs args)
     {
-        string oldFullPath = Path.GetFullPath(args.OldFullPath);
+        string newFullPath = args.FullPath;
+        string oldFullPath = args.OldFullPath;
         if (!_controls.TryGetValue(oldFullPath, out AvaloniaControlManager? controlManager))
             return;
 
-        LoggingHelper.Log("{ControlUri} has been moved from {OldControlLocation} to {ControlLocation}.", controlManager.Control.Uri, args.OldFullPath, args.FullPath);
+        LoggingHelper.Log("{ControlUri} has been moved from {OldControlLocation} to {ControlLocation}.", controlManager.Control.Uri, oldFullPath, newFullPath);
         _controls.Remove(oldFullPath);
-
-        controlManager.FileName = Path.GetFullPath(args.FullPath);
-        _controls[controlManager.FileName] = controlManager;
+        _controls[newFullPath] = controlManager;
     }
 
     /// <summary>
@@ -353,18 +377,6 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext
     /// <param name="args">The event arguments containing the error details.</param>
     private void OnError(object sender, ErrorEventArgs args)
         => LoggingHelper.Log(sender, "An unexpected error occurred while monitoring file changes: {Error}", args.GetException());
-
-    /// <summary>
-    /// Resolves the control manager for the given Avalonia control.
-    /// </summary>
-    /// <param name="controlInfo">The information about the Avalonia control.</param>
-    /// <param name="rootPath">The root directory of the Avalonia project.</param>
-    /// <returns>The resolved <see cref="AvaloniaControlManager"/>.</returns>
-    private static AvaloniaControlManager ResolveControlManager(AvaloniaControlInfo controlInfo, string rootPath)
-    {
-        string fileName = Path.GetFullPath(UriHelper.ResolvePathFromUri(rootPath, controlInfo.Uri));
-        return new(controlInfo, fileName);
-    }
 }
 
 /// <summary>

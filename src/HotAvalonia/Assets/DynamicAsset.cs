@@ -77,11 +77,12 @@ internal sealed class DynamicAsset<TAsset> : IObservable<TAsset> where TAsset : 
     /// Initializes a new instance of the <see cref="DynamicAsset{TAsset}"/> class using a URI.
     /// </summary>
     /// <param name="uri">The URI of the asset.</param>
-    private DynamicAsset(Uri uri)
+    /// <param name="fileSystem">The file system where the asset can be found.</param>
+    private DynamicAsset(Uri uri, IFileSystem fileSystem)
     {
         _uri = uri;
         _asset = s_create(this, null);
-        _fileObserver = new(uri.LocalPath, Refresh);
+        _fileObserver = new(fileSystem, uri.LocalPath, Refresh);
     }
 
     /// <summary>
@@ -90,11 +91,12 @@ internal sealed class DynamicAsset<TAsset> : IObservable<TAsset> where TAsset : 
     /// <param name="stream">The stream containing the asset data.</param>
     /// <param name="uri">The URI of the asset.</param>
     /// <param name="fileName">The file name of the asset.</param>
-    private DynamicAsset(Stream stream, Uri uri, string fileName)
+    /// <param name="fileSystem">The file system where the asset can be found.</param>
+    private DynamicAsset(Stream stream, Uri uri, string fileName, IFileSystem fileSystem)
     {
         _uri = uri;
         _asset = s_create(this, stream);
-        _fileObserver = new(fileName, Refresh);
+        _fileObserver = new(fileSystem, fileName, Refresh);
     }
 
     /// <summary>
@@ -122,7 +124,7 @@ internal sealed class DynamicAsset<TAsset> : IObservable<TAsset> where TAsset : 
             uri = new(baseUri, uri);
 
         if (uri.IsAbsoluteUri && uri.IsFile)
-            return new DynamicAsset<TAsset>(uri).Asset;
+            return new DynamicAsset<TAsset>(uri, projectLocator.FileSystem).Asset;
 
         (Stream stream, Assembly assembly) = AssetLoader.OpenAndGetAssembly(uri);
         if (!uri.IsAbsoluteUri || uri.Scheme != UriHelper.AvaloniaResourceScheme)
@@ -131,8 +133,8 @@ internal sealed class DynamicAsset<TAsset> : IObservable<TAsset> where TAsset : 
         if (!projectLocator.TryGetDirectoryName(assembly, out string? rootPath))
             return s_fromStream(stream);
 
-        string fileName = UriHelper.ResolvePathFromUri(rootPath, uri);
-        return new DynamicAsset<TAsset>(stream, uri, fileName).Asset;
+        string fileName = projectLocator.FileSystem.ResolvePathFromUri(rootPath, uri);
+        return new DynamicAsset<TAsset>(stream, uri, fileName, projectLocator.FileSystem).Asset;
     }
 
     /// <summary>

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using HotAvalonia.IO;
 
 namespace HotAvalonia.Helpers;
 
@@ -42,20 +43,22 @@ internal static class UriHelper
     /// <summary>
     /// Combines a root path with a URI to form a complete path.
     /// </summary>
+    /// <param name="fileSystem">The file system where the path resides.</param>
     /// <param name="root">The root path.</param>
     /// <param name="uri">The URI to resolve.</param>
     /// <returns>The combined path.</returns>
-    public static string ResolvePathFromUri(string root, Uri uri)
-        => Path.Combine(root, GetSafeUriAbsolutePath(uri).Substring(1));
+    public static string ResolvePathFromUri(this IFileSystem fileSystem, string root, Uri uri)
+        => fileSystem.Combine(root, GetSafeUriAbsolutePath(uri).Substring(1));
 
     /// <summary>
     /// Combines a root path with a URI string to form a complete path.
     /// </summary>
+    /// <param name="fileSystem">The file system where the path resides.</param>
     /// <param name="root">The root path.</param>
     /// <param name="uri">The URI string to resolve.</param>
     /// <returns>The combined path.</returns>
-    public static string ResolvePathFromUri(string root, string uri)
-        => Path.Combine(root, GetUriPathFromString(uri).Substring(1));
+    public static string ResolvePathFromUri(this IFileSystem fileSystem, string root, string uri)
+        => fileSystem.Combine(root, GetUriPathFromString(uri).Substring(1));
 
     /// <summary>
     /// Resolves a host path using a given URI and path.
