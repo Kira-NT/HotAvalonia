@@ -1,0 +1,5 @@
+T:System.IO.Directory;Use 'HotAvalonia.IO.IFileSystem' instead.
+T:System.IO.File;Use 'HotAvalonia.IO.IFileSystem' instead.
+T:System.IO.Path;Use 'HotAvalonia.IO.IFileSystem' instead.
+
+T:System.IO.FileSystemWatcher;Use 'HotAvalonia.IO.IFileSystemWatcher' instead.

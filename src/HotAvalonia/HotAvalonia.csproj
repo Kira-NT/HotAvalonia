@@ -11,6 +11,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <AdditionalFiles Include="BannedSymbols.txt" />
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="3.3.4" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Avalonia.Markup.Xaml.Loader" Version="$(AvaloniaVersion)" PrivateAssets="All" />
 
     <!-- Technically, we do not need an explicit reference for `MonoMod.Backports`. -->
