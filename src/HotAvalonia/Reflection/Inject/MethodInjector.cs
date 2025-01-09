@@ -34,7 +34,7 @@ internal static class MethodInjector
     /// <exception cref="InvalidOperationException"/>
     public static IInjection Inject(MethodBase source, MethodInfo replacement) => InjectionType switch
     {
-        InjectionType.Native => new NativeInjection(source, replacement),
+        InjectionType.Native => NativeInjection.Create(source, replacement),
         _ => ThrowNotSupportedException(),
     };
 
@@ -72,60 +72,105 @@ internal static class MethodInjector
         if (IsDisabled())
             return InjectionType.None;
 
-        try
-        {
-            // Enable dynamic code generation, which is required for MonoMod to function.
-            using IDisposable context = AssemblyHelper.ForceAllowDynamicCode();
-
-            // `PlatformTriple.Current` may throw exceptions such as:
-            //  - NotImplementedException
-            //  - PlatformNotSupportedException
-            //  - etc.
-            // This happens if the current environment is not (yet) supported.
-            if (PlatformTriple.Current is not null)
-                return InjectionType.Native;
-        }
-        catch { }
-
-        return InjectionType.None;
+        return NativeInjection.IsSupported ? InjectionType.Native : InjectionType.None;
     }
 }
 
 /// <summary>
 /// Provides functionality to inject a replacement method using native code hooks.
 /// </summary>
-file sealed class NativeInjection : IInjection
+file static class NativeInjection
 {
     /// <summary>
-    /// The hook used for the method injection.
-    /// </summary>
-    private readonly Hook _hook;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="NativeInjection"/> class.
+    /// Injects a replacement method implementation for the specified source method.
     /// </summary>
     /// <param name="source">The method to be replaced.</param>
     /// <param name="replacement">The replacement method implementation.</param>
-    public NativeInjection(MethodBase source, MethodInfo replacement)
-    {
-        // Enable dynamic code generation, which is required for MonoMod to function.
-        // Note that we cannot enable it forcefully just once and call it a day,
-        // because this only affects the current thread.
-        _ = AssemblyHelper.ForceAllowDynamicCode();
+    /// <returns>An <see cref="IInjection"/> instance representing the method injection.</returns>
+    public static IInjection Create(MethodBase source, MethodInfo replacement)
+        => new MonoModInjection(source, replacement);
 
-        _hook = new(source, replacement, applyByDefault: true);
+    /// <summary>
+    /// Indicates whether native method injections are supported in the current runtime environment.
+    /// </summary>
+    public static bool IsSupported
+    {
+        get
+        {
+            try
+            {
+                // If `MonoMod.RuntimeDetour` is not present,
+                // this will result in `TypeLoadException`,
+                // that's why we need this wrapper.
+                return MonoModInjection.IsSupported;
+            }
+            catch
+            {
+                return false;
+            }
+        }
     }
 
     /// <summary>
-    /// Applies the method injection.
+    /// Represents a MonoMod-based injection.
     /// </summary>
-    public void Apply() => _hook.Apply();
+    private sealed class MonoModInjection : IInjection
+    {
+        /// <summary>
+        /// The hook used for the method injection.
+        /// </summary>
+        private readonly Hook _hook;
 
-    /// <summary>
-    /// Reverts all the effects caused by the method injection.
-    /// </summary>
-    public void Undo() => _hook.Undo();
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MonoModInjection"/> class.
+        /// </summary>
+        /// <param name="source">The method to be replaced.</param>
+        /// <param name="replacement">The replacement method implementation.</param>
+        public MonoModInjection(MethodBase source, MethodInfo replacement)
+        {
+            // Enable dynamic code generation, which is required for MonoMod to function.
+            // Note that we cannot enable it forcefully just once and call it a day,
+            // because this only affects the current thread.
+            _ = AssemblyHelper.ForceAllowDynamicCode();
 
-    /// <inheritdoc/>
-    public void Dispose() => _hook.Dispose();
+            _hook = new(source, replacement, applyByDefault: true);
+        }
+
+        /// <summary>
+        /// Indicates whether MonoMod is supported in the current environment.
+        /// </summary>
+        /// <exception cref="PlatformNotSupportedException"/>
+        /// <exception cref="InvalidOperationException"/>
+        /// <exception cref="TypeLoadException"/>
+        /// <exception cref="FileNotFoundException"/>
+        /// <exception cref="NotImplementedException"/>
+        public static bool IsSupported
+        {
+            get
+            {
+                // Enable dynamic code generation, which is required for MonoMod to function.
+                using IDisposable context = AssemblyHelper.ForceAllowDynamicCode();
+
+                // `PlatformTriple.Current` may throw exceptions such as:
+                //  - NotImplementedException
+                //  - PlatformNotSupportedException
+                //  - etc.
+                // This happens if the current environment is not (yet) supported.
+                return PlatformTriple.Current is not null;
+            }
+        }
+
+        /// <summary>
+        /// Applies the method injection.
+        /// </summary>
+        public void Apply() => _hook.Apply();
+
+        /// <summary>
+        /// Reverts all the effects caused by the method injection.
+        /// </summary>
+        public void Undo() => _hook.Undo();
+
+        /// <inheritdoc/>
+        public void Dispose() => _hook.Dispose();
+    }
 }
