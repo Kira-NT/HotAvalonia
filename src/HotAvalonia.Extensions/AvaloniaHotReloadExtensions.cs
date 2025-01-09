@@ -34,6 +34,14 @@
 
 namespace HotAvalonia
 {
+    using global::System;
+    using global::System.Diagnostics;
+    using global::System.Diagnostics.CodeAnalysis;
+    using global::System.IO;
+    using global::System.Reflection;
+    using global::System.Runtime.CompilerServices;
+    using global::Avalonia;
+
     /// <summary>
     /// Indicates that the decorated method should be called whenever the associated Avalonia control is hot reloaded.
     /// </summary>
@@ -60,24 +68,12 @@ namespace HotAvalonia
     /// }
     /// </code>
     /// </remarks>
-    [global::System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
-    [global::System.Diagnostics.Conditional("ENABLE_XAML_HOT_RELOAD")]
-    [global::System.AttributeUsage(global::System.AttributeTargets.Method)]
-    internal sealed class AvaloniaHotReloadAttribute : global::System.Attribute
+    [ExcludeFromCodeCoverage]
+    [Conditional("ENABLE_XAML_HOT_RELOAD")]
+    [AttributeUsage(AttributeTargets.Method)]
+    internal sealed class AvaloniaHotReloadAttribute : Attribute
     {
     }
-}
-
-#if ENABLE_XAML_HOT_RELOAD && !DISABLE_XAML_HOT_RELOAD
-namespace HotAvalonia
-{
-    using global::System;
-    using global::System.Diagnostics;
-    using global::System.Diagnostics.CodeAnalysis;
-    using global::System.IO;
-    using global::System.Reflection;
-    using global::System.Runtime.CompilerServices;
-    using global::Avalonia;
 
     /// <summary>
     /// Provides extension methods for enabling and disabling hot reload functionality for Avalonia applications.
@@ -85,31 +81,62 @@ namespace HotAvalonia
     [ExcludeFromCodeCoverage]
     internal static class AvaloniaHotReloadExtensions
     {
+#if ENABLE_XAML_HOT_RELOAD && !DISABLE_XAML_HOT_RELOAD
         /// <summary>
-        /// A mapping between Avalonia <see cref="Application"/> instances and their associated hot reload context.
+        /// Creates a factory method for generating an <see cref="IHotReloadContext"/>
+        /// using the specified control type and its XAML file path.
         /// </summary>
-        private static readonly ConditionalWeakTable<Application, IHotReloadContext> s_apps =
-            new ConditionalWeakTable<Application, IHotReloadContext>();
-
-        /// <summary>
-        /// Enables hot reload functionality for the given Avalonia application.
-        /// </summary>
-        /// <param name="app">The Avalonia application instance for which hot reload should be enabled.</param>
-        /// <param name="projectLocator">The project locator used to find source directories of assemblies.</param>
+        /// <param name="controlType">The control type.</param>
+        /// <param name="controlFilePath">The file path to the associated XAML file.</param>
+        /// <returns>A factory method for creating an <see cref="IHotReloadContext"/> instance.</returns>
         [DebuggerStepThrough]
-        private static void EnableHotReload(Application app, AvaloniaProjectLocator projectLocator)
+        private static Func<IHotReloadContext> CreateHotReloadContextFactory(Type controlType, string? controlFilePath)
         {
-            if (!s_apps.TryGetValue(app, out IHotReloadContext? context))
+            return new Func<IHotReloadContext>(() =>
             {
-#if ENABLE_LITE_XAML_HOT_RELOAD
-                context = AvaloniaHotReloadContext.CreateLite(projectLocator);
-#else
-                context = AvaloniaHotReloadContext.Create(projectLocator);
-#endif
-                s_apps.Add(app, context);
-            }
+                if (!string.IsNullOrEmpty(controlFilePath) && !File.Exists(controlFilePath))
+                    throw new FileNotFoundException("The corresponding XAML file could not be found.", controlFilePath);
 
-            context.EnableHotReload();
+                AvaloniaProjectLocator projectLocator = CreateAvaloniaProjectLocator();
+                if (!string.IsNullOrEmpty(controlFilePath))
+                    projectLocator.AddHint(controlType, controlFilePath);
+
+                return CreateHotReloadContext(projectLocator);
+            });
+        }
+
+        /// <summary>
+        /// Creates a factory method for generating an <see cref="IHotReloadContext"/>
+        /// using a custom project path resolver.
+        /// </summary>
+        /// <param name="projectPathResolver">The callback function capable of resolving a project path for a given assembly.</param>
+        /// <returns>A factory method for creating an <see cref="IHotReloadContext"/> instance.</returns>
+        [DebuggerStepThrough]
+        private static Func<IHotReloadContext> CreateHotReloadContextFactory(Func<Assembly, string?>? projectPathResolver)
+        {
+            return new Func<IHotReloadContext>(() =>
+            {
+                AvaloniaProjectLocator projectLocator = CreateAvaloniaProjectLocator();
+                if ((object?)projectPathResolver != null)
+                    projectLocator.AddHint(projectPathResolver);
+
+                return CreateHotReloadContext(projectLocator);
+            });
+        }
+
+        /// <summary>
+        /// Creates a hot reload context for the current environment.
+        /// </summary>
+        /// <param name="projectLocator">The project locator used to find source directories of assemblies.</param>
+        /// <returns>A hot reload context for the current environment.</returns>
+        [DebuggerStepThrough]
+        private static IHotReloadContext CreateHotReloadContext(AvaloniaProjectLocator projectLocator)
+        {
+#if ENABLE_LITE_XAML_HOT_RELOAD
+            return AvaloniaHotReloadContext.CreateLite(projectLocator);
+#else
+            return AvaloniaHotReloadContext.Create(projectLocator);
+#endif
         }
 
         /// <summary>
@@ -121,106 +148,79 @@ namespace HotAvalonia
         {
             return new AvaloniaProjectLocator();
         }
+#endif
+
+        /// <summary>
+        /// Enables hot reload functionality for the specified <see cref="AppBuilder"/> instance.
+        /// </summary>
+        /// <param name="builder">The app builder instance.</param>
+        /// <returns>The app builder instance.</returns>
+        [DebuggerStepThrough]
+        public static AppBuilder UseHotReload(this AppBuilder builder)
+        {
+#if ENABLE_XAML_HOT_RELOAD && !DISABLE_XAML_HOT_RELOAD
+            AvaloniaHotReload.Enable(builder, CreateHotReloadContextFactory(null));
+#endif
+            return builder;
+        }
+
+        /// <summary>
+        /// Enables hot reload functionality for the specified <see cref="AppBuilder"/> instance.
+        /// </summary>
+        /// <param name="builder">The app builder instance.</param>
+        /// <param name="projectPathResolver">The callback function capable of resolving a project path for a given assembly.</param>
+        /// <returns>The app builder instance.</returns>
+        [DebuggerStepThrough]
+        public static AppBuilder UseHotReload(this AppBuilder builder, Func<Assembly, string?> projectPathResolver)
+        {
+#if ENABLE_XAML_HOT_RELOAD && !DISABLE_XAML_HOT_RELOAD
+            AvaloniaHotReload.Enable(builder, CreateHotReloadContextFactory(projectPathResolver));
+#endif
+            return builder;
+        }
 
         /// <summary>
         /// Enables hot reload functionality for the given Avalonia application.
         /// </summary>
         /// <param name="app">The Avalonia application instance for which hot reload should be enabled.</param>
         /// <param name="appFilePath">The file path of the application's main source file. Optional if the method called within the file of interest.</param>
+        [Conditional("ENABLE_XAML_HOT_RELOAD")]
         [DebuggerStepThrough]
         public static void EnableHotReload(this Application app, [CallerFilePath] string? appFilePath = null)
         {
-            _ = app ?? throw new ArgumentNullException(nameof(app));
-
-            if (!string.IsNullOrEmpty(appFilePath) && !File.Exists(appFilePath))
-                throw new FileNotFoundException("The corresponding XAML file could not be found.", appFilePath);
-
-            AvaloniaProjectLocator projectLocator = CreateAvaloniaProjectLocator();
-            if (!string.IsNullOrEmpty(appFilePath))
-                projectLocator.AddHint(app.GetType(), appFilePath);
-
-            EnableHotReload(app, projectLocator);
-        }
-
-        /// <summary>
-        /// Enables hot reload functionality for the given Avalonia application.
-        /// </summary>
-        /// <param name="app">The Avalonia application instance for which hot reload should be enabled.</param>
-        /// <param name="projectPathResolver">The callback function capable of resolving a project path for a given assembly.</param>
-        [DebuggerStepThrough]
-        public static void EnableHotReload(this Application app, Func<Assembly, string?> projectPathResolver)
-        {
-            _ = app ?? throw new ArgumentNullException(nameof(app));
-
-            AvaloniaProjectLocator projectLocator = CreateAvaloniaProjectLocator();
-            projectLocator.AddHint(projectPathResolver);
-
-            EnableHotReload(app, projectLocator);
-        }
-
-        /// <summary>
-        /// Disables hot reload functionality for the given Avalonia application.
-        /// </summary>
-        /// <param name="app">The Avalonia application instance for which hot reload should be disabled.</param>
-        [DebuggerStepThrough]
-        public static void DisableHotReload(this Application app)
-        {
-            _ = app ?? throw new ArgumentNullException(nameof(app));
-
-            if (s_apps.TryGetValue(app, out IHotReloadContext? context))
-                context.DisableHotReload();
-        }
-    }
-}
-#else
-namespace HotAvalonia
-{
-    using global::System;
-    using global::System.Diagnostics;
-    using global::System.Diagnostics.CodeAnalysis;
-    using global::System.Reflection;
-    using global::Avalonia;
-
-    /// <summary>
-    /// Provides extension methods for enabling and disabling hot reload functionality for Avalonia applications.
-    /// </summary>
-    [ExcludeFromCodeCoverage]
-    internal static class AvaloniaHotReloadExtensions
-    {
-        /// <summary>
-        /// Enables hot reload functionality for the given Avalonia application.
-        /// </summary>
-        /// <param name="app">The Avalonia application instance for which hot reload should be enabled.</param>
-        /// <param name="appFilePath">The file path of the application's main source file. Optional if the method called within the file of interest.</param>
-        [Conditional("DEBUG")]
-        [DebuggerStepThrough]
-        public static void EnableHotReload(this Application app, string? appFilePath = null)
-        {
-        }
-
-        /// <summary>
-        /// Enables hot reload functionality for the given Avalonia application.
-        /// </summary>
-        /// <param name="app">The Avalonia application instance for which hot reload should be enabled.</param>
-        /// <param name="projectPathResolver">The callback function capable of resolving a project path for a given assembly.</param>
-        [Conditional("DEBUG")]
-        [DebuggerStepThrough]
-        public static void EnableHotReload(this Application app, Func<Assembly, string?> projectPathResolver)
-        {
-        }
-
-        /// <summary>
-        /// Disables hot reload functionality for the given Avalonia application.
-        /// </summary>
-        /// <param name="app">The Avalonia application instance for which hot reload should be disabled.</param>
-        [Conditional("DEBUG")]
-        [DebuggerStepThrough]
-        public static void DisableHotReload(this Application app)
-        {
-        }
-    }
-}
+#if ENABLE_XAML_HOT_RELOAD && !DISABLE_XAML_HOT_RELOAD
+            AvaloniaHotReload.Enable(app, CreateHotReloadContextFactory(app?.GetType(), appFilePath));
 #endif
+        }
+
+        /// <summary>
+        /// Enables hot reload functionality for the given Avalonia application.
+        /// </summary>
+        /// <param name="app">The Avalonia application instance for which hot reload should be enabled.</param>
+        /// <param name="projectPathResolver">The callback function capable of resolving a project path for a given assembly.</param>
+        [Conditional("ENABLE_XAML_HOT_RELOAD")]
+        [DebuggerStepThrough]
+        public static void EnableHotReload(this Application app, Func<Assembly, string?> projectPathResolver)
+        {
+#if ENABLE_XAML_HOT_RELOAD && !DISABLE_XAML_HOT_RELOAD
+            AvaloniaHotReload.Enable(app, CreateHotReloadContextFactory(projectPathResolver));
+#endif
+        }
+
+        /// <summary>
+        /// Disables hot reload functionality for the given Avalonia application.
+        /// </summary>
+        /// <param name="app">The Avalonia application instance for which hot reload should be disabled.</param>
+        [Conditional("ENABLE_XAML_HOT_RELOAD")]
+        [DebuggerStepThrough]
+        public static void DisableHotReload(this Application app)
+        {
+#if ENABLE_XAML_HOT_RELOAD && !DISABLE_XAML_HOT_RELOAD
+            AvaloniaHotReload.Disable(app);
+#endif
+        }
+    }
+}
 
 #nullable restore
 #pragma warning restore

@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.ReactiveUI;
+using HotAvalonia;
 
 namespace HotReloadDemo;
 
@@ -14,5 +15,6 @@ static class Program
             .UsePlatformDetect()
             .WithInterFont()
             .LogToTrace()
+            .UseHotReload()
             .UseReactiveUI();
 }
