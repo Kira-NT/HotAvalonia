@@ -3,10 +3,6 @@ using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using HotAvalonia.Helpers;
 
-#if NETSTANDARD2_0
-using BitConverter = HotAvalonia.Helpers.BitHelper;
-#endif
-
 namespace HotAvalonia.Reflection;
 
 /// <summary>

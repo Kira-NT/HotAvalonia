@@ -202,7 +202,7 @@ public static class AvaloniaRuntimeXamlScanner
 
         try
         {
-            int inlineStringToken = BitConverter.ToInt32(methodBody, uriTokenLocation);
+            int inlineStringToken = BitConverter.ToInt32(methodBody.AsSpan(uriTokenLocation));
             uri = populateMethod.Module.ResolveString(inlineStringToken);
             return uri is not null;
         }
