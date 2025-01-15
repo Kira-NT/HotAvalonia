@@ -5,7 +5,7 @@ namespace HotAvalonia.IO;
 /// <summary>
 /// Represents an abstraction for interacting with a file system.
 /// </summary>
-public interface IFileSystem
+public interface IFileSystem : IDisposable, IAsyncDisposable
 {
     /// <summary>
     /// Gets the <see cref="StringComparer"/> used to compare file or directory paths.
@@ -43,6 +43,15 @@ public interface IFileSystem
     IFileSystemWatcher CreateFileSystemWatcher();
 
     /// <summary>
+    /// Asynchronously creates a new instance of <see cref="IFileSystemWatcher"/> to monitor changes in the file system.
+    /// </summary>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    /// <returns>
+    /// A new <see cref="IFileSystemWatcher"/> instance.
+    /// </returns>
+    ValueTask<IFileSystemWatcher> CreateFileSystemWatcherAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Returns the absolute path for the specified path string.
     /// </summary>
     /// <param name="path">The file or directory for which to obtain absolute path information.</param>
@@ -58,7 +67,7 @@ public interface IFileSystem
     /// <returns>
     /// The directory information for <paramref name="path"/>.
     /// </returns>
-    string GetDirectoryName(string path);
+    string? GetDirectoryName(string? path);
 
     /// <summary>
     /// Returns the file name and extension of the specified path string.
@@ -67,7 +76,8 @@ public interface IFileSystem
     /// <returns>
     /// The characters after the last directory separator character in <paramref name="path"/>.
     /// </returns>
-    string GetFileName(string path);
+    [return: NotNullIfNotNull(nameof(path))]
+    string? GetFileName(string? path);
 
     /// <summary>
     /// Changes the extension of a path string.

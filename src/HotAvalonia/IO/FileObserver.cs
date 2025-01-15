@@ -267,10 +267,10 @@ file sealed class SharedFileObserver : IDisposable
 
         lock (_lock)
         {
-            string newPath = string.IsNullOrEmpty(_watcher.Path)
+            string? newPath = string.IsNullOrEmpty(_watcher.Path)
                 ? FileSystem.GetDirectoryName(fileName)
                 : FileSystem.GetCommonPath(fileName, _watcher.Path);
-            if (string.IsNullOrEmpty(newPath))
+            if (newPath is null or { Length: 0 })
                 return;
 
             _watcher.Path = newPath;

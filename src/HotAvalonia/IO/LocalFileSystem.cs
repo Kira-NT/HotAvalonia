@@ -1,5 +1,6 @@
 #pragma warning disable RS0030 // Do not use banned APIs
 
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -35,6 +36,9 @@ internal sealed class LocalFileSystem : IFileSystem
     public IFileSystemWatcher CreateFileSystemWatcher() => new LocalFileSystemWatcher(this);
 
     /// <inheritdoc/>
+    ValueTask<IFileSystemWatcher> IFileSystem.CreateFileSystemWatcherAsync(CancellationToken cancellationToken) => new(CreateFileSystemWatcher());
+
+    /// <inheritdoc/>
     public DateTime GetLastWriteTimeUtc(string path) => File.GetLastWriteTimeUtc(path);
 
     /// <inheritdoc/>
@@ -44,10 +48,11 @@ internal sealed class LocalFileSystem : IFileSystem
     public string GetFullPath(string path) => Path.GetFullPath(path);
 
     /// <inheritdoc/>
-    public string GetDirectoryName(string path) => Path.GetDirectoryName(path);
+    public string? GetDirectoryName(string? path) => Path.GetDirectoryName(path);
 
     /// <inheritdoc/>
-    public string GetFileName(string path) => Path.GetFileName(path);
+    [return: NotNullIfNotNull(nameof(path))]
+    public string? GetFileName(string? path) => Path.GetFileName(path);
 
     /// <inheritdoc/>
     public string Combine(string path1, string path2) => Path.Combine(path1, path2);
@@ -83,6 +88,12 @@ internal sealed class LocalFileSystem : IFileSystem
 
     /// <inheritdoc/>
     Task<Stream> IFileSystem.OpenReadAsync(string path, CancellationToken cancellationToken) => Task.FromResult(OpenRead(path));
+
+    /// <inheritdoc/>
+    void IDisposable.Dispose() { }
+
+    /// <inheritdoc/>
+    ValueTask IAsyncDisposable.DisposeAsync() => default;
 }
 
 /// <summary>

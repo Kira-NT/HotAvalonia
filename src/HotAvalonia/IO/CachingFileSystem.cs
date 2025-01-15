@@ -52,6 +52,10 @@ internal sealed class CachingFileSystem : IFileSystem
         => _fileSystem.CreateFileSystemWatcher();
 
     /// <inheritdoc/>
+    public ValueTask<IFileSystemWatcher> CreateFileSystemWatcherAsync(CancellationToken cancellationToken = default)
+        => _fileSystem.CreateFileSystemWatcherAsync(cancellationToken);
+
+    /// <inheritdoc/>
     public bool DirectoryExists([NotNullWhen(true)] string? path)
         => _fileSystem.DirectoryExists(path);
 
@@ -93,11 +97,12 @@ internal sealed class CachingFileSystem : IFileSystem
         => _fileSystem.GetFullPath(path);
 
     /// <inheritdoc/>
-    public string GetDirectoryName(string path)
+    public string? GetDirectoryName(string? path)
         => _fileSystem.GetDirectoryName(path);
 
     /// <inheritdoc/>
-    public string GetFileName(string path)
+    [return: NotNullIfNotNull(nameof(path))]
+    public string? GetFileName(string? path)
         => _fileSystem.GetFileName(path);
 
     /// <inheritdoc/>
@@ -137,6 +142,14 @@ internal sealed class CachingFileSystem : IFileSystem
 
         return await _cache.GetOrAdd(path, x => new(x, _fileSystem)).OpenReadAsync(cancellationToken).ConfigureAwait(false);
     }
+
+    /// <inheritdoc/>
+    public void Dispose()
+        => _fileSystem.Dispose();
+
+    /// <inheritdoc/>
+    public ValueTask DisposeAsync()
+        => _fileSystem.DisposeAsync();
 
     /// <summary>
     /// Represents a cached file entry.
