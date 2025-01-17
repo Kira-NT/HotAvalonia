@@ -42,6 +42,36 @@ internal static class BitConverter
     public static string ToString(byte[] value) => System.BitConverter.ToString(value);
 
     /// <inheritdoc cref="System.BitConverter.GetBytes(bool)"/>
+    public static byte[] GetBytes(bool value) => System.BitConverter.GetBytes(value);
+
+    /// <inheritdoc cref="System.BitConverter.GetBytes(char)"/>
+    public static byte[] GetBytes(char value) => System.BitConverter.GetBytes(value);
+
+    /// <inheritdoc cref="System.BitConverter.GetBytes(short)"/>
+    public static byte[] GetBytes(short value) => System.BitConverter.GetBytes(value);
+
+    /// <inheritdoc cref="System.BitConverter.GetBytes(ushort)"/>
+    public static byte[] GetBytes(ushort value) => System.BitConverter.GetBytes(value);
+
+    /// <inheritdoc cref="System.BitConverter.GetBytes(int)"/>
+    public static byte[] GetBytes(int value) => System.BitConverter.GetBytes(value);
+
+    /// <inheritdoc cref="System.BitConverter.GetBytes(uint)"/>
+    public static byte[] GetBytes(uint value) => System.BitConverter.GetBytes(value);
+
+    /// <inheritdoc cref="System.BitConverter.GetBytes(long)"/>
+    public static byte[] GetBytes(long value) => System.BitConverter.GetBytes(value);
+
+    /// <inheritdoc cref="System.BitConverter.GetBytes(ulong)"/>
+    public static byte[] GetBytes(ulong value) => System.BitConverter.GetBytes(value);
+
+    /// <inheritdoc cref="System.BitConverter.GetBytes(float)"/>
+    public static byte[] GetBytes(float value) => System.BitConverter.GetBytes(value);
+
+    /// <inheritdoc cref="System.BitConverter.GetBytes(double)"/>
+    public static byte[] GetBytes(double value) => System.BitConverter.GetBytes(value);
+
+    /// <inheritdoc cref="System.BitConverter.GetBytes(bool)"/>
     public static bool TryWriteBytes(Span<byte> destination, bool value)
     {
         if (sizeof(bool) > destination.Length)
