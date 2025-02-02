@@ -1,10 +1,10 @@
-#pragma warning disable RS0030 // Do not use banned APIs
-
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace HotAvalonia.IO;
+
+#pragma warning disable RS0030 // Do not use banned APIs
 
 /// <summary>
 /// Provides functionality for interacting with the local file system.
@@ -94,22 +94,6 @@ internal sealed class LocalFileSystem : IFileSystem
 
     /// <inheritdoc/>
     ValueTask IAsyncDisposable.DisposeAsync() => default;
-}
-
-/// <summary>
-/// Listens to the local file system change notifications and raises
-/// events when a directory, or file in a directory, changes.
-/// </summary>
-file sealed class LocalFileSystemWatcher : FileSystemWatcher, IFileSystemWatcher
-{
-    /// <inheritdoc/>
-    public IFileSystem FileSystem { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="LocalFileSystemWatcher"/> class.
-    /// </summary>
-    /// <param name="fileSystem">The file system associated with this system.</param>
-    public LocalFileSystemWatcher(LocalFileSystem fileSystem) => FileSystem = fileSystem;
 }
 
 #pragma warning restore RS0030 // Do not use banned APIs
