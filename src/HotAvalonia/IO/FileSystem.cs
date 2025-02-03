@@ -10,6 +10,11 @@ namespace HotAvalonia.IO;
 public static class FileSystem
 {
     /// <summary>
+    /// Gets an empty, read-only file system.
+    /// </summary>
+    public static IFileSystem Empty { get; } = new EmptyFileSystem();
+
+    /// <summary>
     /// Gets the current file system.
     /// </summary>
     public static IFileSystem Current { get; } = new LocalFileSystem();
