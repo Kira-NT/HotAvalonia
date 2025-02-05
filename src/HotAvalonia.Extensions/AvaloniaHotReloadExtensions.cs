@@ -146,7 +146,11 @@ namespace HotAvalonia
         [DebuggerStepThrough]
         private static AvaloniaProjectLocator CreateAvaloniaProjectLocator()
         {
+#if ENABLE_REMOTE_XAML_HOT_RELOAD
+            return new AvaloniaProjectLocator(global::HotAvalonia.IO.FileSystem.Connect(global::HotAvalonia.IO.FileSystem.Empty));
+#else
             return new AvaloniaProjectLocator();
+#endif
         }
 #endif
 

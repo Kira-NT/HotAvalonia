@@ -139,7 +139,11 @@ Namespace Global.HotAvalonia
         ''' <returns>A new instance of the <see cref="AvaloniaProjectLocator"/> class.</returns>
         <DebuggerStepThrough>
         Private Function CreateAvaloniaProjectLocator() As AvaloniaProjectLocator
+#If ENABLE_REMOTE_XAML_HOT_RELOAD Then
+            Return New AvaloniaProjectLocator(HotAvalonia.IO.FileSystem.Connect(HotAvalonia.IO.FileSystem.Empty))
+#Else
             Return New AvaloniaProjectLocator()
+#End If
         End Function
 #End If
 

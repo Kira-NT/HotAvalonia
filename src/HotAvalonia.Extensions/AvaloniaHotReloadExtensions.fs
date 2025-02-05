@@ -30,6 +30,7 @@
 //#endregion
 
 #nowarn
+#nowarn FS3261
 
 namespace HotAvalonia
 
@@ -132,7 +133,11 @@ type internal AvaloniaHotReloadExtensions =
     /// <returns>A new instance of the <see cref="AvaloniaProjectLocator"/> class.</returns>
     [<DebuggerStepThrough>]
     static member private CreateAvaloniaProjectLocator() =
+#if ENABLE_REMOTE_XAML_HOT_RELOAD
+        AvaloniaProjectLocator(HotAvalonia.IO.FileSystem.Connect(HotAvalonia.IO.FileSystem.Empty))
+#else
         AvaloniaProjectLocator()
+#endif
 #endif
 
     /// <summary>
