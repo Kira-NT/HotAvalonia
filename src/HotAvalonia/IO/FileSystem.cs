@@ -1,3 +1,6 @@
+using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
+using System.Net;
 using System.Reflection;
 using System.Reflection.Emit;
 using HotAvalonia.Helpers;
@@ -18,6 +21,255 @@ public static class FileSystem
     /// Gets the current file system.
     /// </summary>
     public static IFileSystem Current { get; } = new LocalFileSystem();
+
+    /// <summary>
+    /// The length of time, in milliseconds, before a synchronous attempt
+    /// to connect to a remote file system times out.
+    /// </summary>
+    private static readonly int s_remoteFileSystemConnectionTimeout = 5000;
+
+    /// <summary>
+    /// Connects to a remote file system.
+    /// </summary>
+    /// <param name="endpoint">The remote endpoint to connect to.</param>
+    /// <param name="secret">The secret key used for authentication.</param>
+    /// <returns>A new instance of <see cref="IFileSystem"/> representing the remote file system.</returns>
+    public static IFileSystem Connect(IPEndPoint endpoint, byte[] secret)
+    {
+        using CancellationTokenSource cancellationTokenSource = new(s_remoteFileSystemConnectionTimeout);
+        return ConnectAsync(endpoint, secret, cancellationTokenSource.Token).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// Attempts to connect to a remote file system.
+    /// If the connection fails, returns <paramref name="fallbackFileSystem"/> instead.
+    /// </summary>
+    /// <param name="endpoint">The remote endpoint to connect to.</param>
+    /// <param name="secret">The secret key used for authentication.</param>
+    /// <param name="fallbackFileSystem">The fallback file system to use in case of failure.</param>
+    /// <returns>
+    /// A new instance of <see cref="IFileSystem"/> representing the remote file system
+    /// if the connection attempt was successful; otherwise, <paramref name="fallbackFileSystem"/>.
+    /// </returns>
+    [return: NotNullIfNotNull(nameof(fallbackFileSystem))]
+    public static IFileSystem? Connect(IPEndPoint endpoint, byte[] secret, IFileSystem? fallbackFileSystem)
+    {
+        using CancellationTokenSource cancellationTokenSource = new(s_remoteFileSystemConnectionTimeout);
+        return ConnectAsync(endpoint, secret, fallbackFileSystem, cancellationTokenSource.Token).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// Connects to a remote file system using configuration options inferred from the current assemblies.
+    /// </summary>
+    /// <returns>A new instance of <see cref="IFileSystem"/> representing the remote file system.</returns>
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public static IFileSystem Connect()
+    {
+        using CancellationTokenSource cancellationTokenSource = new(s_remoteFileSystemConnectionTimeout);
+        Assembly[] assemblies = [Assembly.GetCallingAssembly(), Assembly.GetEntryAssembly()];
+        return ConnectAsync(assemblies, cancellationTokenSource.Token).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// Attempts to connect to a remote file system using configuration options inferred from the current assemblies.
+    /// If the connection fails, returns <paramref name="fallbackFileSystem"/> instead.
+    /// </summary>
+    /// <param name="fallbackFileSystem">The fallback file system to use in case of failure.</param>
+    /// <returns>
+    /// A new instance of <see cref="IFileSystem"/> representing the remote file system
+    /// if the connection attempt was successful; otherwise, <paramref name="fallbackFileSystem"/>.
+    /// </returns>
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    [return: NotNullIfNotNull(nameof(fallbackFileSystem))]
+    public static IFileSystem? Connect(IFileSystem? fallbackFileSystem)
+    {
+        using CancellationTokenSource cancellationTokenSource = new(s_remoteFileSystemConnectionTimeout);
+        Assembly[] assemblies = [Assembly.GetCallingAssembly(), Assembly.GetEntryAssembly()];
+        return ConnectAsync(assemblies, fallbackFileSystem, cancellationTokenSource.Token).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// Asynchronously connects to a remote file system.
+    /// </summary>
+    /// <param name="endpoint">The remote endpoint to connect to.</param>
+    /// <param name="secret">The secret key used for authentication.</param>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    /// <returns>A new instance of <see cref="IFileSystem"/> representing the remote file system.</returns>
+    public static async Task<IFileSystem> ConnectAsync(IPEndPoint endpoint, byte[] secret, CancellationToken cancellationToken = default)
+    {
+        _ = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
+        _ = secret ?? throw new ArgumentNullException(nameof(secret));
+
+        return await RemoteFileSystem.ConnectAsync(endpoint, secret, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Attempts to asynchronously connect to a remote file system.
+    /// If the connection fails, returns <paramref name="fallbackFileSystem"/> instead.
+    /// </summary>
+    /// <param name="endpoint">The remote endpoint to connect to.</param>
+    /// <param name="secret">The secret key used for authentication.</param>
+    /// <param name="fallbackFileSystem">The fallback file system to use in case of failure.</param>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    /// <returns>
+    /// A new instance of <see cref="IFileSystem"/> representing the remote file system
+    /// if the connection attempt was successful; otherwise, <paramref name="fallbackFileSystem"/>.
+    /// </returns>
+    [return: NotNullIfNotNull(nameof(fallbackFileSystem))]
+    public static async Task<IFileSystem?> ConnectAsync(IPEndPoint endpoint, byte[] secret, IFileSystem? fallbackFileSystem, CancellationToken cancellationToken = default)
+    {
+        _ = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
+        _ = secret ?? throw new ArgumentNullException(nameof(secret));
+
+        try
+        {
+            return await RemoteFileSystem.ConnectAsync(endpoint, secret, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            LoggingHelper.Log("Failed to connect to the remote file system at '{Endpoint}': {Exception}", endpoint, e);
+            return fallbackFileSystem;
+        }
+    }
+
+    /// <summary>
+    /// Asynchronously connects to a remote file system using configuration
+    /// options inferred from the current assemblies.
+    /// </summary>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    /// <returns>A new instance of <see cref="IFileSystem"/> representing the remote file system.</returns>
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public static Task<IFileSystem> ConnectAsync(CancellationToken cancellationToken = default)
+        => ConnectAsync([Assembly.GetCallingAssembly(), Assembly.GetEntryAssembly()], cancellationToken);
+
+    /// <summary>
+    /// Attempts to asynchronously connect to a remote file system using configuration
+    /// options inferred from the current assemblies.
+    /// If the connection fails, returns <paramref name="fallbackFileSystem"/> instead.
+    /// </summary>
+    /// <param name="fallbackFileSystem">The fallback file system to use in case of failure.</param>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    /// <returns>
+    /// A new instance of <see cref="IFileSystem"/> representing the remote file system
+    /// if the connection attempt was successful; otherwise, <paramref name="fallbackFileSystem"/>.
+    /// </returns>
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    [return: NotNullIfNotNull(nameof(fallbackFileSystem))]
+    public static Task<IFileSystem?> ConnectAsync(IFileSystem? fallbackFileSystem, CancellationToken cancellationToken = default)
+        => ConnectAsync([Assembly.GetCallingAssembly(), Assembly.GetEntryAssembly()], fallbackFileSystem, cancellationToken);
+
+    /// <summary>
+    /// Asynchronously connects to a remote file system using configuration
+    /// options inferred from the current assemblies.
+    /// </summary>
+    /// <param name="assemblies">The assemblies used to infer the configuration options.</param>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    /// <returns>A new instance of <see cref="IFileSystem"/> representing the remote file system.</returns>
+    private static async Task<IFileSystem> ConnectAsync(IEnumerable<Assembly> assemblies, CancellationToken cancellationToken = default)
+    {
+        if (!TryGetRemoteFileSystemOptions(assemblies, out IPEndPoint? endpoint, out byte[]? secret))
+            throw new InvalidOperationException("Configuration options for connecting to the remote file system have not been provided.");
+
+        return await ConnectAsync(endpoint, secret, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Attempts to asynchronously connect to a remote file system using configuration
+    /// options inferred from the provided <paramref name="assemblies"/>.
+    /// If the connection fails, returns <paramref name="fallbackFileSystem"/> instead.
+    /// </summary>
+    /// <param name="assemblies">The assemblies used to infer the configuration options.</param>
+    /// <param name="fallbackFileSystem">The fallback file system to use in case of failure.</param>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    /// <returns>
+    /// A new instance of <see cref="IFileSystem"/> representing the remote file system
+    /// if the connection attempt was successful; otherwise, <paramref name="fallbackFileSystem"/>.
+    /// </returns>
+    [return: NotNullIfNotNull(nameof(fallbackFileSystem))]
+    private static async Task<IFileSystem?> ConnectAsync(IEnumerable<Assembly> assemblies, IFileSystem? fallbackFileSystem, CancellationToken cancellationToken = default)
+    {
+        if (!TryGetRemoteFileSystemOptions(assemblies, out IPEndPoint? endpoint, out byte[]? secret))
+        {
+            LoggingHelper.Log("Unable to determine configuration options for connecting to the remote file system.");
+            return fallbackFileSystem;
+        }
+
+        return await ConnectAsync(endpoint, secret, fallbackFileSystem, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Attempts to retrieve remote file system options from the specified assemblies.
+    /// </summary>
+    /// <param name="assemblies">A collection of assemblies to search for configuration options.</param>
+    /// <param name="endpoint">The remote endpoint to connect to, if found.</param>
+    /// <param name="secret">The secret key used for authentication, if found.</param>
+    /// <returns><c>true</c> if configuration options are found; otherwise, <c>false</c>.</returns>
+    private static bool TryGetRemoteFileSystemOptions(IEnumerable<Assembly> assemblies, [NotNullWhen(true)] out IPEndPoint? endpoint, [NotNullWhen(true)] out byte[]? secret)
+    {
+        foreach (Assembly assembly in assemblies)
+        {
+            if (TryGetRemoteFileSystemOptions(assembly, out endpoint, out secret))
+                return true;
+        }
+
+        endpoint = null;
+        secret = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Attempts to retrieve remote file system options from the specified assembly.
+    /// </summary>
+    /// <param name="assembly">The assembly to search for configuration options.</param>
+    /// <param name="endpoint">The remote endpoint to connect to, if found.</param>
+    /// <param name="secret">The secret key used for authentication, if found.</param>
+    /// <returns><c>true</c> if configuration options are found; otherwise, <c>false</c>.</returns>
+    private static bool TryGetRemoteFileSystemOptions(Assembly assembly, [NotNullWhen(true)] out IPEndPoint? endpoint, [NotNullWhen(true)] out byte[]? secret)
+    {
+        const string IpAddressName = $"{nameof(HotAvalonia)}:RemoteFileSystemIpAddress";
+        const string PortName = $"{nameof(HotAvalonia)}:RemoteFileSystemPort";
+        const string SecretName = $"{nameof(HotAvalonia)}:RemoteFileSystemSecret";
+
+        IPAddress? ipAddress = null;
+        int port = 0;
+        secret = null;
+        endpoint = null;
+        foreach (AssemblyMetadataAttribute attribute in assembly.GetCustomAttributes<AssemblyMetadataAttribute>())
+        {
+            switch (attribute.Key)
+            {
+                case IpAddressName:
+                    if (!IPAddress.TryParse(attribute.Value, out ipAddress))
+                    {
+                        ipAddress = null;
+                        return false;
+                    }
+                    break;
+
+                case PortName:
+                    if (!int.TryParse(attribute.Value, out port))
+                    {
+                        port = 0;
+                        return false;
+                    }
+                    break;
+
+                case SecretName:
+                    try
+                    {
+                        secret = Convert.FromBase64String(attribute.Value);
+                        break;
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+            }
+        }
+
+        endpoint = new(ipAddress ?? IPAddress.Any, port);
+        return port > 0 && secret is not null;
+    }
 
     /// <summary>
     /// A factory function used to instantiate <see cref="FileSystemEventArgs"/> objects.
