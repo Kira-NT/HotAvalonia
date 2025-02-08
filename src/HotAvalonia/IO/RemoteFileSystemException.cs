@@ -75,6 +75,7 @@ internal sealed class RemoteFileSystemException : Exception
         string message = Encoding.UTF8.GetString(value, sizeof(int) + typeNameByteCount, messageByteCount);
 
         Exception? exception = null;
+#if !NATIVE_AOT
         try
         {
             Type? exceptionType = Type.GetType(typeName);
@@ -84,6 +85,7 @@ internal sealed class RemoteFileSystemException : Exception
             exception = (Exception?)Activator.CreateInstance(exceptionType, message);
         }
         catch { }
+#endif
 
         exception ??= new(message);
         return exception;
