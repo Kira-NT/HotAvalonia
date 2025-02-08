@@ -1,5 +1,9 @@
 <Project>
 
+  <PropertyGroup Condition="'$(PublishAot)' == 'true'">
+    <DefineConstants>$(DefineConstants);NATIVE_AOT</DefineConstants>
+  </PropertyGroup>
+
   <PropertyGroup Condition="!$(GITHUB_REF.StartsWith('refs/tags/'))">
     <Version Condition="'$(GITHUB_RUN_NUMBER)' != ''">$(Version)-build.$(GITHUB_RUN_NUMBER)</Version>
   </PropertyGroup>
