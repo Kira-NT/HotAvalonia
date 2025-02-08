@@ -27,4 +27,8 @@
     <None Include="$(MSBuildThisFileDirectory)media/icon.png" Pack="true" PackagePath="" Visible="false" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(PublishLzmaCompressed)' == 'true'">
+    <PackageReference Include="PublishAotCompressed" Version="1.0.3" />
+  </ItemGroup>
+
 </Project>
