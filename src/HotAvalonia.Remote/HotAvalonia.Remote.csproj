@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>HotAvalonia</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net7.0;net9.0</TargetFrameworks>
+    <RollForward>LatestMajor</RollForward>
+    <NoWarn>$(NoWarn);NETSDK1138;IL3000</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PublishRelease>true</PublishRelease>
+    <PublishAot>true</PublishAot>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>full</TrimMode>
+    <OptimizationPreference>size</OptimizationPreference>
+    <DebuggerSupport>false</DebuggerSupport>
+    <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+    <EnableUnsafeUTF7Encoding>false</EnableUnsafeUTF7Encoding>
+    <EventSourceSupport>false</EventSourceSupport>
+    <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+    <MetricsSupport>false</MetricsSupport>
+    <StackTraceSupport>false</StackTraceSupport>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <XmlResolverIsNetworkingEnabledByDefault>false</XmlResolverIsNetworkingEnabledByDefault>
+
+    <!-- https://github.com/dotnet/runtime/issues/75487#issuecomment-1248987119 -->
+    <IlcScanReflection>false</IlcScanReflection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../HotAvalonia/IO/FileSystemState.cs" Link="IO/FileSystemState.cs" />
+    <Compile Include="../HotAvalonia/IO/RemoteFileSystem.Shared.cs" Link="IO/RemoteFileSystem.Shared.cs" />
+    <Compile Include="../HotAvalonia/IO/RemoteFileSystemException.cs" Link="IO/RemoteFileSystemException.cs" />
+    <Compile Include="../HotAvalonia/IO/RemoteFileSystemWatcher.Shared.cs" Link="IO/RemoteFileSystemWatcher.Shared.cs" />
+    <Compile Include="../HotAvalonia/Net/SslTcpClient.cs" Link="Net/SslTcpClient.cs" />
+  </ItemGroup>
+
+</Project>
