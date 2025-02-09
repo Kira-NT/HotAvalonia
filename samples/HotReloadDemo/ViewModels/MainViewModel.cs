@@ -1,4 +1,4 @@
-﻿using System.Reactive;
+using System.Reactive;
 using System.Reactive.Linq;
 using HotReloadDemo.Models;
 using HotReloadDemo.Services;
@@ -6,16 +6,16 @@ using ReactiveUI;
 
 namespace HotReloadDemo.ViewModels;
 
-public class MainWindowViewModel : ViewModelBase
+public class MainViewModel : ViewModelBase
 {
     private object _content;
 
-    public MainWindowViewModel()
+    public MainViewModel()
         : this(new FakeToDoItemProvider())
     {
     }
 
-    public MainWindowViewModel(IToDoItemProvider provider)
+    public MainViewModel(IToDoItemProvider provider)
     {
         ToDoList = new(provider.GetItems());
         _content = ToDoList;

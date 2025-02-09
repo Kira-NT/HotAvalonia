@@ -1,0 +1,15 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:HotReloadDemo.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="450"
+        x:Class="HotReloadDemo.Views.MainView"
+        x:DataType="vm:MainViewModel"
+        Content="{Binding Content}">
+
+  <Design.DataContext>
+    <vm:MainViewModel/>
+  </Design.DataContext>
+
+</UserControl>
