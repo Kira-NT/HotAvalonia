@@ -161,11 +161,20 @@ internal sealed partial class RemoteFileSystem : IDisposable
     {
         while (true)
         {
-            SslTcpClient client = await _listener.AcceptTcpClientAsync(cancellationToken);
-            if (await PerformHandshakeAsync(client.GetStream(), _secret, cancellationToken))
-                return new(client);
+            cancellationToken.ThrowIfCancellationRequested();
 
-            await client.DisposeAsync();
+            try
+            {
+                SslTcpClient client = await _listener.AcceptTcpClientAsync(cancellationToken);
+                if (await PerformHandshakeAsync(client.GetStream(), _secret, cancellationToken))
+                    return new(client);
+
+                await client.DisposeAsync();
+            }
+            catch
+            {
+                continue;
+            }
         }
     }
 
