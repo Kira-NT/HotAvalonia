@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using HotAvalonia.Helpers;
 using HotAvalonia.IO;
+using FileSystemProvider = HotAvalonia.IO.FileSystem;
 
 namespace HotAvalonia;
 
@@ -182,7 +183,9 @@ public sealed class AvaloniaProjectLocator
         if (control is null)
             return false;
 
-        string? controlPath = control.PopulateMethod.GetFilePath(_fileSystem);
+        // We expect the assembly that contains the control to be accessible locally.
+        string? controlPath = control.PopulateMethod.GetFilePath(FileSystemProvider.Current);
+        controlPath ??= control.PopulateMethod.GetFilePath(_fileSystem);
         if (!_fileSystem.FileExists(controlPath))
             return false;
 
