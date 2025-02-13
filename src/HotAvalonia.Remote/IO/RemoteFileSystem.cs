@@ -34,6 +34,11 @@ internal sealed partial class RemoteFileSystem : IDisposable
     private readonly ConcurrentDictionary<RemoteFileSystemWatcher, object?> _fileSystemWatchers;
 
     /// <summary>
+    /// The number of active clients being processed by this instance.
+    /// </summary>
+    private int _clientCount;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="RemoteFileSystem"/> class.
     /// </summary>
     /// <param name="root">The root directory for the file system.</param>
@@ -76,6 +81,7 @@ internal sealed partial class RemoteFileSystem : IDisposable
         _secret = secret;
         _listener = listener;
         _fileSystemWatchers = new();
+        _clientCount = 0;
     }
 
     /// <summary>
@@ -91,6 +97,11 @@ internal sealed partial class RemoteFileSystem : IDisposable
     /// of file paths returned by methods like <see cref="GetFiles(byte[])"/>.
     /// </remarks>
     public int MaxSearchDepth { get; set; }
+
+    /// <summary>
+    /// Gets the number of active clients being processed by this instance.
+    /// </summary>
+    public int ClientCount => Math.Max(_clientCount, 0);
 
     /// <inheritdoc cref="RunAsync(int, CancellationToken)"/>
     public Task RunAsync(CancellationToken cancellationToken) => RunAsync(-1, cancellationToken);
@@ -137,8 +148,11 @@ internal sealed partial class RemoteFileSystem : IDisposable
         while (!cancellationToken.IsCancellationRequested)
         {
             RemoteFileSystemClient client = await AcceptClientAsync(cancellationToken);
+
+            Interlocked.Increment(ref _clientCount);
             Task clientTask = Task.Run(() => ProcessClientAsync(client, cancellationToken).ContinueWith(async t =>
             {
+                Interlocked.Decrement(ref _clientCount);
                 clients.TryRemove(client, out _);
                 if (client.ShouldShutdownOnEndOfStream && t.Exception is not null)
                 {
@@ -146,6 +160,7 @@ internal sealed partial class RemoteFileSystem : IDisposable
                     await client.DisposeAsync();
                 }
             }));
+
             clients[client] = clientTask;
         }
 
