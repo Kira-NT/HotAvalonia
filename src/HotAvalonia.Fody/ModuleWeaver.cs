@@ -33,6 +33,9 @@ public sealed class ModuleWeaver : BaseModuleWeaver
 
         foreach (FeatureWeaver feature in _features)
         {
+            if (!feature.Enabled)
+                continue;
+
             WriteInfo($"Running '{feature.GetType().Name}' against '{AssemblyFilePath}'...");
             feature.Execute();
         }
@@ -42,7 +45,12 @@ public sealed class ModuleWeaver : BaseModuleWeaver
     public override void AfterWeaving()
     {
         foreach (FeatureWeaver feature in _features)
+        {
+            if (!feature.Enabled)
+                continue;
+
             feature.AfterWeaving();
+        }
 
         WriteInfo($"Finished weaving '{AssemblyFilePath}'!");
     }
@@ -51,6 +59,11 @@ public sealed class ModuleWeaver : BaseModuleWeaver
     public override void Cancel()
     {
         foreach (FeatureWeaver feature in _features)
+        {
+            if (!feature.Enabled)
+                continue;
+
             feature.Cancel();
+        }
     }
 }
