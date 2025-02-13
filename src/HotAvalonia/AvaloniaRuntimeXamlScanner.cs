@@ -34,14 +34,27 @@ public static class AvaloniaRuntimeXamlScanner
     public static DynamicAssembly? DynamicXamlAssembly => s_dynamicXamlAssembly ??= GetDynamicXamlAssembly();
 
     /// <summary>
+    /// The assembly containing XamlX type definitions.
+    /// </summary>
+    //
+    // Please **DO NOT** delete this property!
+    // This is a small hack to force `DynamicSreAssembly` to generate its backing type.
+    // Currently, there is an issue where it happens slightly too late on Mono,
+    // causing the `IgnoresAccessChecksToAttribute("Avalonia.Markup.Xaml.Loader")` to be
+    // ignored (ironic) by the runtime, because something from that assembly has already
+    // seeped into our dynamic one by that point.
+    // Since we CANNOT create `DynamicXamlAssembly`, which is what we actually need, earlier,
+    // we use this trick to initialize `DynamicSreAssembly` as soon as this class is accessed.
+    internal static Assembly XamlLoaderAssembly { get; } = DynamicSreAssembly.Create(typeof(AvaloniaRuntimeXamlLoader).Assembly, null!).Assembly;
+
+    /// <summary>
     /// Retrieves the dynamically generated assembly containing compiled XAML.
     /// </summary>
     /// <returns>The dynamically generated assembly, if any; otherwise, <c>null</c>.</returns>
     private static DynamicAssembly? GetDynamicXamlAssembly()
     {
-        Assembly xamlLoaderAssembly = typeof(AvaloniaRuntimeXamlLoader).Assembly;
-        Type xamlAssembly = xamlLoaderAssembly.GetType("XamlX.TypeSystem.IXamlAssembly") ?? typeof(object);
-        Type? xamlIlRuntimeCompiler = xamlLoaderAssembly.GetType("Avalonia.Markup.Xaml.XamlIl.AvaloniaXamlIlRuntimeCompiler");
+        Type xamlAssembly = XamlLoaderAssembly.GetType("XamlX.TypeSystem.IXamlAssembly") ?? typeof(object);
+        Type? xamlIlRuntimeCompiler = XamlLoaderAssembly.GetType("Avalonia.Markup.Xaml.XamlIl.AvaloniaXamlIlRuntimeCompiler");
 
         MethodInfo? initializeSre = xamlIlRuntimeCompiler?.GetStaticMethod("InitializeSre", Type.EmptyTypes);
         initializeSre?.Invoke(null, null);
