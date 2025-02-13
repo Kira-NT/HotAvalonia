@@ -35,7 +35,7 @@ public sealed class Program
     /// <returns><c>true</c> if the application ran successfully; otherwise, <c>false</c>.</returns>
     public static async Task<bool> RunAsync(string[] args, CancellationToken cancellationToken)
     {
-        if (!ProcessArguments(args, out RemoteFileSystem? remoteFileSystem))
+        if (!ProcessArguments(args, out RemoteFileSystem? remoteFileSystem, out int timeout))
         {
             Error();
             Error(Help);
@@ -47,6 +47,10 @@ public sealed class Program
 
         try
         {
+            using CancellationTokenSource? cancellationTokenSource = timeout > 0 ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken) : null;
+            using Timer? timer = timeout > 0 ? new(_ => (remoteFileSystem.ClientCount == 0 ? cancellationTokenSource : null)?.Cancel(), null, timeout, timeout) : null;
+            cancellationToken = cancellationTokenSource?.Token ?? cancellationToken;
+
             using RemoteFileSystem fileSystem = remoteFileSystem;
             await fileSystem.RunAsync(cancellationToken);
             return true;
@@ -162,6 +166,13 @@ public sealed class Program
               A value of 0 or less indicates no limit.
               Default: 0.
 
+          -t, --timeout <timeout>
+              Specifies the timeout duration in milliseconds before the server shuts down
+              if no clients have connected during the provided time frame.
+              A positive value sets the timeout period.
+              A value of 0 or less indicates no timeout.
+              Default: 0.
+
           --allow-shutdown-requests
               When specified, allows the server to accept shutdown requests from clients.
         """;
@@ -196,13 +207,19 @@ public sealed class Program
     /// When this method returns, contains the configured <see cref="RemoteFileSystem"/> instance if the parsing succeeded;
     /// otherwise, <c>null</c>.
     /// </param>
+    /// <param name="timeout">
+    /// When this method returns, contains the timeout duration in milliseconds before the server
+    /// should shut down if no clients have connected during the specified time frame.
+    /// </param>
     /// <returns>
     /// <c>true</c> if the arguments were successfully processed and a <see cref="RemoteFileSystem"/> instance was created;
     /// otherwise, <c>false</c>.
     /// </returns>
-    private static bool ProcessArguments(ReadOnlySpan<string> args, out RemoteFileSystem? remoteFileSystem)
+    private static bool ProcessArguments(ReadOnlySpan<string> args, out RemoteFileSystem? remoteFileSystem, out int timeout)
     {
+        timeout = 0;
         remoteFileSystem = null;
+
         string root = DefaultRoot;
         byte[]? secret = null;
         IPEndPoint? endpoint = DefaultEndpoint;
@@ -279,6 +296,14 @@ public sealed class Program
                 case "--max-search-depth" when args.Length >= 2:
                     if (!int.TryParse(args[1], out maxSearchDepth))
                         return Error("Invalid max search depth provided. Must be a valid integer.");
+
+                    args = args.Slice(1);
+                    break;
+
+                case "-t" when args.Length >= 2:
+                case "--timeout" when args.Length >= 2:
+                    if (!int.TryParse(args[1], out timeout))
+                        return Error("Invalid timeout provided. Must be a valid integer.");
 
                     args = args.Slice(1);
                     break;
