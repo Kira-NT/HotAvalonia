@@ -101,7 +101,7 @@ internal sealed class SslTcpClient : IDisposable, IAsyncDisposable
         _ = client ?? throw new ArgumentNullException(nameof(client));
         _ = targetHost ?? throw new ArgumentNullException(nameof(targetHost));
 
-        SslStream sslStream = new(client.GetStream(), false, ValidateRemoteCertificate, null);
+        SslStream sslStream = new(client.GetStream(), false, (s, c, h, e) => ValidateRemoteCertificate(s, targetHost, c, h, e), null);
         SslTcpClient sslClient = new(client, sslStream);
         try
         {
@@ -128,7 +128,7 @@ internal sealed class SslTcpClient : IDisposable, IAsyncDisposable
         _ = client ?? throw new ArgumentNullException(nameof(client));
         _ = targetHost ?? throw new ArgumentNullException(nameof(targetHost));
 
-        SslStream sslStream = new(client.GetStream(), false, ValidateRemoteCertificate, null);
+        SslStream sslStream = new(client.GetStream(), false, (s, c, h, e) => ValidateRemoteCertificate(s, targetHost, c, h, e), null);
         SslTcpClient sslClient = new(client, sslStream);
         try
         {
@@ -153,19 +153,36 @@ internal sealed class SslTcpClient : IDisposable, IAsyncDisposable
     /// Validates the remote certificate provided during the SSL/TLS handshake.
     /// </summary>
     /// <param name="sender">The sender object of the validation request.</param>
+    /// <param name="targetHost">The target host for server authentication.</param>
     /// <param name="certificate">The remote party's certificate.</param>
     /// <param name="chain">The certificate chain associated with the remote party.</param>
     /// <param name="errors">The SSL policy errors detected during the validation.</param>
     /// <returns><c>true</c> if the certificate is valid; otherwise, <c>false</c>.</returns>
-    private static bool ValidateRemoteCertificate(object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors errors)
+    private static bool ValidateRemoteCertificate(object sender, string targetHost, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors errors)
     {
         if (sender is null || certificate is null)
             return false;
 
+        // We may have a proxy in our way, especially when the app is running in an emulator.
+        // Therefore, we need to relax certificate name checking rules a bit.
+        if (errors.HasFlag(SslPolicyErrors.RemoteCertificateNameMismatch))
+        {
+            string subject = $"CN={targetHost}";
+            if (certificate.Subject == subject && certificate.Issuer == subject)
+                errors &= ~SslPolicyErrors.RemoteCertificateNameMismatch;
+        }
+
         // We want to allow self-signed certificates.
         // Thus, don't treat `UntrustedRoot` as an error condition.
-        if (errors is SslPolicyErrors.RemoteCertificateChainErrors)
-            return chain?.ChainStatus.All(static x => x.Status is X509ChainStatusFlags.NoError or X509ChainStatusFlags.UntrustedRoot) ?? false;
+        if (errors.HasFlag(SslPolicyErrors.RemoteCertificateChainErrors))
+        {
+            const X509ChainStatusFlags noError = X509ChainStatusFlags.NoError;
+            const X509ChainStatusFlags allowedErrors = X509ChainStatusFlags.UntrustedRoot | X509ChainStatusFlags.PartialChain;
+
+            X509ChainStatusFlags chainStatus = chain?.ChainStatus.Aggregate(noError, (acc, x) => acc | x.Status) ?? noError;
+            if ((chainStatus & ~allowedErrors) == noError)
+                errors &= ~SslPolicyErrors.RemoteCertificateChainErrors;
+        }
 
         return errors is SslPolicyErrors.None;
     }
