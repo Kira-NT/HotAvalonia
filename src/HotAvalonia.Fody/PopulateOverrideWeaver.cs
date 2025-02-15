@@ -73,7 +73,7 @@ internal sealed class PopulateOverrideWeaver : FeatureWeaver
     /// </summary>
     /// <param name="declaringType">The type containing the resource definitions.</param>
     /// <param name="resource">The resource to process.</param>
-    private void ProcessAvaloniaResource(TypeDefinition declaringType, AvaloniaResource resource)
+    private void ProcessAvaloniaResource(TypeDefinition declaringType, in AvaloniaResource resource)
     {
         string populateOverrideName = $"PopulateOverride:{resource.Uri}";
         FieldDefinition populateOverride = CreatePopulateOverride(populateOverrideName);
@@ -83,7 +83,7 @@ internal sealed class PopulateOverrideWeaver : FeatureWeaver
         MethodDefinition populateTrampoline = CreatePopulateTrampoline(populateTrampolineName, resource.Populate, populateOverride);
         declaringType.Methods.Add(populateTrampoline);
 
-        ReplaceMethodReferences(resource.Build, resource.Populate, populateTrampoline);
+        resource.Build.ReplaceMethodReferences(resource.Populate, populateTrampoline);
     }
 
     /// <summary>
@@ -126,25 +126,6 @@ internal sealed class PopulateOverrideWeaver : FeatureWeaver
         il.Emit(OpCodes.Ret);
 
         return populateTrampoline;
-    }
-
-    /// <summary>
-    /// Replaces references to the target method with references
-    /// to the replacement method in the specified method body.
-    /// </summary>
-    /// <param name="method">The method in which to replace references.</param>
-    /// <param name="target">The original target method reference.</param>
-    /// <param name="replacement">The replacement method reference.</param>
-    private static void ReplaceMethodReferences(MethodDefinition method, MethodReference target, MethodReference replacement)
-    {
-        foreach (Instruction instruction in method.Body.Instructions)
-        {
-            // Obviously, determining method equality solely by name is not correct. However, it suits our
-            // needs in this simple case, and I couldn't be bothered to implement it properly right now.
-            // So what? Bite me.
-            if (instruction.Operand is MethodReference callee && callee.Name == target.Name)
-                instruction.Operand = replacement;
-        }
     }
 
     /// <summary>
