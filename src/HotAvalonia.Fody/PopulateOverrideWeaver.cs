@@ -1,8 +1,7 @@
-using Fody;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
-using Mono.Cecil.Rocks;
-using DelegateReference = (Mono.Cecil.TypeReference Delegate, Mono.Cecil.MethodReference Invoke);
+using HotAvalonia.Fody.Helpers;
+using HotAvalonia.Fody.Cecil;
 using AvaloniaResource = (string Uri, Mono.Cecil.MethodDefinition Build, Mono.Cecil.MethodDefinition Populate);
 
 namespace HotAvalonia.Fody;
@@ -15,7 +14,7 @@ internal sealed class PopulateOverrideWeaver : FeatureWeaver
     /// <summary>
     /// A reference to the delegate type used for the "populate override" mechanism.
     /// </summary>
-    private readonly Lazy<DelegateReference> _populateOverrideReference;
+    private readonly CecilMethod _populateOverrideInvoke;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PopulateOverrideWeaver"/> class.
@@ -23,7 +22,7 @@ internal sealed class PopulateOverrideWeaver : FeatureWeaver
     /// <param name="root">The root module weaver providing context and shared functionality.</param>
     public PopulateOverrideWeaver(ModuleWeaver root) : base(root)
     {
-        _populateOverrideReference = new(ImportPopulateOverrideDelegate);
+        _populateOverrideInvoke = new CecilType(typeof(Action<IServiceProvider, object>), root).GetMethod(x => x.GetMethod(nameof(Action.Invoke), [typeof(IServiceProvider), typeof(object)]));
     }
 
     /// <inheritdoc/>
@@ -92,7 +91,7 @@ internal sealed class PopulateOverrideWeaver : FeatureWeaver
     /// <param name="name">The name of the field.</param>
     /// <returns>A new <see cref="FieldDefinition"/> representing the populate override field.</returns>
     private FieldDefinition CreatePopulateOverride(string name)
-        => new(name, FieldAttributes.Public | FieldAttributes.Static, _populateOverrideReference.Value.Delegate);
+        => new(name, FieldAttributes.Public | FieldAttributes.Static, _populateOverrideInvoke.DeclaringType);
 
     /// <summary>
     /// Creates a trampoline method that invokes the populate method, optionally using the override delegate.
@@ -116,7 +115,7 @@ internal sealed class PopulateOverrideWeaver : FeatureWeaver
         il.Emit(OpCodes.Ldsfld, populateOverride);
         il.Emit(OpCodes.Ldarg_0);
         il.Emit(OpCodes.Ldarg_1);
-        il.Emit(OpCodes.Call, _populateOverrideReference.Value.Invoke);
+        il.Emit(OpCodes.Call, _populateOverrideInvoke);
         il.Emit(OpCodes.Ret);
 
         il.Append(noOverride);
@@ -126,37 +125,5 @@ internal sealed class PopulateOverrideWeaver : FeatureWeaver
         il.Emit(OpCodes.Ret);
 
         return populateTrampoline;
-    }
-
-    /// <summary>
-    /// Imports the delegate type and its invoke method used for the populate override mechanism.
-    /// </summary>
-    /// <returns>
-    /// A <see cref="DelegateReference"/> containing the imported delegate type and its invoke method.
-    /// </returns>
-    private DelegateReference ImportPopulateOverrideDelegate()
-    {
-        TypeDefinition actionTypeDef = FindTypeDefinition("System.Action`2");
-        MethodDefinition actionInvokeDef = actionTypeDef.GetMethods().FirstOrDefault(x => x.Name == nameof(Action.Invoke));
-        TypeReference actionTypeRef = ModuleDefinition.ImportReference(actionTypeDef);
-        MethodReference actionInvokeRef = ModuleDefinition.ImportReference(actionInvokeDef);
-
-        TypeDefinition serviceProviderDef = FindTypeDefinition("System.IServiceProvider");
-        TypeReference serviceProviderRef = ModuleDefinition.ImportReference(serviceProviderDef);
-        GenericInstanceType populateOverrideDelegateDef = actionTypeRef.MakeGenericInstanceType(serviceProviderRef, TypeSystem.ObjectReference);
-        TypeReference populateOverrideDelegateRef = ModuleDefinition.ImportReference(populateOverrideDelegateDef);
-
-        MethodReference populateOverrideInvokeRef = new(actionInvokeRef.Name, actionInvokeRef.ReturnType)
-        {
-            DeclaringType = populateOverrideDelegateRef,
-            HasThis = actionInvokeRef.HasThis,
-            ExplicitThis = actionInvokeRef.ExplicitThis,
-            CallingConvention = actionInvokeRef.CallingConvention,
-        };
-        foreach (ParameterDefinition parameter in actionInvokeRef.Parameters)
-            populateOverrideInvokeRef.Parameters.Add(parameter);
-
-        populateOverrideInvokeRef = ModuleDefinition.ImportReference(populateOverrideInvokeRef, populateOverrideDelegateRef);
-        return (populateOverrideDelegateDef, populateOverrideInvokeRef);
     }
 }
