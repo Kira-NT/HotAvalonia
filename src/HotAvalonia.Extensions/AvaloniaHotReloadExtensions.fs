@@ -30,6 +30,7 @@
 //#endregion
 
 #nowarn
+#nowarn FS0044
 #nowarn FS3261
 
 namespace HotAvalonia
@@ -90,10 +91,10 @@ type internal AvaloniaHotReloadExtensions =
     /// <returns>A factory method for creating an <see cref="IHotReloadContext"/> instance.</returns>
     [<DebuggerStepThrough>]
     static member private CreateHotReloadContextFactory(controlType: Type, controlFilePath: string) = fun() ->
-        if not (String.IsNullOrEmpty(controlFilePath) || File.Exists(controlFilePath)) then
+        let projectLocator = AvaloniaProjectLocator(AvaloniaHotReloadExtensions.GetFileSystem())
+        if not (String.IsNullOrEmpty(controlFilePath) || projectLocator.FileSystem.FileExists(controlFilePath)) then
             raise (FileNotFoundException("The corresponding XAML file could not be found.", controlFilePath))
 
-        let projectLocator: AvaloniaProjectLocator = AvaloniaHotReloadExtensions.CreateAvaloniaProjectLocator()
         if not (String.IsNullOrEmpty(controlFilePath)) then
             projectLocator.AddHint(controlType, controlFilePath)
 
@@ -107,7 +108,7 @@ type internal AvaloniaHotReloadExtensions =
     /// <returns>A factory method for creating an <see cref="IHotReloadContext"/> instance.</returns>
     [<DebuggerStepThrough>]
     static member private CreateHotReloadContextFactory(projectPathResolver: Func<Assembly, string | null> | null) = fun() ->
-        let projectLocator: AvaloniaProjectLocator = AvaloniaHotReloadExtensions.CreateAvaloniaProjectLocator()
+        let projectLocator = AvaloniaProjectLocator(AvaloniaHotReloadExtensions.GetFileSystem())
         match projectPathResolver with
         | null -> ()
         | hint -> projectLocator.AddHint(hint)
@@ -128,15 +129,15 @@ type internal AvaloniaHotReloadExtensions =
 #endif
 
     /// <summary>
-    /// Creates a new instance of the <see cref="AvaloniaProjectLocator"/> class.
+    /// Gets the current file system instance.
     /// </summary>
-    /// <returns>A new instance of the <see cref="AvaloniaProjectLocator"/> class.</returns>
+    /// <returns>The current file system instance.</returns>
     [<DebuggerStepThrough>]
-    static member private CreateAvaloniaProjectLocator() =
+    static member private GetFileSystem() =
 #if ENABLE_REMOTE_XAML_HOT_RELOAD
-        AvaloniaProjectLocator(HotAvalonia.IO.FileSystem.Connect(HotAvalonia.IO.FileSystem.Empty))
+        HotAvalonia.IO.FileSystem.Connect(HotAvalonia.IO.FileSystem.Empty)
 #else
-        AvaloniaProjectLocator()
+        HotAvalonia.IO.FileSystem.Current
 #endif
 #endif
 

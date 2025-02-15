@@ -88,11 +88,11 @@ Namespace Global.HotAvalonia
         <DebuggerStepThrough>
         Private Function CreateHotReloadContextFactory(ByVal controlType As Type, ByVal controlFilePath As String) As Func(Of IHotReloadContext)
             Return Function()
-                If Not String.IsNullOrEmpty(controlFilePath) AndAlso Not File.Exists(controlFilePath) Then
+                Dim projectLocator as AvaloniaProjectLocator = New AvaloniaProjectLocator(GetFileSystem())
+                If Not String.IsNullOrEmpty(controlFilePath) AndAlso Not projectLocator.FileSystem.FileExists(controlFilePath) Then
                     Throw New FileNotFoundException("The corresponding XAML file could not be found.", controlFilePath)
                 End If
 
-                Dim projectLocator as AvaloniaProjectLocator = CreateAvaloniaProjectLocator()
                 If Not String.IsNullOrEmpty(controlFilePath) Then
                     projectLocator.AddHint(controlType, controlFilePath)
                 End If
@@ -110,7 +110,7 @@ Namespace Global.HotAvalonia
         <DebuggerStepThrough>
         Private Function CreateHotReloadContextFactory(ByVal projectPathResolver As Func(Of Assembly, String)) As Func(Of IHotReloadContext)
             Return Function()
-                Dim projectLocator as AvaloniaProjectLocator = CreateAvaloniaProjectLocator()
+                Dim projectLocator as AvaloniaProjectLocator = New AvaloniaProjectLocator(GetFileSystem())
                 If projectPathResolver IsNot Nothing
                     projectLocator.AddHint(projectPathResolver)
                 End If
@@ -134,15 +134,15 @@ Namespace Global.HotAvalonia
         End Function
 
         ''' <summary>
-        ''' Creates a new instance of the <see cref="AvaloniaProjectLocator"/> class.
+        ''' Gets the current file system instance.
         ''' </summary>
-        ''' <returns>A new instance of the <see cref="AvaloniaProjectLocator"/> class.</returns>
+        ''' <returns>The current file system instance.</returns>
         <DebuggerStepThrough>
-        Private Function CreateAvaloniaProjectLocator() As AvaloniaProjectLocator
+        Private Function GetFileSystem() As HotAvalonia.IO.IFileSystem
 #If ENABLE_REMOTE_XAML_HOT_RELOAD Then
-            Return New AvaloniaProjectLocator(HotAvalonia.IO.FileSystem.Connect(HotAvalonia.IO.FileSystem.Empty))
+            Return HotAvalonia.IO.FileSystem.Connect(HotAvalonia.IO.FileSystem.Empty)
 #Else
-            Return New AvaloniaProjectLocator()
+            Return HotAvalonia.IO.FileSystem.Current
 #End If
         End Function
 #End If

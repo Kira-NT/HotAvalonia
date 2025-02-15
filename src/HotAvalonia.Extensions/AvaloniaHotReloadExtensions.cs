@@ -94,10 +94,10 @@ namespace HotAvalonia
         {
             return new Func<IHotReloadContext>(() =>
             {
-                if (!string.IsNullOrEmpty(controlFilePath) && !File.Exists(controlFilePath))
+                AvaloniaProjectLocator projectLocator = new AvaloniaProjectLocator(GetFileSystem());
+                if (!string.IsNullOrEmpty(controlFilePath) && !projectLocator.FileSystem.FileExists(controlFilePath))
                     throw new FileNotFoundException("The corresponding XAML file could not be found.", controlFilePath);
 
-                AvaloniaProjectLocator projectLocator = CreateAvaloniaProjectLocator();
                 if (!string.IsNullOrEmpty(controlFilePath))
                     projectLocator.AddHint(controlType, controlFilePath);
 
@@ -116,7 +116,7 @@ namespace HotAvalonia
         {
             return new Func<IHotReloadContext>(() =>
             {
-                AvaloniaProjectLocator projectLocator = CreateAvaloniaProjectLocator();
+                AvaloniaProjectLocator projectLocator = new AvaloniaProjectLocator(GetFileSystem());
                 if ((object?)projectPathResolver != null)
                     projectLocator.AddHint(projectPathResolver);
 
@@ -140,16 +140,16 @@ namespace HotAvalonia
         }
 
         /// <summary>
-        /// Creates a new instance of the <see cref="AvaloniaProjectLocator"/> class.
+        /// Gets the current file system instance.
         /// </summary>
-        /// <returns>A new instance of the <see cref="AvaloniaProjectLocator"/> class.</returns>
+        /// <returns>The current file system instance.</returns>
         [DebuggerStepThrough]
-        private static AvaloniaProjectLocator CreateAvaloniaProjectLocator()
+        private static global::HotAvalonia.IO.IFileSystem GetFileSystem()
         {
 #if ENABLE_REMOTE_XAML_HOT_RELOAD
-            return new AvaloniaProjectLocator(global::HotAvalonia.IO.FileSystem.Connect(global::HotAvalonia.IO.FileSystem.Empty));
+            return global::HotAvalonia.IO.FileSystem.Connect(global::HotAvalonia.IO.FileSystem.Empty);
 #else
-            return new AvaloniaProjectLocator();
+            return global::HotAvalonia.IO.FileSystem.Current;
 #endif
         }
 #endif
