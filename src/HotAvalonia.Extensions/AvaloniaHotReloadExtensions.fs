@@ -161,7 +161,7 @@ type internal AvaloniaHotReloadExtensions =
     /// <returns>The app builder instance.</returns>
     [<DebuggerStepThrough>]
     [<Extension>]
-    static member UseHotReload(builder: AppBuilder, projectPathResolver: Assembly -> (string | null)) =
+    static member UseHotReload(builder: AppBuilder, projectPathResolver: Func<Assembly, string | null>) =
 #if ENABLE_XAML_HOT_RELOAD && !DISABLE_XAML_HOT_RELOAD
         AvaloniaHotReload.Enable(builder, AvaloniaHotReloadExtensions.CreateHotReloadContextFactory(projectPathResolver))
 #endif
@@ -190,7 +190,7 @@ type internal AvaloniaHotReloadExtensions =
     [<Conditional("ENABLE_XAML_HOT_RELOAD")>]
     [<DebuggerStepThrough>]
     [<Extension>]
-    static member EnableHotReload(app: Application, projectPathResolver: Assembly -> (string | null)) =
+    static member EnableHotReload(app: Application, projectPathResolver: Func<Assembly, string | null>) =
 #if ENABLE_XAML_HOT_RELOAD && !DISABLE_XAML_HOT_RELOAD
         AvaloniaHotReload.Enable(app, AvaloniaHotReloadExtensions.CreateHotReloadContextFactory(projectPathResolver))
 #else
