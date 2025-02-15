@@ -1,5 +1,6 @@
 using System.Xml.Linq;
 using Fody;
+using HotAvalonia.Fody.MSBuild;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using TypeSystem = Fody.TypeSystem;
@@ -91,6 +92,9 @@ internal abstract class FeatureWeaver
     /// <inheritdoc cref="BaseModuleWeaver.ProjectFilePath"/>
     public string ProjectFilePath => _root.ProjectFilePath;
 
+    /// <inheritdoc cref="ModuleWeaver.Project"/>
+    public MSBuildProject Project => _root.Project;
+
     /// <inheritdoc cref="BaseModuleWeaver.DocumentationFilePath"/>
     public string? DocumentationFilePath => _root.DocumentationFilePath;
 
@@ -99,6 +103,12 @@ internal abstract class FeatureWeaver
 
     /// <inheritdoc cref="BaseModuleWeaver.SolutionDirectoryPath"/>
     public string SolutionDirectoryPath => _root.SolutionDirectoryPath;
+
+    /// <inheritdoc cref="ModuleWeaver.SolutionFilePath"/>
+    public string SolutionFilePath => _root.SolutionFilePath;
+
+    /// <inheritdoc cref="ModuleWeaver.Solution"/>
+    public MSBuildSolution Solution => _root.Solution;
 
     /// <inheritdoc cref="BaseModuleWeaver.References"/>
     public string References => _root.References;
