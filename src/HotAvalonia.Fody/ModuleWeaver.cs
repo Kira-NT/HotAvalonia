@@ -1,5 +1,6 @@
 using System.Xml.Linq;
 using Fody;
+using HotAvalonia.Fody.Cecil;
 using HotAvalonia.Fody.MSBuild;
 
 namespace HotAvalonia.Fody;
@@ -7,7 +8,7 @@ namespace HotAvalonia.Fody;
 /// <summary>
 /// Represents the main module weaver that orchestrates feature-specific weaving tasks.
 /// </summary>
-public sealed class ModuleWeaver : BaseModuleWeaver
+public sealed class ModuleWeaver : BaseModuleWeaver, ITypeResolver
 {
     /// <summary>
     /// The collection of feature weavers used to perform specific weaving tasks.
