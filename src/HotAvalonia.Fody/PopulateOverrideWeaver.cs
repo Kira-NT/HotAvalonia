@@ -35,11 +35,10 @@ internal sealed class PopulateOverrideWeaver : FeatureWeaver
     /// <inheritdoc/>
     public override void Execute()
     {
-        const string resourceContainerName = "CompiledAvaloniaXaml.!AvaloniaResources";
-        TypeDefinition? resourceContainer = ModuleDefinition.GetType(resourceContainerName);
+        TypeDefinition? resourceContainer = ModuleDefinition.GetType(UnreferencedTypes.CompiledAvaloniaXaml_AvaloniaResources);
         if (resourceContainer is null)
         {
-            WriteInfo($"'{resourceContainerName}' not found in '{AssemblyFilePath}'.");
+            WriteInfo($"'{UnreferencedTypes.CompiledAvaloniaXaml_AvaloniaResources}' not found in '{AssemblyFilePath}'.");
             return;
         }
 
