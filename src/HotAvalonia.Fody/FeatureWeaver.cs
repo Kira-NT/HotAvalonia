@@ -14,7 +14,7 @@ internal abstract class FeatureWeaver
     /// <summary>
     /// The root module weaver providing context and shared functionality.
     /// </summary>
-    protected readonly BaseModuleWeaver _root;
+    protected readonly ModuleWeaver _root;
 
     /// <summary>
     /// The name of this weaver.
@@ -30,7 +30,7 @@ internal abstract class FeatureWeaver
     /// Initializes a new instance of the <see cref="FeatureWeaver"/> class.
     /// </summary>
     /// <param name="root">The root module weaver providing context and shared functionality.</param>
-    protected FeatureWeaver(BaseModuleWeaver root)
+    protected FeatureWeaver(ModuleWeaver root)
     {
         _root = root ?? throw new ArgumentNullException(nameof(root));
         _name = GetType().Name.Replace("Weaver", string.Empty);

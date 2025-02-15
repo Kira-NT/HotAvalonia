@@ -21,7 +21,7 @@ internal sealed class PopulateOverrideWeaver : FeatureWeaver
     /// Initializes a new instance of the <see cref="PopulateOverrideWeaver"/> class.
     /// </summary>
     /// <param name="root">The root module weaver providing context and shared functionality.</param>
-    public PopulateOverrideWeaver(BaseModuleWeaver root) : base(root)
+    public PopulateOverrideWeaver(ModuleWeaver root) : base(root)
     {
         _populateOverrideReference = new(ImportPopulateOverrideDelegate);
     }
