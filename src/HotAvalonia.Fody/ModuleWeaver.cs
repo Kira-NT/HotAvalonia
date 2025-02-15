@@ -24,7 +24,7 @@ public sealed class ModuleWeaver : BaseModuleWeaver
     public override IEnumerable<string> GetAssembliesForScanning()
         => _features
             .SelectMany(x => x.GetAssembliesForScanning())
-            .Concat(["mscorlib", "netstandard"]);
+            .Concat(["mscorlib", "netstandard", "System.Runtime"]);
 
     /// <inheritdoc/>
     public override void Execute()

@@ -29,7 +29,6 @@ internal sealed class PopulateOverrideWeaver : FeatureWeaver
     /// <inheritdoc/>
     public override IEnumerable<string> GetAssembliesForScanning() =>
     [
-        "System.Runtime",
         "System.ComponentModel",
     ];
 
