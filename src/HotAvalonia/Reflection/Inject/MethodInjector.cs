@@ -1,7 +1,6 @@
 using System.Reflection;
+using System.Reflection.Emit;
 using HotAvalonia.Helpers;
-using MonoMod.Core.Platforms;
-using MonoMod.RuntimeDetour;
 
 namespace HotAvalonia.Reflection.Inject;
 
@@ -34,7 +33,7 @@ internal static class MethodInjector
     /// <exception cref="InvalidOperationException"/>
     public static IInjection Inject(MethodBase source, MethodInfo replacement) => InjectionType switch
     {
-        InjectionType.Native => NativeInjection.Create(source, replacement),
+        InjectionType.Native => new NativeInjection(source, replacement),
         _ => ThrowNotSupportedException(),
     };
 
@@ -79,16 +78,77 @@ internal static class MethodInjector
 /// <summary>
 /// Provides functionality to inject a replacement method using native code hooks.
 /// </summary>
-file static class NativeInjection
+file sealed class NativeInjection : IInjection
 {
     /// <summary>
-    /// Injects a replacement method implementation for the specified source method.
+    /// A factory function used to instantiate <c>MonoMod.RuntimeDetour.Hook</c> objects.
+    /// </summary>
+    private static readonly Func<MethodBase, MethodInfo, object>? s_createHook;
+
+    /// <summary>
+    /// The method reference for <c>Hook.Apply()</c>.
+    /// </summary>
+    private static readonly Action<object>? s_applyHook;
+
+    /// <summary>
+    /// The method reference for <c>Hook.Undo()</c>.
+    /// </summary>
+    private static readonly Action<object>? s_undoHook;
+
+    /// <summary>
+    /// The method reference for <c>Hook.Dispose()</c>.
+    /// </summary>
+    private static readonly Action<object>? s_disposeHook;
+
+    /// <summary>
+    /// Initializes static members of the <see cref="NativeInjection"/> class.
+    /// </summary>
+    static NativeInjection()
+    {
+        if (!AssemblyHelper.TryLoad("MonoMod.RuntimeDetour", out Assembly? runtimeDetour))
+            return;
+
+        Type? hook = runtimeDetour.GetType("MonoMod.RuntimeDetour.Hook");
+        ConstructorInfo? hookCtor = hook?.GetInstanceConstructor([typeof(MethodBase), typeof(MethodInfo), typeof(bool)]);
+        MethodInfo? hookApply = hook?.GetInstanceMethod(nameof(Apply), []);
+        MethodInfo? hookUndo = hook?.GetInstanceMethod(nameof(Undo), []);
+        MethodInfo? hookDispose = hook?.GetInstanceMethod(nameof(Dispose), []);
+        if (hookCtor is null || hookApply is null || hookUndo is null || hookDispose is null)
+            return;
+
+        using IDisposable context = MethodHelper.DefineDynamicMethod($"Create<{hook}>", typeof(object), [typeof(MethodBase), typeof(MethodInfo)], out DynamicMethod createHook);
+        ILGenerator hookIl = createHook.GetILGenerator();
+        hookIl.Emit(OpCodes.Ldarg_0);
+        hookIl.Emit(OpCodes.Ldarg_1);
+        hookIl.Emit(OpCodes.Ldc_I4_1);
+        hookIl.Emit(OpCodes.Newobj, hookCtor);
+        hookIl.Emit(OpCodes.Ret);
+
+        s_createHook = (Func<MethodBase, MethodInfo, object>)createHook.CreateDelegate(typeof(Func<MethodBase, MethodInfo, object>));
+        s_applyHook = hookApply.CreateUnsafeDelegate<Action<object>>();
+        s_undoHook = hookUndo.CreateUnsafeDelegate<Action<object>>();
+        s_disposeHook = hookDispose.CreateUnsafeDelegate<Action<object>>();
+    }
+
+    /// <summary>
+    /// The hook used for the method injection.
+    /// </summary>
+    private readonly object _hook;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="NativeInjection"/> class.
     /// </summary>
     /// <param name="source">The method to be replaced.</param>
     /// <param name="replacement">The replacement method implementation.</param>
-    /// <returns>An <see cref="IInjection"/> instance representing the method injection.</returns>
-    public static IInjection Create(MethodBase source, MethodInfo replacement)
-        => new MonoModInjection(source, replacement);
+    public NativeInjection(MethodBase source, MethodInfo replacement)
+    {
+        // Enable dynamic code generation, which is required for MonoMod to function.
+        // Note that we cannot enable it forcefully just once and call it a day,
+        // because this only affects the current thread.
+        _ = AssemblyHelper.ForceAllowDynamicCode();
+
+        _hook = s_createHook!(source, replacement);
+    }
 
     /// <summary>
     /// Indicates whether native method injections are supported in the current runtime environment.
@@ -97,80 +157,39 @@ file static class NativeInjection
     {
         get
         {
+            if (s_createHook is null)
+                return false;
+
             try
             {
-                // If `MonoMod.RuntimeDetour` is not present,
-                // this will result in `TypeLoadException`,
-                // that's why we need this wrapper.
-                return MonoModInjection.IsSupported;
+                // Enable dynamic code generation, which is required for MonoMod to function.
+                using IDisposable context = AssemblyHelper.ForceAllowDynamicCode();
+
+                Type? platformTriple = Type.GetType("MonoMod.Core.Platforms.PlatformTriple, MonoMod.Core");
+                return platformTriple?.GetStaticProperty("Current")?.GetValue(null) is not null;
             }
             catch
             {
+                // `PlatformTriple.Current` may throw exceptions such as:
+                //  - NotImplementedException
+                //  - PlatformNotSupportedException
+                //  - etc.
+                // This happens if the current environment is not (yet) supported.
                 return false;
             }
         }
     }
 
     /// <summary>
-    /// Represents a MonoMod-based injection.
+    /// Applies the method injection.
     /// </summary>
-    private sealed class MonoModInjection : IInjection
-    {
-        /// <summary>
-        /// The hook used for the method injection.
-        /// </summary>
-        private readonly Hook _hook;
+    public void Apply() => s_applyHook!(_hook);
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="MonoModInjection"/> class.
-        /// </summary>
-        /// <param name="source">The method to be replaced.</param>
-        /// <param name="replacement">The replacement method implementation.</param>
-        public MonoModInjection(MethodBase source, MethodInfo replacement)
-        {
-            // Enable dynamic code generation, which is required for MonoMod to function.
-            // Note that we cannot enable it forcefully just once and call it a day,
-            // because this only affects the current thread.
-            _ = AssemblyHelper.ForceAllowDynamicCode();
+    /// <summary>
+    /// Reverts all the effects caused by the method injection.
+    /// </summary>
+    public void Undo() => s_undoHook!(_hook);
 
-            _hook = new(source, replacement, applyByDefault: true);
-        }
-
-        /// <summary>
-        /// Indicates whether MonoMod is supported in the current environment.
-        /// </summary>
-        /// <exception cref="PlatformNotSupportedException"/>
-        /// <exception cref="InvalidOperationException"/>
-        /// <exception cref="TypeLoadException"/>
-        /// <exception cref="FileNotFoundException"/>
-        /// <exception cref="NotImplementedException"/>
-        public static bool IsSupported
-        {
-            get
-            {
-                // Enable dynamic code generation, which is required for MonoMod to function.
-                using IDisposable context = AssemblyHelper.ForceAllowDynamicCode();
-
-                // `PlatformTriple.Current` may throw exceptions such as:
-                //  - NotImplementedException
-                //  - PlatformNotSupportedException
-                //  - etc.
-                // This happens if the current environment is not (yet) supported.
-                return PlatformTriple.Current is not null;
-            }
-        }
-
-        /// <summary>
-        /// Applies the method injection.
-        /// </summary>
-        public void Apply() => _hook.Apply();
-
-        /// <summary>
-        /// Reverts all the effects caused by the method injection.
-        /// </summary>
-        public void Undo() => _hook.Undo();
-
-        /// <inheritdoc/>
-        public void Dispose() => _hook.Dispose();
-    }
+    /// <inheritdoc/>
+    public void Dispose() => s_disposeHook!(_hook);
 }
