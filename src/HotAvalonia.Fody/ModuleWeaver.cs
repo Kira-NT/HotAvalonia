@@ -30,6 +30,7 @@ public sealed class ModuleWeaver : BaseModuleWeaver, ITypeResolver
     /// </summary>
     public ModuleWeaver() => _features =
     [
+        new FileSystemCredentialsWeaver(this),
         new PopulateOverrideWeaver(this),
         new UseHotReloadWeaver(this),
     ];
