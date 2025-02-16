@@ -124,10 +124,25 @@ file sealed class NativeInjection : IInjection
         hookIl.Emit(OpCodes.Newobj, hookCtor);
         hookIl.Emit(OpCodes.Ret);
 
+        DisableDebugLog();
         s_createHook = (Func<MethodBase, MethodInfo, object>)createHook.CreateDelegate(typeof(Func<MethodBase, MethodInfo, object>));
         s_applyHook = hookApply.CreateUnsafeDelegate<Action<object>>();
         s_undoHook = hookUndo.CreateUnsafeDelegate<Action<object>>();
         s_disposeHook = hookDispose.CreateUnsafeDelegate<Action<object>>();
+    }
+
+    /// <summary>
+    /// Disable MonoMod's debug logging.
+    /// </summary>
+    /// <remarks>
+    /// MonoMod starts spamming debug logs if it detects a debugger attached to the current process.
+    /// While this is useful when debugging a mod, it's a really annoying anti-feature in our context,
+    /// as it drastically slows everything down. Thus, disable it as soon as humanly possible.
+    /// </remarks>
+    private static void DisableDebugLog()
+    {
+        object? logger = Type.GetType("MonoMod.Logs.DebugLog, MonoMod.Utils").GetStaticField("Instance")?.GetValue(null);
+        logger?.GetType().GetInstanceField("globalFilter")?.SetValue(logger, 0);
     }
 
     /// <summary>
