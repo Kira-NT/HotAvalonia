@@ -31,11 +31,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="../HotAvalonia/IO/FileSystemState.cs" Link="IO/FileSystemState.cs" />
-    <Compile Include="../HotAvalonia/IO/RemoteFileSystem.Shared.cs" Link="IO/RemoteFileSystem.Shared.cs" />
-    <Compile Include="../HotAvalonia/IO/RemoteFileSystemException.cs" Link="IO/RemoteFileSystemException.cs" />
-    <Compile Include="../HotAvalonia/IO/RemoteFileSystemWatcher.Shared.cs" Link="IO/RemoteFileSystemWatcher.Shared.cs" />
-    <Compile Include="../HotAvalonia/Net/SslTcpClient.cs" Link="Net/SslTcpClient.cs" />
+    <Compile Include="../HotAvalonia.Core/IO/FileSystemState.cs" Link="IO/FileSystemState.cs" />
+    <Compile Include="../HotAvalonia.Core/IO/RemoteFileSystem.Shared.cs" Link="IO/RemoteFileSystem.Shared.cs" />
+    <Compile Include="../HotAvalonia.Core/IO/RemoteFileSystemException.cs" Link="IO/RemoteFileSystemException.cs" />
+    <Compile Include="../HotAvalonia.Core/IO/RemoteFileSystemWatcher.Shared.cs" Link="IO/RemoteFileSystemWatcher.Shared.cs" />
+    <Compile Include="../HotAvalonia.Core/Net/SslTcpClient.cs" Link="Net/SslTcpClient.cs" />
   </ItemGroup>
 
 </Project>
