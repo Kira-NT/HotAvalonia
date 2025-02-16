@@ -141,7 +141,7 @@ file sealed class NativeInjection : IInjection
     /// </remarks>
     private static void DisableDebugLog()
     {
-        object? logger = Type.GetType("MonoMod.Logs.DebugLog, MonoMod.Utils").GetStaticField("Instance")?.GetValue(null);
+        object? logger = Type.GetType("MonoMod.Logs.DebugLog, MonoMod.Utils")?.GetStaticField("Instance")?.GetValue(null);
         logger?.GetType().GetInstanceField("globalFilter")?.SetValue(logger, 0);
     }
 
