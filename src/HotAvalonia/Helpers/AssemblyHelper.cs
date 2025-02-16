@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
@@ -60,6 +61,29 @@ internal static class AssemblyHelper
 
         // Allow the dynamic assembly to access HotAvalonia's internals.
         assemblyBuilder.AllowAccessTo(typeof(AssemblyHelper));
+    }
+
+    /// <summary>
+    /// Attempts to load an assembly with the specified name.
+    /// </summary>
+    /// <param name="name">The name of the assembly to load.</param>
+    /// <param name="assembly">
+    /// When this method returns, contains the loaded <see cref="Assembly"/>
+    /// if the assembly is successfully loaded; otherwise, <c>null</c>.
+    /// </param>
+    /// <returns><c>true</c> if the assembly is successfully loaded; otherwise, <c>false</c>.</returns>
+    public static bool TryLoad(string name, [NotNullWhen(true)] out Assembly? assembly)
+    {
+        try
+        {
+            assembly = Assembly.Load(name);
+            return true;
+        }
+        catch
+        {
+            assembly = null;
+            return false;
+        }
     }
 
     /// <summary>
