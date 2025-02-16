@@ -71,7 +71,7 @@ namespace HotAvalonia
     [ExcludeFromCodeCoverage]
     [Conditional("HOTAVALONIA_ENABLE")]
     [AttributeUsage(AttributeTargets.Method)]
-    internal sealed class AvaloniaHotReloadAttribute : Attribute
+    internal sealed partial class AvaloniaHotReloadAttribute : Attribute
     {
     }
 
@@ -79,7 +79,7 @@ namespace HotAvalonia
     /// Provides extension methods for enabling and disabling hot reload functionality for Avalonia applications.
     /// </summary>
     [ExcludeFromCodeCoverage]
-    internal static class AvaloniaHotReloadExtensions
+    internal static partial class AvaloniaHotReloadExtensions
     {
 #if HOTAVALONIA_ENABLE && !HOTAVALONIA_DISABLE
         /// <summary>
@@ -139,6 +139,7 @@ namespace HotAvalonia
 #endif
         }
 
+#if !HOTAVALONIA_USE_CUSTOM_FILE_SYSTEM
         /// <summary>
         /// Gets the current file system instance.
         /// </summary>
@@ -152,6 +153,7 @@ namespace HotAvalonia
             return global::HotAvalonia.IO.FileSystem.Current;
 #endif
         }
+#endif
 #endif
 
         /// <summary>

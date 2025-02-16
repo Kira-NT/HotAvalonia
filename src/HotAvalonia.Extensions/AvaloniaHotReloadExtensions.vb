@@ -68,7 +68,7 @@ Namespace Global.HotAvalonia
     <ExcludeFromCodeCoverage>
     <Conditional("HOTAVALONIA_ENABLE")>
     <AttributeUsage(AttributeTargets.Method)>
-    Friend NotInheritable Class AvaloniaHotReloadAttribute
+    Friend NotInheritable Partial Class AvaloniaHotReloadAttribute
         Inherits Attribute
     End Class
 
@@ -76,7 +76,7 @@ Namespace Global.HotAvalonia
     ''' Provides extension methods for enabling and disabling hot reload functionality for Avalonia applications.
     ''' </summary>
     <ExcludeFromCodeCoverage>
-    Friend Module AvaloniaHotReloadExtensions
+    Friend Partial Module AvaloniaHotReloadExtensions
 #If HOTAVALONIA_ENABLE AndAlso Not HOTAVALONIA_DISABLE Then
         ''' <summary>
         ''' Creates a factory method for generating an <see cref="IHotReloadContext"/>
@@ -133,6 +133,7 @@ Namespace Global.HotAvalonia
 #End If
         End Function
 
+#If Not HOTAVALONIA_USE_CUSTOM_FILE_SYSTEM Then
         ''' <summary>
         ''' Gets the current file system instance.
         ''' </summary>
@@ -145,6 +146,7 @@ Namespace Global.HotAvalonia
             Return HotAvalonia.IO.FileSystem.Current
 #End If
         End Function
+#End If
 #End If
 
         ''' <summary>

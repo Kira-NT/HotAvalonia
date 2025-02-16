@@ -128,6 +128,7 @@ type internal AvaloniaHotReloadExtensions =
         AvaloniaHotReloadContext.Create(projectLocator)
 #endif
 
+#if !HOTAVALONIA_USE_CUSTOM_FILE_SYSTEM
     /// <summary>
     /// Gets the current file system instance.
     /// </summary>
@@ -138,6 +139,7 @@ type internal AvaloniaHotReloadExtensions =
         HotAvalonia.IO.FileSystem.Connect(HotAvalonia.IO.FileSystem.Empty)
 #else
         HotAvalonia.IO.FileSystem.Current
+#endif
 #endif
 #endif
 
