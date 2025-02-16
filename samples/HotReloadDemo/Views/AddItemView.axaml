@@ -25,7 +25,7 @@
             Command="{Binding OkCommand}">
       Ok
     </Button>
-    <TextBox x:Name="DescriptionTextBox" AcceptsReturn="true" Text="{Binding Description}" Watermark="{StaticResource AddItemWatermark}"/>
+    <TextBox x:Name="DescriptionTextBox" AcceptsReturn="true" Text="{Binding Description}" Watermark="{'StaticResource' AddItemWatermark}"/>
   </DockPanel>
 
 </UserControl>
