@@ -31,6 +31,7 @@ public sealed class ModuleWeaver : BaseModuleWeaver, ITypeResolver
     public ModuleWeaver() => _features =
     [
         new PopulateOverrideWeaver(this),
+        new UseHotReloadWeaver(this),
     ];
 
     /// <summary>
