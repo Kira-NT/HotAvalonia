@@ -19,3 +19,17 @@ internal interface ITypeResolver
     /// <returns>The <see cref="TypeDefinition"/> corresponding to the specified name.</returns>
     TypeDefinition FindTypeDefinition(string name);
 }
+
+/// <summary>
+/// Provides extension methods for <see cref="ITypeResolver"/>.
+/// </summary>
+internal static class TypeResolverExtensions
+{
+    /// <summary>
+    /// Gets the <see cref="CecilType"/> corresponding to the specified <see cref="WeakType"/>.
+    /// </summary>
+    /// <param name="resolver">The type resolver used to resolve the type.</param>
+    /// <param name="type">The weak type to resolve.</param>
+    /// <returns>A <see cref="CecilType"/> representing the resolved type.</returns>
+    public static CecilType GetType(this ITypeResolver resolver, WeakType type) => new(type, resolver);
+}
