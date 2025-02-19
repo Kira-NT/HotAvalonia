@@ -107,7 +107,7 @@ public sealed class ModuleWeaver : BaseModuleWeaver, ITypeResolver
     private static MSBuildSolution GetSolution(XElement config, string? solutionDirectory, string? projectDirectory)
     {
         string? solutionFilePath = config?.Attribute("SolutionPath")?.Value;
-        if (solutionFilePath is { Length: > 0 })
+        if (solutionFilePath is { Length: > 0 } && File.Exists(solutionFilePath))
             return new(solutionFilePath);
 
         if (MSBuildSolution.TryGetFromDirectory(solutionDirectory, out MSBuildSolution? solution))
