@@ -2,6 +2,8 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HotAvalonia", "src/HotAvalonia/HotAvalonia.csproj", "{8434892B-7F24-441A-9623-D1E387F0C992}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HotAvalonia.Core", "src/HotAvalonia.Core/HotAvalonia.Core.csproj", "{4DC5A913-2573-47FE-8434-0F7D030B2116}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HotAvalonia.Extensions", "src/HotAvalonia.Extensions/HotAvalonia.Extensions.csproj", "{B196D2B3-DCDE-48A2-B783-590E19B396C4}"
@@ -23,6 +25,10 @@ Global
         HideSolutionNode = FALSE
     EndGlobalSection
     GlobalSection(ProjectConfigurationPlatforms) = postSolution
+        {8434892B-7F24-441A-9623-D1E387F0C992}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {8434892B-7F24-441A-9623-D1E387F0C992}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {8434892B-7F24-441A-9623-D1E387F0C992}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {8434892B-7F24-441A-9623-D1E387F0C992}.Release|Any CPU.Build.0 = Release|Any CPU
         {4DC5A913-2573-47FE-8434-0F7D030B2116}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
         {4DC5A913-2573-47FE-8434-0F7D030B2116}.Debug|Any CPU.Build.0 = Debug|Any CPU
         {4DC5A913-2573-47FE-8434-0F7D030B2116}.Release|Any CPU.ActiveCfg = Release|Any CPU

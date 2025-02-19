@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <HarfsTargetFramework>net7.0</HarfsTargetFramework>
+    <BuildOutputTargetFolder>tasks</BuildOutputTargetFolder>
+    <NoWarn>$(NoWarn);NU5100</NoWarn>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);ExpandProps</TargetsForTfmSpecificContentInPackage>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <Description>A .NET library that offers hot reload functionality for Avalonia applications. It allows developers to make updates to XAML and see those changes without the need for full recompilation, streamlining the development process.</Description>
+    <PackageTags>avalonia avaloniaui hot-reload dynamic hot reload xaml axaml ui development tools net netstandard</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.0.0" PrivateAssets="All" ExcludeAssets="Runtime" />
+    <ProjectReference Include="../HotAvalonia.Remote/HotAvalonia.Remote.csproj" SetTargetFramework="TargetFramework=$(HarfsTargetFramework)" SkipGetTargetFrameworkProperties="True" ReferenceOutputAssembly="False" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../HotAvalonia.Remote/bin/$(Configuration)/$(HarfsTargetFramework)/HotAvalonia.Remote.dll" PackagePath="tools/" Pack="true" />
+    <None Include="../HotAvalonia.Remote/bin/$(Configuration)/$(HarfsTargetFramework)/HotAvalonia.Remote.runtimeconfig.json" PackagePath="tools/" Pack="true" />
+  </ItemGroup>
+
+  <Target Name="ExpandProps">
+    <Copy SourceFiles="HotAvalonia.props" DestinationFiles="$(IntermediateOutputPath)HotAvalonia.props" />
+    <XmlPoke XmlInputPath="$(IntermediateOutputPath)HotAvalonia.props" Query="/Project/PropertyGroup/HotAvaloniaVersion" Value="$(Version)" />
+    <XmlPoke XmlInputPath="$(IntermediateOutputPath)HotAvalonia.props" Query="/Project/PropertyGroup/HotAvaloniaMinimumSupportedAvaloniaVersion" Value="$(AvaloniaVersion)" />
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="$(IntermediateOutputPath)HotAvalonia.props" PackagePath="build/" />
+      <TfmSpecificPackageFile Include="HotAvalonia.targets" PackagePath="build/" />
+    </ItemGroup>
+  </Target>
+
+</Project>
