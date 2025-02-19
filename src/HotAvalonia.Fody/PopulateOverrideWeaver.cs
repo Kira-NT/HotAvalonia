@@ -22,7 +22,7 @@ internal sealed class PopulateOverrideWeaver : FeatureWeaver
     /// <param name="root">The root module weaver providing context and shared functionality.</param>
     public PopulateOverrideWeaver(ModuleWeaver root) : base(root)
     {
-        _populateOverrideInvoke = root.GetType(typeof(Action<IServiceProvider, object>)).GetMethod(x => x.GetMethod(nameof(Action.Invoke), [typeof(IServiceProvider), typeof(object)]));
+        _populateOverrideInvoke = root.GetType(typeof(Action<IServiceProvider, object>)).GetMethod(x => x.GetMethod(nameof(Action.Invoke)));
     }
 
     /// <inheritdoc/>
