@@ -72,6 +72,7 @@ Namespace Global.HotAvalonia
         Inherits Attribute
     End Class
 
+#If Not HOTAVALONIA_EXCLUDE_EXTENSIONS Then
     ''' <summary>
     ''' Provides extension methods for enabling and disabling hot reload functionality for Avalonia applications.
     ''' </summary>
@@ -219,6 +220,7 @@ Namespace Global.HotAvalonia
 #End If
         End Sub
     End Module
+#End If
 End Namespace
 
 #Enable Warning

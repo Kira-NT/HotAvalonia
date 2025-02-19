@@ -75,6 +75,7 @@ namespace HotAvalonia
     {
     }
 
+#if !HOTAVALONIA_EXCLUDE_EXTENSIONS
     /// <summary>
     /// Provides extension methods for enabling and disabling hot reload functionality for Avalonia applications.
     /// </summary>
@@ -226,6 +227,7 @@ namespace HotAvalonia
 #endif
         }
     }
+#endif
 }
 
 #nullable restore

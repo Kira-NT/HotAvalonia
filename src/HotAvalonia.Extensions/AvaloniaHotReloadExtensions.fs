@@ -75,6 +75,7 @@ open Avalonia
 type internal AvaloniaHotReloadAttribute() =
     inherit Attribute()
 
+#if !HOTAVALONIA_EXCLUDE_EXTENSIONS
 /// <summary>
 /// Provides extension methods for enabling and disabling hot reload functionality for Avalonia applications.
 /// </summary>
@@ -212,4 +213,5 @@ type internal AvaloniaHotReloadExtensions =
         AvaloniaHotReload.Disable(app)
 #else
         ()
+#endif
 #endif
