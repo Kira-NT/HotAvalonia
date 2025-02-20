@@ -38,11 +38,6 @@ internal sealed class FileSystemCredentialsWeaver : FeatureWeaver
     private string Address => this[nameof(Address)];
 
     /// <summary>
-    /// Gets the fallback address used when the primary remote file system address is not available or invalid.
-    /// </summary>
-    private string FallbackAddress => this[nameof(FallbackAddress)];
-
-    /// <summary>
     /// Gets the remote file system port number specified in the weaver configuration.
     /// </summary>
     private int Port => this[nameof(Port), 0];
@@ -62,10 +57,7 @@ internal sealed class FileSystemCredentialsWeaver : FeatureWeaver
             const int DefaultRemoteFileSystemPort = 20158;
 
             string? address = Address;
-            if (string.IsNullOrEmpty(address))
-                address = NetworkHelper.GetLocalAddress()?.ToString();
-
-            if (!IPAddress.TryParse(address, out IPAddress? ip) && !IPAddress.TryParse(FallbackAddress, out ip))
+            if (!IPAddress.TryParse(address, out IPAddress? ip))
                 ip = IPAddress.Loopback;
 
             int port = Port;

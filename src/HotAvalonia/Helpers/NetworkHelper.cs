@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 
-namespace HotAvalonia.Fody.Helpers;
+namespace HotAvalonia.Helpers;
 
 /// <summary>
 /// Provides helper methods for network-related operations.
