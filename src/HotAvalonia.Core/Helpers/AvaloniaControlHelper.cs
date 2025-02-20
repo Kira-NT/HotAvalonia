@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Xml.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
@@ -66,6 +67,8 @@ internal static class AvaloniaControlHelper
             AvaloniaRuntimeXamlScanner.DynamicXamlAssembly?.AllowAccessTo(assembly);
 
         string patchedXaml = ReplaceStaticResourceWithDynamicResource(xaml);
+        patchedXaml = ReplaceMergeResourceIncludeWithResourceInclude(patchedXaml);
+
         bool useCompiledBindings = AvaloniaRuntimeXamlScanner.UsesCompiledBindingsByDefault(assembly);
         RuntimeXamlLoaderDocument xamlDocument = new(uri, control, patchedXaml);
         RuntimeXamlLoaderConfiguration xamlConfig = new() { LocalAssembly = assembly, UseCompiledBindingsByDefault = useCompiledBindings };
@@ -234,6 +237,29 @@ internal static class AvaloniaControlHelper
         const string DynamicResourceName = "\"{'DynamicResource' ";
 
         return xaml.Replace(StaticResourceName, DynamicResourceName);
+    }
+
+    /// <summary>
+    /// Replaces all <c>MergeResourceInclude</c> elements with
+    /// semantically identical <c>ResourceInclude</c>s.
+    /// </summary>
+    /// <param name="xaml">The XAML markup to process.</param>
+    /// <returns>The XAML markup with <c>MergeResourceInclude</c>s replaced by <c>ResourceInclude</c>s.</returns>
+    private static string ReplaceMergeResourceIncludeWithResourceInclude(string xaml)
+    {
+        const string MergeResourceIncludeName = "MergeResourceInclude";
+        const string ResourceIncludeName = "ResourceInclude";
+
+        if (!xaml.Contains(MergeResourceIncludeName))
+            return xaml;
+
+        XDocument document = XDocument.Parse(xaml, LoadOptions.None);
+        XName oldName = XName.Get(MergeResourceIncludeName, document.Root.Name.NamespaceName);
+        XName newName = XName.Get(ResourceIncludeName, document.Root.Name.NamespaceName);
+        foreach (XElement mergeResourceInclude in document.Descendants(oldName))
+            mergeResourceInclude.Name = newName;
+
+        return document.ToString(SaveOptions.DisableFormatting);
     }
 }
 
