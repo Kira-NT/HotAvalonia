@@ -65,9 +65,9 @@ internal static class AvaloniaControlHelper
         if (assembly is not null)
             AvaloniaRuntimeXamlScanner.DynamicXamlAssembly?.AllowAccessTo(assembly);
 
-        string xamlWithDynamicComponents = MakeStaticComponentsDynamic(xaml);
+        string patchedXaml = ReplaceStaticResourceWithDynamicResource(xaml);
         bool useCompiledBindings = AvaloniaRuntimeXamlScanner.UsesCompiledBindingsByDefault(assembly);
-        RuntimeXamlLoaderDocument xamlDocument = new(uri, control, xamlWithDynamicComponents);
+        RuntimeXamlLoaderDocument xamlDocument = new(uri, control, patchedXaml);
         RuntimeXamlLoaderConfiguration xamlConfig = new() { LocalAssembly = assembly, UseCompiledBindingsByDefault = useCompiledBindings };
         HashSet<MethodInfo> oldPopulateMethods = new(AvaloniaRuntimeXamlScanner.FindDynamicPopulateMethods(uri));
 
@@ -228,7 +228,7 @@ internal static class AvaloniaControlHelper
     /// </summary>
     /// <param name="xaml">The XAML markup containing static resources.</param>
     /// <returns>The XAML markup with static resources replaced by their dynamic counterparts.</returns>
-    private static string MakeStaticComponentsDynamic(string xaml)
+    private static string ReplaceStaticResourceWithDynamicResource(string xaml)
     {
         const string StaticResourceName = "\"{'StaticResource' ";
         const string DynamicResourceName = "\"{'DynamicResource' ";
