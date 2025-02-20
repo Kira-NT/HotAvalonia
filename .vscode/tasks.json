@@ -15,5 +15,76 @@
       ],
       "problemMatcher": "$msCompile",
     },
+    {
+      "label": "prepare-android-environment",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "workload-install-android",
+        "install-android-sdk",
+      ],
+    },
+    {
+      "label": "workload-install-android",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "workload",
+        "install",
+        "android",
+      ],
+      "problemMatcher": "$msCompile",
+    },
+    {
+      "label": "install-android-sdk",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/samples/HotReloadDemo.Android",
+        "/property:AndroidSdkDirectory=${input:androidSdkDir}",
+        "/property:JavaSdkDirectory=${input:javaSdkDir}",
+        "/property:AcceptAndroidSdkLicenses=True",
+        "/t:InstallAndroidDependencies",
+      ],
+      "problemMatcher": "$msCompile",
+    },
+    {
+      "label": "start-android-emulator",
+      "type": "shell",
+      "command": "${input:androidSdkDir}/emulator/emulator -avd ${input:androidEmulatorName} -partition-size 512",
+      "windows": {
+        "command": "${input:androidSdkDir}/emulator/emulator.exe -avd ${input:androidEmulatorName} -partition-size 512",
+      },
+      "problemMatcher": [],
+      "isBackground": true,
+      "presentation": {
+        "echo": false,
+        "reveal": "never",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": true,
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "androidSdkDir",
+      "type": "promptString",
+      "description": "Enter Android SDK Directory",
+      "default": "${env:HOME}/.android",
+    },
+    {
+      "id": "javaSdkDir",
+      "type": "promptString",
+      "description": "Enter Java SDK Directory",
+      "default": "${env:HOME}/.android/java",
+    },
+    {
+      "id": "androidEmulatorName",
+      "type": "promptString",
+      "description": "Enter the name of your Android emulator",
+      "default": "Pixel",
+    },
   ],
 }
