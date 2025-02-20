@@ -26,14 +26,11 @@ jobs:
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
 
-      - name: Restore dependencies
-        run: dotnet restore -tl
-
       - name: Build (Debug)
-        run: dotnet build -tl -c Debug --no-restore
+        run: dotnet build -tl -c Debug
 
       - name: Build (Release)
-        run: dotnet build -tl -c Release --no-restore
+        run: dotnet build -tl -c Release
 
       - name: Run tests
         run: dotnet test -tl -c Release --no-build
