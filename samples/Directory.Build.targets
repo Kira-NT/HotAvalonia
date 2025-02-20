@@ -1,0 +1,30 @@
+<Project>
+
+  <Import Project="$(MSBuildThisFileDirectory)../Directory.Build.targets" />
+
+  <!-- This is what one would use in the actual project: -->
+  <!--
+  <ItemGroup>
+    <PackageReference Include="HotAvalonia" Version="*" />
+  </ItemGroup>
+  -->
+
+  <PropertyGroup>
+    <_HotAvaloniaHarfsFile>$(MSBuildThisFileDirectory)../src/HotAvalonia.Remote/bin/$(Configuration)/net7.0/HotAvalonia.Remote.dll</_HotAvaloniaHarfsFile>
+    <_HotAvaloniaAssemblyFile>$(MSBuildThisFileDirectory)../src/HotAvalonia/bin/$(Configuration)/netstandard2.0/HotAvalonia.dll</_HotAvaloniaAssemblyFile>
+    <_HotAvaloniaCoreProjectFile>$(MSBuildThisFileDirectory)../src/HotAvalonia.Core/HotAvalonia.Core.csproj</_HotAvaloniaCoreProjectFile>
+    <_HotAvaloniaExtensionsFile>$(MSBuildThisFileDirectory)../src/HotAvalonia.Extensions/AvaloniaHotReloadExtensions.cs</_HotAvaloniaExtensionsFile>
+    <_HotAvaloniaWeaverFiles>$(MSBuildThisFileDirectory)../src/HotAvalonia.Fody/bin/$(Configuration)/netstandard2.0/HotAvalonia.Fody.dll</_HotAvaloniaWeaverFiles>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(MSBuildThisFileDirectory)../src/HotAvalonia/HotAvalonia.csproj" ReferenceOutputAssembly="False" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)../src/HotAvalonia.Fody/HotAvalonia.Fody.csproj" ReferenceOutputAssembly="False" />
+  </ItemGroup>
+
+  <ImportGroup>
+    <Import Project="$(MSBuildThisFileDirectory)../src/HotAvalonia/HotAvalonia.props" />
+    <Import Project="$(MSBuildThisFileDirectory)../src/HotAvalonia/HotAvalonia.targets" />
+  </ImportGroup>
+
+</Project>
