@@ -35,4 +35,35 @@ internal static class NetworkHelper
             .OrderByDescending(x => x.Address.GetAddressBytes()[0])
             .FirstOrDefault()?.Address;
     }
+
+    /// <summary>
+    /// Gets an available network port for the specified protocol.
+    /// </summary>
+    /// <param name="protocol">The protocol for which to obtain an available port.</param>
+    /// <returns>An available port number.</returns>
+    public static int GetAvailablePort(ProtocolType protocol)
+    {
+        SocketType socketType = protocol switch
+        {
+            ProtocolType.Tcp => SocketType.Stream,
+            ProtocolType.Udp => SocketType.Dgram,
+            _ => SocketType.Unknown,
+        };
+
+        try
+        {
+            // The TCP/UDP stack will allocate a new port for us if we set it to 0.
+            using Socket? socket = socketType is SocketType.Unknown ? null : new(AddressFamily.InterNetwork, socketType, protocol);
+            socket?.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+            if (socket?.LocalEndPoint is IPEndPoint endpoint)
+                return endpoint.Port;
+        }
+        catch { }
+
+        // If something went wrong, just choose a random port from the range 49152-65535,
+        // which represents private (or ephemeral) ports that cannot be registered with IANA,
+        // and then pray that we get lucky.
+        // Note, '65536' is not a typo, because the upper bound of `.Next()` is exclusive.
+        return new Random().Next(49152, 65536);
+    }
 }
