@@ -1,0 +1,12 @@
+<Project>
+
+  <PropertyGroup>
+    <HotAvaloniaVersion>$version$</HotAvaloniaVersion>
+    <HotAvaloniaMinimumSupportedAvaloniaVersion>$avalonia_version$</HotAvaloniaMinimumSupportedAvaloniaVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectCapability Include="HotAvalonia" />
+  </ItemGroup>
+
+</Project>
