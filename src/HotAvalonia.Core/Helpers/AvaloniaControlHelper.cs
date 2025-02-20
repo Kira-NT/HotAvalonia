@@ -175,6 +175,12 @@ internal static class AvaloniaControlHelper
             avaloniaControl.Resources.Clear();
             avaloniaControl.Styles.Clear();
         }
+
+        if (control is Application app)
+        {
+            app.Resources.Clear();
+            app.Styles.Clear();
+        }
     }
 
     /// <summary>
