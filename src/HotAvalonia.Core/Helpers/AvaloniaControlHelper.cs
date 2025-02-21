@@ -9,6 +9,7 @@ using Avalonia.Markup.Xaml.XamlIl.Runtime;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using HotAvalonia.Reflection.Inject;
+using HotAvalonia.Xaml;
 
 namespace HotAvalonia.Helpers;
 
@@ -64,21 +65,21 @@ internal static class AvaloniaControlHelper
         // patch the dynamic XAML assembly with `IgnoresAccessChecksToAttribute`.
         assembly ??= AssetLoader.GetAssembly(uri);
         if (assembly is not null)
-            AvaloniaRuntimeXamlScanner.DynamicXamlAssembly?.AllowAccessTo(assembly);
+            XamlScanner.DynamicXamlAssembly?.AllowAccessTo(assembly);
 
         string patchedXaml = ReplaceStaticResourceWithDynamicResource(xaml);
         patchedXaml = ReplaceMergeResourceIncludeWithResourceInclude(patchedXaml);
 
-        bool useCompiledBindings = AvaloniaRuntimeXamlScanner.UsesCompiledBindingsByDefault(assembly);
+        bool useCompiledBindings = XamlScanner.UsesCompiledBindingsByDefault(assembly);
         RuntimeXamlLoaderDocument xamlDocument = new(uri, control, patchedXaml);
         RuntimeXamlLoaderConfiguration xamlConfig = new() { LocalAssembly = assembly, UseCompiledBindingsByDefault = useCompiledBindings };
-        HashSet<MethodInfo> oldPopulateMethods = new(AvaloniaRuntimeXamlScanner.FindDynamicPopulateMethods(uri));
+        HashSet<MethodInfo> oldPopulateMethods = new(XamlScanner.FindDynamicPopulateMethods(uri));
 
         Reset(control, out Action restore);
         object loadedControl = AvaloniaRuntimeXamlLoader.Load(xamlDocument, xamlConfig);
         restore();
 
-        compiledPopulateMethod = AvaloniaRuntimeXamlScanner
+        compiledPopulateMethod = XamlScanner
                     .FindDynamicPopulateMethods(uri)
                     .FirstOrDefault(x => !oldPopulateMethods.Contains(x));
 
@@ -142,7 +143,7 @@ internal static class AvaloniaControlHelper
         _ = populateOverride ?? throw new ArgumentNullException(nameof(populateOverride));
         _ = populate ?? throw new ArgumentNullException(nameof(populate));
 
-        if (!AvaloniaRuntimeXamlScanner.IsPopulateOverrideField(populateOverride))
+        if (!XamlScanner.IsPopulateOverrideField(populateOverride))
         {
             injection = null;
             return false;

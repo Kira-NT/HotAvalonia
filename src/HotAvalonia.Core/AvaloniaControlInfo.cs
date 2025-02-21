@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using HotAvalonia.Helpers;
 using HotAvalonia.Reflection.Inject;
+using HotAvalonia.Xaml;
 
 namespace HotAvalonia;
 
@@ -88,13 +89,13 @@ public sealed class AvaloniaControlInfo : IEquatable<AvaloniaControlInfo>
         _ = build ?? throw new ArgumentNullException(nameof(build));
         _ = populate ?? throw new ArgumentNullException(nameof(populate));
 
-        if (!AvaloniaRuntimeXamlScanner.IsBuildMethod(build))
+        if (!XamlScanner.IsBuildMethod(build))
             throw new ArgumentException("The provided method does not meet the build method criteria.", nameof(build));
 
-        if (!AvaloniaRuntimeXamlScanner.IsPopulateMethod(populate))
+        if (!XamlScanner.IsPopulateMethod(populate))
             throw new ArgumentException("The provided method does not meet the populate method criteria.", nameof(populate));
 
-        if (populateOverride is not null && !AvaloniaRuntimeXamlScanner.IsPopulateOverrideField(populateOverride))
+        if (populateOverride is not null && !XamlScanner.IsPopulateOverrideField(populateOverride))
             throw new ArgumentException("The provided field does not meet the populate override criteria.", nameof(populateOverride));
 
         _uri = uri;

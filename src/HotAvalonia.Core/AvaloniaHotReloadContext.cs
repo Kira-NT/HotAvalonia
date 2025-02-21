@@ -8,6 +8,7 @@ using HotAvalonia.Assets;
 using HotAvalonia.DependencyInjection;
 using HotAvalonia.Helpers;
 using HotAvalonia.IO;
+using HotAvalonia.Xaml;
 
 namespace HotAvalonia;
 
@@ -126,7 +127,7 @@ public static class AvaloniaHotReloadContext
     /// </returns>
     private static IHotReloadContext? FromUnverifiedAssembly(Assembly assembly, AvaloniaProjectLocator projectLocator)
     {
-        AvaloniaControlInfo[] controls = AvaloniaRuntimeXamlScanner.FindAvaloniaControls(assembly).ToArray();
+        AvaloniaControlInfo[] controls = XamlScanner.FindAvaloniaControls(assembly).ToArray();
         if (controls.Length == 0)
             return null;
 
@@ -161,7 +162,7 @@ public static class AvaloniaHotReloadContext
         _ = assembly ?? throw new ArgumentNullException(nameof(assembly));
         _ = projectLocator ?? throw new ArgumentNullException(nameof(projectLocator));
 
-        AvaloniaControlInfo[] controls = AvaloniaRuntimeXamlScanner.FindAvaloniaControls(assembly).ToArray();
+        AvaloniaControlInfo[] controls = XamlScanner.FindAvaloniaControls(assembly).ToArray();
         string rootPath = projectLocator.GetDirectoryName(assembly, controls);
         return new AvaloniaProjectHotReloadContext(rootPath, projectLocator.FileSystem, controls);
     }
@@ -181,7 +182,7 @@ public static class AvaloniaHotReloadContext
         _ = assembly ?? throw new ArgumentNullException(nameof(assembly));
         _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
 
-        IEnumerable<AvaloniaControlInfo> controls = AvaloniaRuntimeXamlScanner.FindAvaloniaControls(assembly);
+        IEnumerable<AvaloniaControlInfo> controls = XamlScanner.FindAvaloniaControls(assembly);
         return new AvaloniaProjectHotReloadContext(rootPath, fileSystem, controls);
     }
 
@@ -233,7 +234,7 @@ public static class AvaloniaHotReloadContext
         _ = fileSystem.FileExists(controlPath) ? controlPath : throw new FileNotFoundException(controlPath);
 
         controlPath = fileSystem.GetFullPath(controlPath);
-        if (!AvaloniaRuntimeXamlScanner.TryExtractControlUri(controlType, out string? controlUri))
+        if (!XamlScanner.TryExtractControlUri(controlType, out string? controlUri))
             throw new ArgumentException("The provided control is not a valid user-defined Avalonia control. Could not determine its URI.", nameof(controlType));
 
         string rootPath = UriHelper.ResolveHostPath(controlUri, controlPath);

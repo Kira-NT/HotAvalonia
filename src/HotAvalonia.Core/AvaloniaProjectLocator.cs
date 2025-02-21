@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using HotAvalonia.Helpers;
 using HotAvalonia.IO;
+using HotAvalonia.Xaml;
 using FileSystemProvider = HotAvalonia.IO.FileSystem;
 
 namespace HotAvalonia;
@@ -106,7 +107,7 @@ public sealed class AvaloniaProjectLocator
     {
         _ = type ?? throw new ArgumentNullException(nameof(type));
         _ = fileName ?? throw new ArgumentNullException(nameof(fileName));
-        if (!AvaloniaRuntimeXamlScanner.TryExtractControlUri(type, out Uri? uri))
+        if (!XamlScanner.TryExtractControlUri(type, out Uri? uri))
             return;
 
         Assembly assembly = type.Assembly;
@@ -153,7 +154,7 @@ public sealed class AvaloniaProjectLocator
         if (TryGetCachedDirectoryName(assembly, out directoryName))
             return true;
 
-        IEnumerable<AvaloniaControlInfo> controls = AvaloniaRuntimeXamlScanner.FindAvaloniaControls(assembly);
+        IEnumerable<AvaloniaControlInfo> controls = XamlScanner.FindAvaloniaControls(assembly);
         return TryGetDirectoryName(assembly, controls, out directoryName);
     }
 
