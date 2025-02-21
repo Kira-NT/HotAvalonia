@@ -211,7 +211,7 @@
       Text="Unable to determine the Avalonia version. Please set the 'AvaloniaVersion' property. Defaulting to '$(HotAvaloniaMinimumSupportedAvaloniaVersion)'."
     />
     <ItemGroup>
-      <PackageReference Condition="'$(AvaloniaVersion)' == ''" Include="Avalonia.Markup.Xaml.Loader" Version="[$(HotAvaloniaMinimumSupportedAvaloniaVersion),)]" />
+      <PackageReference Condition="'$(AvaloniaVersion)' == ''" Include="Avalonia.Markup.Xaml.Loader" Version="[$(HotAvaloniaMinimumSupportedAvaloniaVersion),)" />
       <PackageReference Condition="'$(AvaloniaVersion)' != ''" Include="Avalonia.Markup.Xaml.Loader" Version="$(AvaloniaVersion)" />
     </ItemGroup>
   </Target>
