@@ -2,12 +2,12 @@ using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
 
-namespace HotAvalonia;
+namespace HotAvalonia.Xaml;
 
 /// <summary>
-/// Represents a reference to a named control within an Avalonia UI.
+/// Represents a reference to a named control.
 /// </summary>
-internal sealed class AvaloniaNamedControlReference
+internal sealed class NamedControlReference
 {
     /// <summary>
     /// The name of the control.
@@ -24,20 +24,20 @@ internal sealed class AvaloniaNamedControlReference
     /// </summary>
     private readonly FieldInfo? _cache;
 
-    /// <inheritdoc cref="AvaloniaNamedControlReference(string, Type, FieldInfo?)"/>
-    public AvaloniaNamedControlReference(string name, Type type)
+    /// <inheritdoc cref="NamedControlReference(string, Type, FieldInfo?)"/>
+    public NamedControlReference(string name, Type type)
     {
         _name = name ?? throw new ArgumentNullException(nameof(name));
         _controlType = type ?? throw new ArgumentNullException(nameof(type));
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="AvaloniaNamedControlReference"/> class.
+    /// Initializes a new instance of the <see cref="NamedControlReference"/> class.
     /// </summary>
     /// <param name="name">The name of the control.</param>
     /// <param name="type">The type of the control.</param>
     /// <param name="cache">A cache field associated with this control reference.</param>
-    internal AvaloniaNamedControlReference(string name, Type type, FieldInfo? cache)
+    internal NamedControlReference(string name, Type type, FieldInfo? cache)
         : this(name, type)
     {
         _cache = cache;

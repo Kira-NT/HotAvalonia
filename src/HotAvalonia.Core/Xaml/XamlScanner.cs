@@ -325,11 +325,11 @@ public static class XamlScanner
     }
 
     /// <summary>
-    /// Discovers named control references within the Avalonia control associated with the given build method.
+    /// Discovers named control references within the control associated with the given build method.
     /// </summary>
     /// <param name="buildMethod">The build method associated with the control scope to search within.</param>
     /// <returns>An enumerable containing discovered named control references.</returns>
-    private static IEnumerable<AvaloniaNamedControlReference> FindAvaloniaNamedControlReferences(MethodBase buildMethod)
+    private static IEnumerable<NamedControlReference> FindNamedControlReferences(MethodBase buildMethod)
     {
         if (buildMethod is not { IsConstructor: true, DeclaringType: Type declaringType })
             return [];
@@ -344,7 +344,7 @@ public static class XamlScanner
         if (initializeComponent is null || initializeComponentBody is null)
             return [];
 
-        return ExtractAvaloniaNamedControlReferences(initializeComponentBody, initializeComponent.Module);
+        return ExtractNamedControlReferences(initializeComponentBody, initializeComponent.Module);
     }
 
     /// <summary>
@@ -353,7 +353,7 @@ public static class XamlScanner
     /// <param name="methodBody">The IL method body to scan.</param>
     /// <param name="module">The module containing the method body.</param>
     /// <returns>An enumerable containing extracted named control references.</returns>
-    private static IEnumerable<AvaloniaNamedControlReference> ExtractAvaloniaNamedControlReferences(ReadOnlyMemory<byte> methodBody, Module module)
+    private static IEnumerable<NamedControlReference> ExtractNamedControlReferences(ReadOnlyMemory<byte> methodBody, Module module)
     {
         _ = module ?? throw new ArgumentNullException(nameof(module));
 
@@ -417,7 +417,7 @@ public static class XamlScanner
     /// </returns>
     private static Action<object> GetControlRefreshCallback(MethodBase buildMethod)
     {
-        Action<object>[] callbacks = FindAvaloniaNamedControlReferences(buildMethod)
+        Action<object>[] callbacks = FindNamedControlReferences(buildMethod)
             .Select(static x => (Action<object>)x.Refresh)
             .Concat(FindAvaloniaHotReloadCallbacks(buildMethod)
             .Select(static x => x.CreateUnsafeDelegate<Action<object>>()))
