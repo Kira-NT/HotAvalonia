@@ -107,7 +107,7 @@ public sealed class AvaloniaProjectLocator
     {
         _ = type ?? throw new ArgumentNullException(nameof(type));
         _ = fileName ?? throw new ArgumentNullException(nameof(fileName));
-        if (!XamlScanner.TryExtractControlUri(type, out Uri? uri))
+        if (!XamlScanner.TryExtractDocumentUri(type, out Uri? uri))
             return;
 
         Assembly assembly = type.Assembly;
@@ -148,26 +148,26 @@ public sealed class AvaloniaProjectLocator
         return false;
     }
 
-    /// <inheritdoc cref="TryGetDirectoryName(Assembly, AvaloniaControlInfo?, out string?)"/>
+    /// <inheritdoc cref="TryGetDirectoryName(Assembly, CompiledXamlDocument?, out string?)"/>
     public bool TryGetDirectoryName(Assembly assembly, [NotNullWhen(true)] out string? directoryName)
     {
         if (TryGetCachedDirectoryName(assembly, out directoryName))
             return true;
 
-        IEnumerable<AvaloniaControlInfo> controls = XamlScanner.FindAvaloniaControls(assembly);
-        return TryGetDirectoryName(assembly, controls, out directoryName);
+        IEnumerable<CompiledXamlDocument> documents = XamlScanner.GetDocuments(assembly);
+        return TryGetDirectoryName(assembly, documents, out directoryName);
     }
 
-    /// <inheritdoc cref="TryGetDirectoryName(Assembly, AvaloniaControlInfo?, out string?)"/>
-    /// <param name="controls">The Avalonia controls located within the assembly.</param>
-    internal bool TryGetDirectoryName(Assembly assembly, IEnumerable<AvaloniaControlInfo> controls, [NotNullWhen(true)] out string? directoryName)
-        => TryGetDirectoryName(assembly, controls.FirstOrDefault(), out directoryName);
+    /// <inheritdoc cref="TryGetDirectoryName(Assembly, CompiledXamlDocument?, out string?)"/>
+    /// <param name="documents">The compiled XAML documents located within the assembly.</param>
+    internal bool TryGetDirectoryName(Assembly assembly, IEnumerable<CompiledXamlDocument> documents, [NotNullWhen(true)] out string? directoryName)
+        => TryGetDirectoryName(assembly, documents.FirstOrDefault(), out directoryName);
 
     /// <summary>
     /// Attempts to infer the project path of the specified assembly.
     /// </summary>
     /// <param name="assembly">The assembly to infer the project path for.</param>
-    /// <param name="control">An Avalonia control located within the assembly.</param>
+    /// <param name="document">A compiled XAML document located within the assembly.</param>
     /// <param name="directoryName">
     /// When this method returns, contains the inferred project path, if any;
     /// otherwise, <c>null</c>.
@@ -176,26 +176,26 @@ public sealed class AvaloniaProjectLocator
     /// <c>true</c> if the project path was found;
     /// otherwise, <c>false</c>.
     /// </returns>
-    internal bool TryGetDirectoryName(Assembly assembly, AvaloniaControlInfo? control, [NotNullWhen(true)] out string? directoryName)
+    internal bool TryGetDirectoryName(Assembly assembly, CompiledXamlDocument? document, [NotNullWhen(true)] out string? directoryName)
     {
         if (TryGetCachedDirectoryName(assembly, out directoryName))
             return true;
 
-        if (control is null)
+        if (document is null)
             return false;
 
         // We expect the assembly that contains the control to be accessible locally.
-        string? controlPath = control.PopulateMethod.GetFilePath(FileSystemProvider.Current);
-        controlPath ??= control.PopulateMethod.GetFilePath(_fileSystem);
-        if (!_fileSystem.FileExists(controlPath))
+        string? documentPath = document.PopulateMethod.GetFilePath(FileSystemProvider.Current);
+        documentPath ??= document.PopulateMethod.GetFilePath(_fileSystem);
+        if (!_fileSystem.FileExists(documentPath))
             return false;
 
-        directoryName = UriHelper.ResolveHostPath(control.Uri, _fileSystem.GetFullPath(controlPath));
+        directoryName = UriHelper.ResolveHostPath(document.Uri, _fileSystem.GetFullPath(documentPath));
         AddHint(assembly, directoryName);
         return true;
     }
 
-    /// <inheritdoc cref="GetDirectoryName(Assembly, AvaloniaControlInfo?)"/>
+    /// <inheritdoc cref="GetDirectoryName(Assembly, CompiledXamlDocument?)"/>
     public string GetDirectoryName(Assembly assembly)
     {
         if (!TryGetDirectoryName(assembly, out string? directoryName))
@@ -204,21 +204,21 @@ public sealed class AvaloniaProjectLocator
         return directoryName;
     }
 
-    /// <inheritdoc cref="GetDirectoryName(Assembly, AvaloniaControlInfo?)"/>
-    /// <param name="controls">The Avalonia controls located within the assembly.</param>
-    internal string GetDirectoryName(Assembly assembly, IEnumerable<AvaloniaControlInfo> controls)
-        => GetDirectoryName(assembly, controls.FirstOrDefault());
+    /// <inheritdoc cref="GetDirectoryName(Assembly, CompiledXamlDocument?)"/>
+    /// <param name="documents">The compiled XAML documents located within the assembly.</param>
+    internal string GetDirectoryName(Assembly assembly, IEnumerable<CompiledXamlDocument> documents)
+        => GetDirectoryName(assembly, documents.FirstOrDefault());
 
     /// <summary>
     /// Infers the project path of the specified assembly.
     /// </summary>
     /// <param name="assembly">The assembly to infer the project path for.</param>
-    /// <param name="control">An Avalonia control located within the assembly.</param>
+    /// <param name="document">A compiled XAML document located within the assembly.</param>
     /// <returns>The project path of the specified assembly.</returns>
     /// <exception cref="DirectoryNotFoundException">Thrown if the project path cannot be found.</exception>
-    internal string GetDirectoryName(Assembly assembly, AvaloniaControlInfo? control)
+    internal string GetDirectoryName(Assembly assembly, CompiledXamlDocument? document)
     {
-        if (!TryGetDirectoryName(assembly, control, out string? directoryName))
+        if (!TryGetDirectoryName(assembly, document, out string? directoryName))
             return ThrowDirectoryNotFoundException(assembly);
 
         return directoryName;

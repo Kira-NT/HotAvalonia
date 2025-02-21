@@ -137,27 +137,29 @@ public static class XamlScanner
     }
 
     /// <summary>
-    /// Attempts to extract the URI associated with the given control instance.
+    /// Attempts to extract the URI associated with the XAML document
+    /// represented by the given control instance.
     /// </summary>
-    /// <param name="control">The control instance.</param>
+    /// <param name="rootControl">The root control instance.</param>
     /// <param name="uri">The output parameter that receives the associated URI.</param>
     /// <returns><c>true</c> if the URI is successfully extracted; otherwise, <c>false</c>.</returns>
-    public static bool TryExtractControlUri(object? control, [NotNullWhen(true)] out Uri? uri)
-        => TryExtractControlUri(control?.GetType(), out uri);
+    public static bool TryExtractDocumentUri(object? rootControl, [NotNullWhen(true)] out Uri? uri)
+        => TryExtractDocumentUri(rootControl?.GetType(), out uri);
 
-    /// <inheritdoc cref="TryExtractControlUri(object?, out Uri?)"/>
-    public static bool TryExtractControlUri(object? control, [NotNullWhen(true)] out string? uri)
-        => TryExtractControlUri(control?.GetType(), out uri);
+    /// <inheritdoc cref="TryExtractDocumentUri(object?, out Uri?)"/>
+    public static bool TryExtractDocumentUri(object? rootControl, [NotNullWhen(true)] out string? uri)
+        => TryExtractDocumentUri(rootControl?.GetType(), out uri);
 
     /// <summary>
-    /// Attempts to extract the URI associated with the given control type.
+    /// Attempts to extract the URI associated with the XAML document
+    /// represented by it's root control type.
     /// </summary>
-    /// <param name="controlType">The control type.</param>
+    /// <param name="rootControlType">The root control type.</param>
     /// <param name="uri">The output parameter that receives the associated URI.</param>
     /// <returns><c>true</c> if the URI is successfully extracted; otherwise, <c>false</c>.</returns>
-    public static bool TryExtractControlUri(Type? controlType, [NotNullWhen(true)] out Uri? uri)
+    public static bool TryExtractDocumentUri(Type? rootControlType, [NotNullWhen(true)] out Uri? uri)
     {
-        if (TryExtractControlUri(controlType, out string? uriStr))
+        if (TryExtractDocumentUri(rootControlType, out string? uriStr))
         {
             uri = new(uriStr);
             return true;
@@ -169,15 +171,15 @@ public static class XamlScanner
         }
     }
 
-    /// <inheritdoc cref="TryExtractControlUri(Type?, out Uri?)"/>
-    public static bool TryExtractControlUri(Type? controlType, [NotNullWhen(true)] out string? uri)
+    /// <inheritdoc cref="TryExtractDocumentUri(Type?, out Uri?)"/>
+    public static bool TryExtractDocumentUri(Type? rootControlType, [NotNullWhen(true)] out string? uri)
     {
         uri = null;
-        if (controlType is null)
+        if (rootControlType is null)
             return false;
 
-        MethodInfo? populate = FindPopulateControlMethod(controlType);
-        return populate is not null && TryExtractControlUri(populate, out uri);
+        MethodInfo? populate = FindPopulateControlMethod(rootControlType);
+        return populate is not null && TryExtractDocumentUri(populate, out uri);
     }
 
     /// <summary>
@@ -186,7 +188,7 @@ public static class XamlScanner
     /// <param name="populateMethod">The populate method.</param>
     /// <param name="uri">The output parameter that receives the associated URI.</param>
     /// <returns><c>true</c> if the URI is successfully extracted; otherwise, <c>false</c>.</returns>
-    private static bool TryExtractControlUri(MethodInfo populateMethod, [NotNullWhen(true)] out string? uri)
+    private static bool TryExtractDocumentUri(MethodInfo populateMethod, [NotNullWhen(true)] out string? uri)
     {
         // "Populate" methods created by Avalonia usually start like this:
         // IL_0000: ldarg.0
@@ -226,11 +228,11 @@ public static class XamlScanner
     }
 
     /// <summary>
-    /// Discovers Avalonia controls present in a given assembly.
+    /// Returns compiled XAML documents located in the given assembly.
     /// </summary>
-    /// <param name="assembly">The assembly to scan for Avalonia controls.</param>
-    /// <returns>An enumerable containing information about discovered Avalonia controls.</returns>
-    public static IEnumerable<AvaloniaControlInfo> FindAvaloniaControls(Assembly assembly)
+    /// <param name="assembly">The assembly to scan for pre-compiled XAML.</param>
+    /// <returns>An enumerable containing compiled XAML documents.</returns>
+    public static IEnumerable<CompiledXamlDocument> GetDocuments(Assembly assembly)
     {
         _ = assembly ?? throw new ArgumentNullException(nameof(assembly));
 
@@ -240,18 +242,18 @@ public static class XamlScanner
         if (tryLoad is null || tryLoadBody is null)
             return [];
 
-        IEnumerable<AvaloniaControlInfo> extractedControls = ExtractAvaloniaControls(tryLoadBody, tryLoad.Module);
-        IEnumerable<AvaloniaControlInfo> scannedControls = ScanAvaloniaControls(assembly);
-        return extractedControls.Concat(scannedControls).Distinct();
+        IEnumerable<CompiledXamlDocument> extractedDocuments = ExtractDocuments(tryLoadBody, tryLoad.Module);
+        IEnumerable<CompiledXamlDocument> foundDocuments = FindDocuments(assembly);
+        return extractedDocuments.Concat(foundDocuments).Distinct();
     }
 
     /// <summary>
-    /// Extracts Avalonia control information from the IL of the given method body.
+    /// Extracts information about pre-compiled XAML from the IL of the given method body.
     /// </summary>
     /// <param name="methodBody">The IL method body to scan.</param>
     /// <param name="module">The module containing the method body.</param>
-    /// <returns>An enumerable containing information about extracted Avalonia controls.</returns>
-    private static IEnumerable<AvaloniaControlInfo> ExtractAvaloniaControls(ReadOnlyMemory<byte> methodBody, Module module)
+    /// <returns>An enumerable containing compiled XAML documents.</returns>
+    private static IEnumerable<CompiledXamlDocument> ExtractDocuments(ReadOnlyMemory<byte> methodBody, Module module)
     {
         MethodBodyReader reader = new(methodBody);
         string? str = null;
@@ -297,11 +299,11 @@ public static class XamlScanner
     }
 
     /// <summary>
-    /// Scans the specified assembly for Avalonia controls.
+    /// Searches for compiled XAML documents located in the given assembly.
     /// </summary>
-    /// <param name="assembly">The assembly to scan for Avalonia controls.</param>
-    /// <returns>An enumerable containing information about the discovered Avalonia controls.</returns>
-    private static IEnumerable<AvaloniaControlInfo> ScanAvaloniaControls(Assembly assembly)
+    /// <param name="assembly">The assembly to scan for pre-compiled XAML.</param>
+    /// <returns>An enumerable containing compiled XAML documents.</returns>
+    private static IEnumerable<CompiledXamlDocument> FindDocuments(Assembly assembly)
     {
         foreach (Type type in assembly.GetLoadedTypes())
         {
@@ -309,7 +311,7 @@ public static class XamlScanner
             if (populateMethod is null)
                 continue;
 
-            if (!TryExtractControlUri(populateMethod, out string? uri))
+            if (!TryExtractDocumentUri(populateMethod, out string? uri))
                 continue;
 
             MethodBase? buildMethod = type.GetInstanceConstructor();

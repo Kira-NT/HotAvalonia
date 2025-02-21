@@ -127,11 +127,11 @@ public static class AvaloniaHotReloadContext
     /// </returns>
     private static IHotReloadContext? FromUnverifiedAssembly(Assembly assembly, AvaloniaProjectLocator projectLocator)
     {
-        AvaloniaControlInfo[] controls = XamlScanner.FindAvaloniaControls(assembly).ToArray();
-        if (controls.Length == 0)
+        CompiledXamlDocument[] documents = XamlScanner.GetDocuments(assembly).ToArray();
+        if (documents.Length == 0)
             return null;
 
-        if (!projectLocator.TryGetDirectoryName(assembly, controls, out string? rootPath))
+        if (!projectLocator.TryGetDirectoryName(assembly, documents, out string? rootPath))
         {
             LoggingHelper.Log("Found an assembly containing Avalonia controls ({AssemblyName}). However, its source project location could not be determined. Skipping.", assembly.GetName().Name);
             return null;
@@ -144,7 +144,7 @@ public static class AvaloniaHotReloadContext
         }
 
         LoggingHelper.Log("Found an assembly containing Avalonia controls ({AssemblyName}) with its source project located at {ProjectLocation}.", assembly.GetName().Name, rootPath);
-        return new AvaloniaProjectHotReloadContext(rootPath, projectLocator.FileSystem, controls);
+        return new AvaloniaProjectHotReloadContext(rootPath, projectLocator.FileSystem, documents);
     }
 
     /// <inheritdoc cref="FromAssembly(Assembly, string)"/>
@@ -162,9 +162,9 @@ public static class AvaloniaHotReloadContext
         _ = assembly ?? throw new ArgumentNullException(nameof(assembly));
         _ = projectLocator ?? throw new ArgumentNullException(nameof(projectLocator));
 
-        AvaloniaControlInfo[] controls = XamlScanner.FindAvaloniaControls(assembly).ToArray();
-        string rootPath = projectLocator.GetDirectoryName(assembly, controls);
-        return new AvaloniaProjectHotReloadContext(rootPath, projectLocator.FileSystem, controls);
+        CompiledXamlDocument[] documents = XamlScanner.GetDocuments(assembly).ToArray();
+        string rootPath = projectLocator.GetDirectoryName(assembly, documents);
+        return new AvaloniaProjectHotReloadContext(rootPath, projectLocator.FileSystem, documents);
     }
 
     /// <summary>
@@ -182,8 +182,8 @@ public static class AvaloniaHotReloadContext
         _ = assembly ?? throw new ArgumentNullException(nameof(assembly));
         _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
 
-        IEnumerable<AvaloniaControlInfo> controls = XamlScanner.FindAvaloniaControls(assembly);
-        return new AvaloniaProjectHotReloadContext(rootPath, fileSystem, controls);
+        IEnumerable<CompiledXamlDocument> documents = XamlScanner.GetDocuments(assembly);
+        return new AvaloniaProjectHotReloadContext(rootPath, fileSystem, documents);
     }
 
     /// <inheritdoc cref="FromControl(object, string)"/>
@@ -234,7 +234,7 @@ public static class AvaloniaHotReloadContext
         _ = fileSystem.FileExists(controlPath) ? controlPath : throw new FileNotFoundException(controlPath);
 
         controlPath = fileSystem.GetFullPath(controlPath);
-        if (!XamlScanner.TryExtractControlUri(controlType, out string? controlUri))
+        if (!XamlScanner.TryExtractDocumentUri(controlType, out string? controlUri))
             throw new ArgumentException("The provided control is not a valid user-defined Avalonia control. Could not determine its URI.", nameof(controlType));
 
         string rootPath = UriHelper.ResolveHostPath(controlUri, controlPath);
@@ -267,15 +267,15 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext
     /// </summary>
     /// <param name="rootPath">The root directory of the Avalonia project to watch.</param>
     /// <param name="fileSystem">The file system where <paramref name="rootPath"/> can be found.</param>
-    /// <param name="controls">The list of Avalonia controls to manage.</param>
-    public AvaloniaProjectHotReloadContext(string rootPath, IFileSystem fileSystem, IEnumerable<AvaloniaControlInfo> controls)
+    /// <param name="documents">The list of XAML documents to manage.</param>
+    public AvaloniaProjectHotReloadContext(string rootPath, IFileSystem fileSystem, IEnumerable<CompiledXamlDocument> documents)
     {
         _ = rootPath ?? throw new ArgumentNullException(nameof(rootPath));
         _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
         _ = fileSystem.DirectoryExists(rootPath) ? rootPath : throw new DirectoryNotFoundException(rootPath);
 
         rootPath = fileSystem.GetFullPath(rootPath);
-        _controls = controls.ToDictionary
+        _controls = documents.ToDictionary
         (
             x => fileSystem.GetFullPath(fileSystem.ResolvePathFromUri(rootPath, x.Uri)),
             x => new AvaloniaControlManager(x),
@@ -344,13 +344,13 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext
             if (!await fileSystem.FileExistsAsync(path, cancellationToken).ConfigureAwait(false))
                 return;
 
-            LoggingHelper.Log("Reloading {ControlUri}...", controlManager.Control.Uri);
+            LoggingHelper.Log("Reloading {ControlUri}...", controlManager.Document.Uri);
             string xaml = await fileSystem.ReadAllTextAsync(path, TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
             await controlManager.ReloadAsync(xaml, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception e)
         {
-            LoggingHelper.Log("Failed to reload {ControlUri}: {Error}", controlManager.Control.Uri, e);
+            LoggingHelper.Log("Failed to reload {ControlUri}: {Error}", controlManager.Document.Uri, e);
         }
     }
 
@@ -366,7 +366,7 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext
         if (!_controls.TryGetValue(oldFullPath, out AvaloniaControlManager? controlManager))
             return;
 
-        LoggingHelper.Log("{ControlUri} has been moved from {OldControlLocation} to {ControlLocation}.", controlManager.Control.Uri, oldFullPath, newFullPath);
+        LoggingHelper.Log("{ControlUri} has been moved from {OldControlLocation} to {ControlLocation}.", controlManager.Document.Uri, oldFullPath, newFullPath);
         _controls.Remove(oldFullPath);
         _controls[newFullPath] = controlManager;
     }

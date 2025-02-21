@@ -3,6 +3,7 @@ using Avalonia.Threading;
 using HotAvalonia.Collections;
 using HotAvalonia.Helpers;
 using HotAvalonia.Reflection.Inject;
+using HotAvalonia.Xaml;
 
 namespace HotAvalonia;
 
@@ -12,9 +13,9 @@ namespace HotAvalonia;
 internal sealed class AvaloniaControlManager : IDisposable
 {
     /// <summary>
-    /// The information about the Avalonia control being managed.
+    /// The document associated with controls managed by this instance.
     /// </summary>
-    private readonly AvaloniaControlInfo _controlInfo;
+    private readonly CompiledXamlDocument _document;
 
     /// <summary>
     /// The set of weak references to the controls managed by this instance.
@@ -35,20 +36,20 @@ internal sealed class AvaloniaControlManager : IDisposable
     /// <summary>
     /// Initializes a new instance of the <see cref="AvaloniaControlManager"/> class.
     /// </summary>
-    /// <param name="controlInfo">The Avalonia control information.</param>
-    public AvaloniaControlManager(AvaloniaControlInfo controlInfo)
+    /// <param name="document">The document associated with controls managed by this instance.</param>
+    public AvaloniaControlManager(CompiledXamlDocument document)
     {
-        _controlInfo = controlInfo ?? throw new ArgumentNullException(nameof(controlInfo));
+        _document = document ?? throw new ArgumentNullException(nameof(document));
         _controls = new();
 
-        if (!TryInjectPopulateCallback(controlInfo, OnPopulate, out _populateInjection))
-            LoggingHelper.Log("Failed to subscribe to the 'Populate' event of {ControlUri}. The control won't be reloaded upon file changes.", controlInfo.Uri);
+        if (!TryInjectPopulateCallback(document, OnPopulate, out _populateInjection))
+            LoggingHelper.Log("Failed to subscribe to the 'Populate' event of {ControlUri}. The control won't be reloaded upon file changes.", document.Uri);
     }
 
     /// <summary>
-    /// The information about the Avalonia control being managed.
+    /// Gets the document associated with controls managed by this instance.
     /// </summary>
-    public AvaloniaControlInfo Control => _controlInfo;
+    public CompiledXamlDocument Document => _document;
 
     /// <inheritdoc/>
     public void Dispose()
@@ -72,7 +73,7 @@ internal sealed class AvaloniaControlManager : IDisposable
         using IEnumerator<object> controls = _controls.GetEnumerator();
         object? firstControl = controls.MoveNext() ? controls.Current : null;
 
-        _controlInfo.Load(xaml, firstControl, out MethodInfo? newDynamicPopulate);
+        _document.Load(xaml, firstControl, out MethodInfo? newDynamicPopulate);
         _dynamicPopulate = newDynamicPopulate ?? _dynamicPopulate;
         if (_dynamicPopulate is null)
             return;
@@ -81,7 +82,7 @@ internal sealed class AvaloniaControlManager : IDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            _controlInfo.Populate(serviceProvider: null, controls.Current, _dynamicPopulate);
+            _document.Populate(serviceProvider: null, controls.Current, _dynamicPopulate);
         }
     }
 
@@ -97,14 +98,14 @@ internal sealed class AvaloniaControlManager : IDisposable
         if (_dynamicPopulate is null)
             return false;
 
-        _controlInfo.Populate(provider, control, _dynamicPopulate);
+        _document.Populate(provider, control, _dynamicPopulate);
         return true;
     }
 
     /// <summary>
     /// Attempts to inject a callback into the populate method of the given control.
     /// </summary>
-    /// <param name="controlInfo">The Avalonia control information.</param>
+    /// <param name="document">The document associated with controls managed by this instance.</param>
     /// <param name="onPopulate">The callback to invoke when a control is populated.</param>
     /// <param name="injection">
     /// When this method returns, contains the <see cref="IInjection"/> instance if the injection was successful;
@@ -115,7 +116,7 @@ internal sealed class AvaloniaControlManager : IDisposable
     /// otherwise, <c>false</c>.
     /// </returns>
     private static bool TryInjectPopulateCallback(
-        AvaloniaControlInfo controlInfo,
+        CompiledXamlDocument document,
         Func<IServiceProvider?, object, bool> onPopulate,
         out IInjection? injection)
     {
@@ -139,15 +140,15 @@ internal sealed class AvaloniaControlManager : IDisposable
 
         if (CallbackInjector.IsSupported)
         {
-            injection = CallbackInjector.Inject(controlInfo.PopulateMethod, onPopulate);
+            injection = CallbackInjector.Inject(document.PopulateMethod, onPopulate);
             return true;
         }
 
         void PopulateOverride(IServiceProvider? provider, object control)
         {
             if (!onPopulate(provider, control))
-                controlInfo.Populate(provider, control);
+                document.Populate(provider, control);
         }
-        return controlInfo.TryInjectPopulateOverride(PopulateOverride, out injection);
+        return document.TryOverridePopulate(PopulateOverride, out injection);
     }
 }
