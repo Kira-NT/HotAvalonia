@@ -3,8 +3,9 @@ using System.Reflection;
 using System.Reflection.Emit;
 using Avalonia.Markup.Xaml;
 using HotAvalonia.Helpers;
+using HotAvalonia.Reflection;
 
-namespace HotAvalonia.Reflection;
+namespace HotAvalonia.Xaml;
 
 /// <summary>
 /// Provides a substitute for the <c>SreAssembly</c> class defined by Avalonia.

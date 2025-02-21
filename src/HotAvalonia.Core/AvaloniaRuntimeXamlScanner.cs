@@ -5,6 +5,7 @@ using System.Reflection.Emit;
 using Avalonia.Markup.Xaml;
 using HotAvalonia.Helpers;
 using HotAvalonia.Reflection;
+using HotAvalonia.Xaml;
 
 namespace HotAvalonia;
 
