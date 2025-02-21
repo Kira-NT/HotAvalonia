@@ -17,6 +17,21 @@ internal static class MethodHelper
     /// that represents the provided static or instance method.
     /// </summary>
     /// <typeparam name="TDelegate">The type of the delegate to create.</typeparam>
+    /// <param name="method">The method the delegate is to represent.</param>
+    /// <param name="target">
+    /// The object to which the delegate is bound, or
+    /// <c>null</c> to treat method as <c>static</c>.
+    /// </param>
+    /// <returns>A delegate of the specified type that represents the provided method.</returns>
+    public static TDelegate CreateDelegate<TDelegate>(this MethodInfo method, object? target = null)
+        where TDelegate : Delegate
+        => (TDelegate)method.CreateDelegate(typeof(TDelegate), target);
+
+    /// <summary>
+    /// Creates a delegate of type <typeparamref name="TDelegate"/>
+    /// that represents the provided static or instance method.
+    /// </summary>
+    /// <typeparam name="TDelegate">The type of the delegate to create.</typeparam>
     /// <inheritdoc cref="CreateUnsafeDelegate(MethodBase, Type, object?)"/>
     public static TDelegate CreateUnsafeDelegate<TDelegate>(this MethodBase method, object? target = null)
         where TDelegate : Delegate
