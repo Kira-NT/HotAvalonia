@@ -1,5 +1,10 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.LogicalTree;
+using Avalonia.Markup.Xaml.XamlIl.Runtime;
+using Avalonia.Styling;
 using HotAvalonia.Helpers;
 using HotAvalonia.Reflection.Inject;
 
@@ -10,6 +15,16 @@ namespace HotAvalonia.Xaml;
 /// </summary>
 public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
 {
+    /// <summary>
+    /// The field reference for <c>StyledElement._stylesApplied</c>.
+    /// </summary>
+    private static readonly FieldInfo? s_stylesAppliedField = typeof(StyledElement).GetInstanceField("_stylesApplied", typeof(bool));
+
+    /// <summary>
+    /// The property reference for <c>AvaloniaObject.InheritanceParent</c>.
+    /// </summary>
+    private static readonly PropertyInfo? s_inheritanceParentProperty = typeof(AvaloniaObject).GetInstanceProperty("InheritanceParent");
+
     /// <summary>
     /// The URI associated with the XAML document.
     /// </summary>
@@ -148,7 +163,10 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     /// </param>
     /// <returns>A newly created instance of the root control.</returns>
     public object Build(IServiceProvider? serviceProvider = null)
-        => AvaloniaControlHelper.Build(_build, serviceProvider);
+    {
+        object[]? args = _build.IsConstructor ? null : [serviceProvider ?? XamlIlRuntimeHelpers.CreateRootServiceProviderV2()];
+        return _build.Invoke(null, args) ?? throw new InvalidOperationException();
+    }
 
     /// <inheritdoc cref="Populate(IServiceProvider?, object)"/>
     public void Populate(object rootControl)
@@ -168,7 +186,13 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     /// <param name="populateMethod">The method used to populate the control.</param>
     internal void Populate(IServiceProvider? serviceProvider, object rootControl, MethodBase populateMethod)
     {
-        AvaloniaControlHelper.Populate(populateMethod, serviceProvider, rootControl);
+        _ = populateMethod ?? throw new ArgumentNullException(nameof(populateMethod));
+        _ = rootControl ?? throw new ArgumentNullException(nameof(rootControl));
+
+        Reset(rootControl, out Action restore);
+        populateMethod.Invoke(null, [serviceProvider ?? XamlIlRuntimeHelpers.CreateRootServiceProviderV2(), rootControl]);
+        restore();
+
         Refresh(rootControl);
     }
 
@@ -183,11 +207,16 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     /// <returns><c>true</c> if the populate override was successfully injected; otherwise, <c>false</c>.</returns>
     internal bool TryOverridePopulate(Action<IServiceProvider?, object> populate, [NotNullWhen(true)] out IInjection? injection)
     {
-        injection = null;
-        if (_populateOverride is null)
-            return false;
+        _ = populate ?? throw new ArgumentNullException(nameof(populate));
 
-        return AvaloniaControlHelper.TryInjectPopulateOverride(_populateOverride, populate, out injection);
+        if (_populateOverride is null)
+        {
+            injection = null;
+            return false;
+        }
+
+        injection = new OverridePopulateInjection(_populateOverride, populate);
+        return true;
     }
 
     /// <summary>
@@ -219,4 +248,173 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     /// <inheritdoc/>
     public override int GetHashCode()
         => _rootType.GetHashCode();
+
+    /// <summary>
+    /// Clears resources, styles, and other data from an Avalonia control.
+    /// </summary>
+    /// <param name="control">The control to clear.</param>
+    private static void Clear(object? control)
+    {
+        if (control is null)
+            return;
+
+        if (control is StyledElement)
+            s_stylesAppliedField?.SetValue(control, false);
+
+        if (control is IDictionary<object, object> dictionaryControl)
+            dictionaryControl.Clear();
+
+        if (control is ICollection<IStyle> styles)
+            styles.Clear();
+
+        if (control is Visual avaloniaControl)
+        {
+            avaloniaControl.Resources.Clear();
+            avaloniaControl.Styles.Clear();
+        }
+
+        if (control is Application app)
+        {
+            app.Resources.Clear();
+            app.Styles.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Fully resets the state of an Avalonia control and
+    /// provides a callback to restore its original state.
+    /// </summary>
+    /// <param name="control">The control to reset.</param>
+    /// <param name="restore">When this method returns, contains a callback to restore the control's original state.</param>
+    private static void Reset(object? control, out Action restore)
+    {
+        Detach(control, out ILogical? logicalParent, out AvaloniaObject? inheritanceParent);
+        Clear(control);
+        restore = () => Attach(control, logicalParent, inheritanceParent);
+    }
+
+    /// <summary>
+    /// Detaches an Avalonia control from its logical and inheritance parents.
+    /// </summary>
+    /// <param name="control">The control to detach.</param>
+    /// <param name="logicalParent">
+    /// When this method returns, contains the control's logical parent, or <c>null</c> if it has none.
+    /// </param>
+    /// <param name="inheritanceParent">
+    /// When this method returns, contains the control's inheritance parent, or <c>null</c> if it has none.
+    /// </param>
+    private static void Detach(object? control, out ILogical? logicalParent, out AvaloniaObject? inheritanceParent)
+    {
+        logicalParent = (control as ILogical)?.GetLogicalParent();
+        inheritanceParent = control is AvaloniaObject
+            ? s_inheritanceParentProperty?.GetValue(control) as AvaloniaObject
+            : null;
+
+        (control as ISetLogicalParent)?.SetParent(null);
+        (control as ISetInheritanceParent)?.SetParent(null);
+    }
+
+    /// <summary>
+    /// Attaches an Avalonia control to the specified logical and inheritance parents.
+    /// </summary>
+    /// <param name="control">The control to attach.</param>
+    /// <param name="logicalParent">The logical parent to attach the control to.</param>
+    /// <param name="inheritanceParent">The inheritance parent to attach the control to.</param>
+    private static void Attach(object? control, ILogical? logicalParent, AvaloniaObject? inheritanceParent)
+    {
+        if (logicalParent is not null && control is ISetLogicalParent logical)
+            logical.SetParent(logicalParent);
+
+        if (inheritanceParent is not null && control is ISetInheritanceParent inheritance)
+            inheritance.SetParent(inheritanceParent);
+    }
+}
+
+/// <summary>
+/// Provides functionality to override the population mechanism of Avalonia controls using a custom delegate.
+/// </summary>
+/// <remarks>
+/// This class specifically targets the hidden <c>!XamlIlPopulateOverride</c> field to hijack
+/// the logic of control population, allowing for a fallback mechanism whenever proper
+/// injection techniques are not available.
+/// </remarks>
+file sealed class OverridePopulateInjection : IInjection
+{
+    /// <summary>
+    /// The field to inject the new population logic into.
+    /// </summary>
+    private readonly FieldInfo _populateOverride;
+
+    /// <summary>
+    /// The populate action to override the original one with.
+    /// </summary>
+    private readonly Delegate? _populate;
+
+    /// <summary>
+    /// The previous value of the <c>!XamlIlPopulateOverride</c> field before it was overridden.
+    /// </summary>
+    private object? _previousPopulateOverride;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="OverridePopulateInjection"/> class.
+    /// </summary>
+    /// <param name="populateOverride">The field to inject the new population logic into.</param>
+    /// <param name="populate">The populate action to override the original one with.</param>
+    public OverridePopulateInjection(FieldInfo populateOverride, Action<IServiceProvider, object> populate)
+    {
+        _populateOverride = populateOverride;
+
+        if (populateOverride.FieldType == typeof(Action<object>))
+        {
+            _populate = (object control) =>
+            {
+                populate(XamlIlRuntimeHelpers.CreateRootServiceProviderV2(), control);
+                _populateOverride.SetValue(null, _populate);
+            };
+        }
+        else if (populateOverride.FieldType == typeof(Action<IServiceProvider?, object>))
+        {
+            _populate = (IServiceProvider? serviceProvider, object control) =>
+            {
+                populate(serviceProvider ?? XamlIlRuntimeHelpers.CreateRootServiceProviderV2(), control);
+                _populateOverride.SetValue(null, _populate);
+            };
+        }
+
+        Apply();
+    }
+
+    /// <summary>
+    /// Finalizes an instance of the <see cref="OverridePopulateInjection"/> class.
+    /// Reverts the method injection if not already done.
+    /// </summary>
+    ~OverridePopulateInjection()
+    {
+        Undo();
+    }
+
+    /// <summary>
+    /// Applies the method injection.
+    /// </summary>
+    public void Apply()
+    {
+        _previousPopulateOverride = _populateOverride.GetValue(null);
+        _populateOverride.SetValue(null, _populate);
+    }
+
+    /// <summary>
+    /// Reverts all the effects caused by the method injection.
+    /// </summary>
+    public void Undo()
+    {
+        _populateOverride.SetValue(null, _previousPopulateOverride);
+        _previousPopulateOverride = null;
+    }
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        Undo();
+        GC.SuppressFinalize(this);
+    }
 }
