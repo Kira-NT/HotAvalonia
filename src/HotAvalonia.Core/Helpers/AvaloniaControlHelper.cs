@@ -1,5 +1,4 @@
 using System.Reflection;
-using System.Xml.Linq;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
 using HotAvalonia.Xaml;
@@ -37,11 +36,8 @@ internal static class AvaloniaControlHelper
         if (assembly is not null)
             XamlScanner.DynamicXamlAssembly?.AllowAccessTo(assembly);
 
-        string patchedXaml = ReplaceStaticResourceWithDynamicResource(xaml);
-        patchedXaml = ReplaceMergeResourceIncludeWithResourceInclude(patchedXaml);
-
         bool useCompiledBindings = XamlScanner.UsesCompiledBindingsByDefault(assembly);
-        RuntimeXamlLoaderDocument xamlDocument = new(uri, control, patchedXaml);
+        RuntimeXamlLoaderDocument xamlDocument = new(uri, control, xaml);
         RuntimeXamlLoaderConfiguration xamlConfig = new() { LocalAssembly = assembly, UseCompiledBindingsByDefault = useCompiledBindings };
         HashSet<MethodInfo> oldPopulateMethods = new(XamlScanner.FindDynamicPopulateMethods(uri));
 
@@ -52,41 +48,5 @@ internal static class AvaloniaControlHelper
                     .FirstOrDefault(x => !oldPopulateMethods.Contains(x));
 
         return loadedControl;
-    }
-
-    /// <summary>
-    /// Replaces all static resources with their dynamic counterparts within a XAML markup.
-    /// </summary>
-    /// <param name="xaml">The XAML markup containing static resources.</param>
-    /// <returns>The XAML markup with static resources replaced by their dynamic counterparts.</returns>
-    private static string ReplaceStaticResourceWithDynamicResource(string xaml)
-    {
-        const string StaticResourceName = "\"{'StaticResource' ";
-        const string DynamicResourceName = "\"{'DynamicResource' ";
-
-        return xaml.Replace(StaticResourceName, DynamicResourceName);
-    }
-
-    /// <summary>
-    /// Replaces all <c>MergeResourceInclude</c> elements with
-    /// semantically identical <c>ResourceInclude</c>s.
-    /// </summary>
-    /// <param name="xaml">The XAML markup to process.</param>
-    /// <returns>The XAML markup with <c>MergeResourceInclude</c>s replaced by <c>ResourceInclude</c>s.</returns>
-    private static string ReplaceMergeResourceIncludeWithResourceInclude(string xaml)
-    {
-        const string MergeResourceIncludeName = "MergeResourceInclude";
-        const string ResourceIncludeName = "ResourceInclude";
-
-        if (!xaml.Contains(MergeResourceIncludeName))
-            return xaml;
-
-        XDocument document = XDocument.Parse(xaml, LoadOptions.None);
-        XName oldName = XName.Get(MergeResourceIncludeName, document.Root.Name.NamespaceName);
-        XName newName = XName.Get(ResourceIncludeName, document.Root.Name.NamespaceName);
-        foreach (XElement mergeResourceInclude in document.Descendants(oldName))
-            mergeResourceInclude.Name = newName;
-
-        return document.ToString(SaveOptions.DisableFormatting);
     }
 }

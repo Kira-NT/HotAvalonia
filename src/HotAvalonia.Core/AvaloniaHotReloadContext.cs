@@ -258,6 +258,11 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext
     private readonly FileWatcher _watcher;
 
     /// <summary>
+    /// The XAML patcher to be applied to the contents of updated files.
+    /// </summary>
+    private readonly XamlPatcher _xamlPatcher;
+
+    /// <summary>
     /// Indicates whether hot reload is currently enabled.
     /// </summary>
     private bool _enabled;
@@ -268,7 +273,8 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext
     /// <param name="rootPath">The root directory of the Avalonia project to watch.</param>
     /// <param name="fileSystem">The file system where <paramref name="rootPath"/> can be found.</param>
     /// <param name="documents">The list of XAML documents to manage.</param>
-    public AvaloniaProjectHotReloadContext(string rootPath, IFileSystem fileSystem, IEnumerable<CompiledXamlDocument> documents)
+    /// <param name="xamlPatcher">An optional XAML patcher to be applied to the contents of updated files.</param>
+    public AvaloniaProjectHotReloadContext(string rootPath, IFileSystem fileSystem, IEnumerable<CompiledXamlDocument> documents, XamlPatcher? xamlPatcher = null)
     {
         _ = rootPath ?? throw new ArgumentNullException(nameof(rootPath));
         _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
@@ -286,6 +292,8 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext
         _watcher.Changed += OnChanged;
         _watcher.Renamed += OnRenamed;
         _watcher.Error += OnError;
+
+        _xamlPatcher = xamlPatcher ?? XamlPatcher.Default;
     }
 
     /// <inheritdoc/>
@@ -346,7 +354,8 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext
 
             LoggingHelper.Log("Reloading {ControlUri}...", controlManager.Document.Uri);
             string xaml = await fileSystem.ReadAllTextAsync(path, TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
-            await controlManager.ReloadAsync(xaml, cancellationToken).ConfigureAwait(false);
+            string patchedXaml = _xamlPatcher.Patch(xaml);
+            await controlManager.ReloadAsync(patchedXaml, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception e)
         {
