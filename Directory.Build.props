@@ -14,12 +14,12 @@
     <IsPackable>false</IsPackable>
     <DevelopmentDependency>true</DevelopmentDependency>
     <Version>2.1.0</Version>
-    <Authors>Kir_Antipov</Authors>
+    <Authors>Kira-NT</Authors>
     <Company>$(Authors)</Company>
     <ReleaseYear>2023</ReleaseYear>
     <Copyright>Copyright © $(ReleaseYear) $(Authors)</Copyright>
     <Copyright Condition="'$([System.DateTime]::Now.Year)' != '$(ReleaseYear)'">Copyright © $(ReleaseYear)-$([System.DateTime]::Now.Year) $(Authors)</Copyright>
-    <RepositoryUrl>https://github.com/Kir-Antipov/HotAvalonia</RepositoryUrl>
+    <RepositoryUrl>https://github.com/Kira-NT/HotAvalonia</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
   </PropertyGroup>

@@ -38,7 +38,7 @@ jobs:
         run: dotnet pack -tl -c Release --no-build -o "${{ env.BUILD_OUTPUT }}"
 
       - name: Upload NuGets to GitHub
-        uses: Kir-Antipov/mc-publish@v3.3
+        uses: Kira-NT/mc-publish@v3.3
         with:
           files: ${{ env.BUILD_OUTPUT }}/*.nupkg
           github-token: ${{ secrets.GITHUB_TOKEN }}

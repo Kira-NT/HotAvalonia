@@ -2,13 +2,13 @@
 //   This file has been automatically added to your project by the "HotAvalonia.Extensions" NuGet package
 //   (https://nuget.org/packages/HotAvalonia.Extensions).
 //
-//   Please see https://github.com/Kir-Antipov/HotAvalonia for more information.
+//   Please see https://github.com/Kira-NT/HotAvalonia for more information.
 // </auto-generated>
 
 //#region License
 // MIT License
 //
-// Copyright (c) 2023-2024 Kir_Antipov
+// Copyright (c) 2023-2025 Kira NT
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

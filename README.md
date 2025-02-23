@@ -1,10 +1,10 @@
 # HotAvalonia
 
-[![GitHub Build Status](https://img.shields.io/github/actions/workflow/status/Kir-Antipov/HotAvalonia/build.yml?logo=github)](https://github.com/Kir-Antipov/HotAvalonia/actions/workflows/build.yml)
-[![Version](https://img.shields.io/github/v/release/Kir-Antipov/HotAvalonia?sort=date&label=version)](https://github.com/Kir-Antipov/HotAvalonia/releases/latest)
-[![License](https://img.shields.io/github/license/Kir-Antipov/HotAvalonia?cacheSeconds=36000)](https://github.com/Kir-Antipov/HotAvalonia/blob/HEAD/LICENSE.md)
+[![GitHub Build Status](https://img.shields.io/github/actions/workflow/status/Kira-NT/HotAvalonia/build.yml?logo=github)](https://github.com/Kira-NT/HotAvalonia/actions/workflows/build.yml)
+[![Version](https://img.shields.io/github/v/release/Kira-NT/HotAvalonia?sort=date&label=version)](https://github.com/Kira-NT/HotAvalonia/releases/latest)
+[![License](https://img.shields.io/github/license/Kira-NT/HotAvalonia?cacheSeconds=36000)](https://github.com/Kira-NT/HotAvalonia/blob/HEAD/LICENSE.md)
 
-<img alt="HotAvalonia Icon" src="https://raw.githubusercontent.com/Kir-Antipov/HotAvalonia/HEAD/media/icon.png" width="128">
+<img alt="HotAvalonia Icon" src="https://raw.githubusercontent.com/Kira-NT/HotAvalonia/HEAD/media/icon.png" width="128">
 
 `HotAvalonia` is a .NET library crafted to seamlessly integrate hot reload functionality into Avalonia applications. Acting as a transformative tool for Avalonia developers, it enables dynamic and instantaneous updates to XAML without the need for full recompilation. This empowers developers to witness UI changes in real-time, accelerating the design and development workflow.
 
@@ -54,7 +54,7 @@ This setup **guarantees** that no hot reload logic will infiltrate the productio
 
 | Debug | Release |
 | :---: | :-----: |
-| ![Debug build](https://raw.githubusercontent.com/Kir-Antipov/HotAvalonia/HEAD/media/examples/build_debug.png) | ![Release build](https://raw.githubusercontent.com/Kir-Antipov/HotAvalonia/HEAD/media/examples/build_release.png) |
+| ![Debug build](https://raw.githubusercontent.com/Kira-NT/HotAvalonia/HEAD/media/examples/build_debug.png) | ![Release build](https://raw.githubusercontent.com/Kira-NT/HotAvalonia/HEAD/media/examples/build_release.png) |
 
 ### Usage
 
@@ -143,12 +143,12 @@ If you want to be able to refresh a control's state during a hot reload, you can
 
 Here are some examples that demonstrate HotAvalonia in action:
 
-| ![Hot Reload: App](https://raw.githubusercontent.com/Kir-Antipov/HotAvalonia/HEAD/media/examples/hot_reload_app.gif) | ![Hot Reload: User Control](https://raw.githubusercontent.com/Kir-Antipov/HotAvalonia/HEAD/media/examples/hot_reload_user_control.gif) |
+| ![Hot Reload: App](https://raw.githubusercontent.com/Kira-NT/HotAvalonia/HEAD/media/examples/hot_reload_app.gif) | ![Hot Reload: User Control](https://raw.githubusercontent.com/Kira-NT/HotAvalonia/HEAD/media/examples/hot_reload_user_control.gif) |
 | :---: | :-----: |
-| ![Hot Reload: View](https://raw.githubusercontent.com/Kir-Antipov/HotAvalonia/HEAD/media/examples/hot_reload_view.gif) | ![Hot Reload: Styles](https://raw.githubusercontent.com/Kir-Antipov/HotAvalonia/HEAD/media/examples/hot_reload_styles.gif) |
-| ![Hot Reload: Resources](https://raw.githubusercontent.com/Kir-Antipov/HotAvalonia/HEAD/media/examples/hot_reload_resources.gif) | ![Hot Reload: Window](https://raw.githubusercontent.com/Kir-Antipov/HotAvalonia/HEAD/media/examples/hot_reload_window.gif) |
+| ![Hot Reload: View](https://raw.githubusercontent.com/Kira-NT/HotAvalonia/HEAD/media/examples/hot_reload_view.gif) | ![Hot Reload: Styles](https://raw.githubusercontent.com/Kira-NT/HotAvalonia/HEAD/media/examples/hot_reload_styles.gif) |
+| ![Hot Reload: Resources](https://raw.githubusercontent.com/Kira-NT/HotAvalonia/HEAD/media/examples/hot_reload_resources.gif) | ![Hot Reload: Window](https://raw.githubusercontent.com/Kira-NT/HotAvalonia/HEAD/media/examples/hot_reload_window.gif) |
 
-To try it out yourself, you can run the [`samples/HotReloadDemo`](https://github.com/Kir-Antipov/HotAvalonia/blob/HEAD/samples/HotReloadDemo) application included in the repository.
+To try it out yourself, you can run the [`samples/HotReloadDemo`](https://github.com/Kira-NT/HotAvalonia/blob/HEAD/samples/HotReloadDemo) application included in the repository.
 
 ----
 
@@ -166,4 +166,4 @@ While HotAvalonia is a powerful tool for enhancing your Avalonia development wor
 
 ## License
 
-Licensed under the terms of the [MIT License](https://github.com/Kir-Antipov/HotAvalonia/blob/HEAD/LICENSE.md).
+Licensed under the terms of the [MIT License](https://github.com/Kira-NT/HotAvalonia/blob/HEAD/LICENSE.md).
