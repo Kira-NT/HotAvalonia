@@ -1,9 +1,10 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using HotAvalonia.IO;
-using Mono.Cecil;
 
 namespace HotAvalonia.Helpers;
 
@@ -182,38 +183,26 @@ internal static class MethodHelper
 
         string? location = method.DeclaringType.Assembly.Location;
         string? pdbLocation = fileSystem.ChangeExtension(location, ".pdb");
-        if (!fileSystem.FileExists(location) || !fileSystem.FileExists(pdbLocation))
+        if (!fileSystem.FileExists(pdbLocation))
             return null;
 
         try
         {
-            using Stream asmStream = fileSystem.OpenRead(location);
             using Stream pdbStream = fileSystem.OpenRead(pdbLocation);
+            using MetadataReaderProvider pdbReaderProvider = MetadataReaderProvider.FromPortablePdbStream(pdbStream);
+            MetadataReader pdbReader = pdbReaderProvider.GetMetadataReader();
 
-            ReaderParameters asmParameters = new() { ReadSymbols = true, SymbolStream = pdbStream };
-            using AssemblyDefinition asmDefinition = AssemblyDefinition.ReadAssembly(asmStream, asmParameters);
+            Span<int> rowId = stackalloc int[1] { method.MetadataToken & 0x00FFFFFF };
+            MethodDebugInformationHandle debugHandle = MemoryMarshal.Cast<int, MethodDebugInformationHandle>(rowId)[0];
+            MethodDebugInformation debugInfo = pdbReader.GetMethodDebugInformation(debugHandle);
 
-            ParameterInfo[] parameters = method.GetParameters();
-            TypeDefinition typeDefinition = asmDefinition.MainModule.GetType(method.DeclaringType.FullName);
-            foreach (MethodDefinition methodDefinition in typeDefinition.Methods)
+            foreach (SequencePoint sequencePoint in debugInfo.GetSequencePoints())
             {
-                if (methodDefinition.Name != method.Name)
+                if (sequencePoint.IsHidden || sequencePoint.Document.IsNil)
                     continue;
 
-                if (methodDefinition.ReturnType.Name != method.GetReturnType().Name)
-                    continue;
-
-                if (methodDefinition.Parameters.Count != parameters.Length)
-                    continue;
-
-                bool hasSameParameters = parameters
-                    .Zip(methodDefinition.Parameters, static (x, y) => x.ParameterType.Name == y.ParameterType.Name)
-                    .All(static x => x);
-
-                if (!hasSameParameters)
-                    continue;
-
-                return methodDefinition.DebugInformation.SequencePoints.FirstOrDefault()?.Document.Url;
+                Document document = pdbReader.GetDocument(sequencePoint.Document);
+                return pdbReader.GetString(document.Name);
             }
         }
         catch { }
