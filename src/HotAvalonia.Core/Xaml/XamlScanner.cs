@@ -2,7 +2,6 @@ using System.CodeDom.Compiler;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Reflection.Emit;
-using Avalonia.Markup.Xaml;
 using HotAvalonia.Helpers;
 using HotAvalonia.Reflection;
 
@@ -22,56 +21,6 @@ public static class XamlScanner
     /// The expected parameter types for a valid populate method.
     /// </summary>
     private static readonly Type[] s_populateSignature = [typeof(IServiceProvider), typeof(object)];
-
-    /// <summary>
-    /// The dynamically generated assembly containing compiled XAML.
-    /// </summary>
-    private static DynamicAssembly? s_dynamicXamlAssembly;
-
-    /// <summary>
-    /// The dynamically generated assembly containing compiled XAML.
-    /// </summary>
-    public static DynamicAssembly? DynamicXamlAssembly => s_dynamicXamlAssembly ??= GetDynamicXamlAssembly();
-
-    /// <summary>
-    /// The assembly containing XamlX type definitions.
-    /// </summary>
-    //
-    // Please **DO NOT** delete this property!
-    // This is a small hack to force `DynamicSreAssembly` to generate its backing type.
-    // Currently, there is an issue where it happens slightly too late on Mono,
-    // causing the `IgnoresAccessChecksToAttribute("Avalonia.Markup.Xaml.Loader")` to be
-    // ignored (ironic) by the runtime, because something from that assembly has already
-    // seeped into our dynamic one by that point.
-    // Since we CANNOT create `DynamicXamlAssembly`, which is what we actually need, earlier,
-    // we use this trick to initialize `DynamicSreAssembly` as soon as this class is accessed.
-    internal static Assembly XamlLoaderAssembly { get; } = DynamicSreAssembly.Create(typeof(AvaloniaRuntimeXamlLoader).Assembly, null!).Assembly;
-
-    /// <summary>
-    /// Retrieves the dynamically generated assembly containing compiled XAML.
-    /// </summary>
-    /// <returns>The dynamically generated assembly, if any; otherwise, <c>null</c>.</returns>
-    private static DynamicAssembly? GetDynamicXamlAssembly()
-    {
-        Type xamlAssembly = XamlLoaderAssembly.GetType("XamlX.TypeSystem.IXamlAssembly") ?? typeof(object);
-        Type? xamlIlRuntimeCompiler = XamlLoaderAssembly.GetType("Avalonia.Markup.Xaml.XamlIl.AvaloniaXamlIlRuntimeCompiler");
-
-        MethodInfo? initializeSre = xamlIlRuntimeCompiler?.GetStaticMethod("InitializeSre", Type.EmptyTypes);
-        initializeSre?.Invoke(null, null);
-
-        object? sreAsm = xamlIlRuntimeCompiler?.GetStaticField("_sreAsm")?.GetValue(null);
-        object? sreTypeSystem = xamlIlRuntimeCompiler?.GetStaticField("_sreTypeSystem")?.GetValue(null);
-        if (sreAsm is not Assembly asm || sreTypeSystem is null)
-            return null;
-
-        DynamicAssembly dynamicAssembly = DynamicSreAssembly.Create(asm, sreTypeSystem);
-        object? sreTypeSystemAssemblies = sreTypeSystem.GetType().GetInstanceField("_assemblies")?.GetValue(sreTypeSystem);
-        MethodInfo? addAssembly = sreTypeSystemAssemblies?.GetType().GetMethod(nameof(List<string>.Add), [xamlAssembly]);
-        if (xamlAssembly.IsAssignableFrom(dynamicAssembly.GetType()))
-            addAssembly?.Invoke(sreTypeSystemAssemblies, [dynamicAssembly]);
-
-        return dynamicAssembly;
-    }
 
     /// <summary>
     /// Determines whether the specified assembly uses compiled bindings by default.
@@ -293,7 +242,7 @@ public static class XamlScanner
             if (populateMethod is null)
                 continue;
 
-            yield return new(uri, method, populateMethod, populateOverrideField, refresh);
+            yield return new(new(uri), method, populateMethod, populateOverrideField, refresh);
             (str, uri) = (null, null);
         }
     }
@@ -320,7 +269,7 @@ public static class XamlScanner
 
             FieldInfo? populateOverrideField = FindPopulateOverrideField(buildMethod);
             Action<object> refresh = GetControlRefreshCallback(buildMethod);
-            yield return new(uri, buildMethod, populateMethod, populateOverrideField, refresh);
+            yield return new(new(uri), buildMethod, populateMethod, populateOverrideField, refresh);
         }
     }
 
@@ -473,36 +422,6 @@ public static class XamlScanner
     /// <returns>The <see cref="MethodInfo"/> object representing the populate method, or <c>null</c> if not found.</returns>
     private static MethodInfo? FindPopulateControlMethod(Type userControlType)
         => userControlType.GetStaticMethod("!XamlIlPopulate", [typeof(IServiceProvider), userControlType]);
-
-    /// <inheritdoc cref="FindDynamicPopulateMethods(string)"/>
-    internal static IEnumerable<MethodInfo> FindDynamicPopulateMethods(Uri uri)
-        => FindDynamicPopulateMethods(uri?.ToString()!);
-
-    /// <summary>
-    /// Searches for populate methods associated with the specified URI within the dynamic XAML assembly.
-    /// </summary>
-    /// <param name="uri">The URI associated with the Avalonia control/resource to be populated.</param>
-    /// <returns>An enumerable containing dynamic populate methods corresponding to the specified URI.</returns>
-    internal static IEnumerable<MethodInfo> FindDynamicPopulateMethods(string uri)
-    {
-        Assembly? dynamicXamlAssembly = DynamicXamlAssembly?.Assembly;
-        if (dynamicXamlAssembly is null)
-            yield break;
-
-        string safeUri = UriHelper.GetSafeUriIdentifier(uri);
-        foreach (Type type in dynamicXamlAssembly.GetLoadedTypes())
-        {
-            if (!type.Name.StartsWith("Builder_", StringComparison.Ordinal))
-                continue;
-
-            if (!type.Name.EndsWith(safeUri, StringComparison.Ordinal))
-                continue;
-
-            MethodInfo? populateMethod = type.GetStaticMethod("__AvaloniaXamlIlPopulate");
-            if (IsPopulateMethod(populateMethod))
-                yield return populateMethod;
-        }
-    }
 
     /// <summary>
     /// Determines whether the specified member is generated by Avalonia.

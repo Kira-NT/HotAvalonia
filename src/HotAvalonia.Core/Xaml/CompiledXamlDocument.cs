@@ -56,31 +56,43 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     private readonly Action<object>? _refresh;
 
     /// <inheritdoc cref="CompiledXamlDocument(Uri, MethodBase, MethodInfo, FieldInfo?, Action{object}?)"/>
-    public CompiledXamlDocument(
-        string uri,
-        MethodBase build,
-        MethodInfo populate)
+    public CompiledXamlDocument(string uri, MethodBase build, MethodInfo populate)
         : this(new Uri(uri), build, populate, null, null)
     {
     }
 
     /// <inheritdoc cref="CompiledXamlDocument(Uri, MethodBase, MethodInfo, FieldInfo?, Action{object}?)"/>
-    public CompiledXamlDocument(
-        Uri uri,
-        MethodBase build,
-        MethodInfo populate)
+    public CompiledXamlDocument(Uri uri, MethodBase build, MethodInfo populate)
         : this(uri, build, populate, null, null)
     {
     }
 
-    /// <inheritdoc cref="CompiledXamlDocument(Uri, MethodBase, MethodInfo, FieldInfo?, Action{object}?)"/>
-    internal CompiledXamlDocument(
-        string uri,
-        MethodBase build,
-        MethodInfo populate,
-        FieldInfo? populateOverride = null,
-        Action<object>? refresh = null)
-        : this(new Uri(uri), build, populate, populateOverride, refresh)
+    /// <inheritdoc cref="CompiledXamlDocument(Uri, MethodBase, MethodInfo, CompiledXamlDocument)"/>
+    public CompiledXamlDocument(string? uri, MethodBase? build, MethodInfo? populate, CompiledXamlDocument baseDocument)
+        : this(
+            uri is null ? baseDocument._uri : new(uri),
+            build ?? baseDocument._build,
+            populate ?? baseDocument._populate,
+            baseDocument._populateOverride,
+            baseDocument._refresh)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CompiledXamlDocument"/> class,
+    /// using values from the specified base document where necessary.
+    /// </summary>
+    /// <param name="uri">The URI associated with the XAML document.</param>
+    /// <param name="build">The method used to create a new instance of the root control.</param>
+    /// <param name="populate">The method used to populate an existing root control.</param>
+    /// <param name="baseDocument">The base document from which default values are taken if any of the other parameters are <c>null</c>.</param>
+    public CompiledXamlDocument(Uri? uri, MethodBase? build, MethodInfo? populate, CompiledXamlDocument baseDocument)
+        : this(
+            uri ?? baseDocument._uri,
+            build ?? baseDocument._build,
+            populate ?? baseDocument._populate,
+            baseDocument._populateOverride,
+            baseDocument._refresh)
     {
     }
 
@@ -141,21 +153,6 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     public MethodInfo PopulateMethod => _populate;
 
     /// <summary>
-    /// Loads a control from XAML markup and initializes it.
-    /// </summary>
-    /// <param name="xaml">The XAML markup to populate the control with.</param>
-    /// <param name="rootControl">An optional existing instance of the root control to be populated.</param>
-    /// <param name="compiledPopulateMethod">The newly compiled populate method, if the compilation was successful.</param>
-    internal object? Load(string xaml, object? rootControl, out MethodInfo? compiledPopulateMethod)
-    {
-        rootControl = AvaloniaControlHelper.Load(xaml, _uri, rootControl, _rootType.Assembly, out compiledPopulateMethod);
-        if (rootControl is not null)
-            Refresh(rootControl);
-
-        return rootControl;
-    }
-
-    /// <summary>
     /// Creates a new instance of the root control representing this document.
     /// </summary>
     /// <param name="serviceProvider">
@@ -172,10 +169,6 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     public void Populate(object rootControl)
         => Populate(serviceProvider: null, rootControl);
 
-    /// <inheritdoc cref="Populate(IServiceProvider?, object, MethodBase)"/>
-    public void Populate(IServiceProvider? serviceProvider, object rootControl)
-        => Populate(serviceProvider, rootControl, _populate);
-
     /// <summary>
     /// Populates the specified root control.
     /// </summary>
@@ -183,14 +176,12 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     /// The service provider used to resolve dependencies during the population process.
     /// </param>
     /// <param name="rootControl">The root control to be populated.</param>
-    /// <param name="populateMethod">The method used to populate the control.</param>
-    internal void Populate(IServiceProvider? serviceProvider, object rootControl, MethodBase populateMethod)
+    public void Populate(IServiceProvider? serviceProvider, object rootControl)
     {
-        _ = populateMethod ?? throw new ArgumentNullException(nameof(populateMethod));
         _ = rootControl ?? throw new ArgumentNullException(nameof(rootControl));
 
         Reset(rootControl, out Action restore);
-        populateMethod.Invoke(null, [serviceProvider ?? XamlIlRuntimeHelpers.CreateRootServiceProviderV2(), rootControl]);
+        _populate.Invoke(null, [serviceProvider ?? XamlIlRuntimeHelpers.CreateRootServiceProviderV2(), rootControl]);
         restore();
 
         Refresh(rootControl);

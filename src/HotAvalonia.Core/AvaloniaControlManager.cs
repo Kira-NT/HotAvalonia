@@ -1,4 +1,3 @@
-using System.Reflection;
 using Avalonia.Threading;
 using HotAvalonia.Collections;
 using HotAvalonia.Helpers;
@@ -23,15 +22,16 @@ internal sealed class AvaloniaControlManager : IDisposable
     private readonly WeakSet<object> _controls;
 
     /// <summary>
-    /// The dynamically compiled populate method associated with the control.
-    /// </summary>
-    private MethodInfo? _dynamicPopulate;
-
-    /// <summary>
     /// The <see cref="IInjection"/> instance responsible for injecting
     /// a callback into the control's populate method.
     /// </summary>
     private readonly IInjection? _populateInjection;
+
+    /// <summary>
+    /// The most recent version of the document associated
+    /// with controls managed by this instance, if any.
+    /// </summary>
+    private CompiledXamlDocument? _recompiledDocument;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AvaloniaControlManager"/> class.
@@ -49,7 +49,7 @@ internal sealed class AvaloniaControlManager : IDisposable
     /// <summary>
     /// Gets the document associated with controls managed by this instance.
     /// </summary>
-    public CompiledXamlDocument Document => _document;
+    public CompiledXamlDocument Document => _recompiledDocument ?? _document;
 
     /// <inheritdoc/>
     public void Dispose()
@@ -67,22 +67,15 @@ internal sealed class AvaloniaControlManager : IDisposable
     private async Task UnsafeReloadAsync(string xaml, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-
         await Task.Yield();
 
-        using IEnumerator<object> controls = _controls.GetEnumerator();
-        object? firstControl = controls.MoveNext() ? controls.Current : null;
+        CompiledXamlDocument compiledXaml = XamlCompiler.Compile(xaml, _document.Uri, _document.RootType.Assembly);
+        _recompiledDocument = new(compiledXaml.Uri, compiledXaml.BuildMethod, compiledXaml.PopulateMethod, _document);
 
-        _document.Load(xaml, firstControl, out MethodInfo? newDynamicPopulate);
-        _dynamicPopulate = newDynamicPopulate ?? _dynamicPopulate;
-        if (_dynamicPopulate is null)
-            return;
-
-        while (controls.MoveNext())
+        foreach (object control in _controls)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
-            _document.Populate(serviceProvider: null, controls.Current, _dynamicPopulate);
+            _recompiledDocument.Populate(serviceProvider: null, control);
         }
     }
 
@@ -95,10 +88,10 @@ internal sealed class AvaloniaControlManager : IDisposable
     private bool OnPopulate(IServiceProvider? provider, object control)
     {
         _controls.Add(control);
-        if (_dynamicPopulate is null)
+        if (_recompiledDocument is null)
             return false;
 
-        _document.Populate(provider, control, _dynamicPopulate);
+        _recompiledDocument.Populate(provider, control);
         return true;
     }
 
@@ -120,23 +113,14 @@ internal sealed class AvaloniaControlManager : IDisposable
         Func<IServiceProvider?, object, bool> onPopulate,
         out IInjection? injection)
     {
-        // At this point, we have three different fallbacks at our disposal:
-        //  - First, we try to perform an injection via MonoMod. It's great and reliable;
-        //    however, it doesn't support architectures other than x86/x86_64 (at least at
-        //    the time of writing), and it requires explicit support for every single new
-        //    .NET release.
-        //  - Therefore, in case the code is run on arm64 or via a .NET runtime that MonoMod
-        //    doesn't currently support, we fall back to my homebrewed injection technique,
-        //    which works consistently across different runtimes and architectures. However,
-        //    it requires JIT not to optimize the methods we are injecting into, which is
-        //    naturally achieved whenever an app is compiled using the Debug configuration
-        //    and then run with a debugger attached to it.
-        //  - Finally, in case this whole endeavor is run on arm64 via .NET 42 using the
-        //    Release configuration, rendering `CallbackInjector` unusable, we fall back to
-        //    undocumented `!XamlIlPopulateOverride` fields. These fields are only generated
-        //    for controls that have their `x:Class` property set, leaving things like styles
-        //    and resource dictionaries unreloadable. However, partially working hot reload
-        //    is still better than no hot reload at all, right?
+        // At this point, we have two different fallbacks at our disposal:
+        //  - First, we try to perform an injection via MonoMod. It's great
+        //    and reliable; however, it doesn't support architectures other
+        //    than AMD64 (at least at the time of writing), and it requires
+        //    explicit support for every single new .NET release.
+        //  - In case this whole endeavor is run on a non-AMD64 device,
+        //    rendering `CallbackInjector` unusable, we fall back to
+        //    undocumented `!XamlIlPopulateOverride` fields.
 
         if (CallbackInjector.IsSupported)
         {
