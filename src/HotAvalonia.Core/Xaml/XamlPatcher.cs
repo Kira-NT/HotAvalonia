@@ -83,7 +83,8 @@ file abstract class OptionalXamlPatcher : XamlPatcher
         get
         {
             string typeName = GetType().Name;
-            string variableName = $"{nameof(HotAvalonia)}_{typeName}".ToUpperInvariant();
+            string humanReadableTypeName = typeName.Substring(typeName.LastIndexOf('_') + 1);
+            string variableName = $"{nameof(HotAvalonia)}_{humanReadableTypeName}".ToUpperInvariant();
             string? variableValue = Environment.GetEnvironmentVariable(variableName);
             return bool.TryParse(variableValue, out bool enabled) ? enabled : variableValue != "0";
         }

@@ -8,6 +8,8 @@
       "preLaunchTask": "build",
       "program": "${workspaceFolder}/samples/HotReloadDemo.Desktop/bin/Debug/net9.0/HotReloadDemo.Desktop.dll",
       "env": {
+        "HOTAVALONIA_STATICRESOURCEPATCHER": "true",
+        "HOTAVALONIA_MERGERESOURCEINCLUDEPATCHER": "true",
         "HOTAVALONIA_DISABLE_INJECTIONS": "false",
       },
       "args": [],
