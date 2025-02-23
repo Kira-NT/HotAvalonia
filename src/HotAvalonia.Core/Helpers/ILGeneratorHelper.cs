@@ -150,4 +150,28 @@ internal static class ILGeneratorHelper
             generator.EmitCalli(OpCodes.Calli, method.CallingConvention, method.GetReturnType(), method.GetParameterTypes(), null);
         }
     }
+
+    /// <summary>
+    /// Declares a collection of local variables on the specified <see cref="ILGenerator"/>.
+    /// </summary>
+    /// <param name="generator">The <see cref="ILGenerator"/> on which to declare local variables.</param>
+    /// <param name="variables">The collection of local variables to declare.</param>
+    public static void DeclareLocals(this ILGenerator generator, IEnumerable<LocalVariableInfo> variables)
+    {
+        int previousVariableIndex = -1;
+        LocalVariableInfo[] locals = variables.OrderBy(x => x.LocalIndex).ToArray();
+        for (int i = 0; i < locals.Length; i++)
+        {
+            LocalVariableInfo local = locals[i];
+            if (local.LocalIndex <= previousVariableIndex)
+                throw new ArgumentException($"Invalid or duplicate index: {local.LocalIndex}", nameof(variables));
+
+            while (++previousVariableIndex != local.LocalIndex)
+                generator.DeclareLocal(typeof(byte));
+
+            LocalBuilder builtIndex = generator.DeclareLocal(local.LocalType, local.IsPinned);
+            if (local.LocalIndex != builtIndex.LocalIndex)
+                throw new InvalidOperationException("Generator was modified; operation may not execute.");
+        }
+    }
 }
