@@ -48,7 +48,7 @@ internal sealed class AvaloniaAssetManager : IDisposable
         BitmapTypeConverter = new();
 
         if (!TryInjectAssetCallbacks(out _injections))
-            LoggingHelper.Log("Failed to subscribe to asset loading events. Icons and images won't be reloaded upon file changes.");
+            LoggingHelper.LogWarning("Failed to subscribe to asset loading events. Icons and images won't be reloaded upon file changes.");
     }
 
     /// <summary>

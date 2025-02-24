@@ -133,17 +133,17 @@ public static class AvaloniaHotReloadContext
 
         if (!projectLocator.TryGetDirectoryName(assembly, documents, out string? rootPath))
         {
-            LoggingHelper.Log("Found an assembly containing Avalonia controls ({AssemblyName}). However, its source project location could not be determined. Skipping.", assembly.GetName().Name);
+            LoggingHelper.LogInfo("Found an assembly containing Avalonia controls ({AssemblyName}). However, its source project location could not be determined. Skipping.", assembly.GetName().Name);
             return null;
         }
 
         if (!projectLocator.FileSystem.DirectoryExists(rootPath))
         {
-            LoggingHelper.Log("Found an assembly containing Avalonia controls ({AssemblyName}) with its source project located at {ProjectLocation}. However, the project could not be found on the local system. Skipping.", assembly.GetName().Name, rootPath);
+            LoggingHelper.LogInfo("Found an assembly containing Avalonia controls ({AssemblyName}) with its source project located at {ProjectLocation}. However, the project could not be found on the local system. Skipping.", assembly.GetName().Name, rootPath);
             return null;
         }
 
-        LoggingHelper.Log("Found an assembly containing Avalonia controls ({AssemblyName}) with its source project located at {ProjectLocation}.", assembly.GetName().Name, rootPath);
+        LoggingHelper.LogInfo("Found an assembly containing Avalonia controls ({AssemblyName}) with its source project located at {ProjectLocation}.", assembly.GetName().Name, rootPath);
         return new AvaloniaProjectHotReloadContext(rootPath, projectLocator.FileSystem, documents);
     }
 
@@ -302,14 +302,14 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext
     /// <inheritdoc/>
     public void EnableHotReload()
     {
-        LoggingHelper.Log("Enabling hot reload for the project located at {ProjectLocation}...", _watcher.DirectoryName);
+        LoggingHelper.LogInfo("Enabling hot reload for the project located at {ProjectLocation}...", _watcher.DirectoryName);
         _enabled = true;
     }
 
     /// <inheritdoc/>
     public void DisableHotReload()
     {
-        LoggingHelper.Log("Disabling hot reload for the project located at {ProjectLocation}...", _watcher.DirectoryName);
+        LoggingHelper.LogInfo("Disabling hot reload for the project located at {ProjectLocation}...", _watcher.DirectoryName);
         _enabled = false;
     }
 
@@ -352,14 +352,14 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext
             if (!await fileSystem.FileExistsAsync(path, cancellationToken).ConfigureAwait(false))
                 return;
 
-            LoggingHelper.Log("Reloading {ControlUri}...", controlManager.Document.Uri);
+            LoggingHelper.LogInfo("Reloading {ControlUri}...", controlManager.Document.Uri);
             string xaml = await fileSystem.ReadAllTextAsync(path, TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
             string patchedXaml = _xamlPatcher.Patch(xaml);
             await controlManager.ReloadAsync(patchedXaml, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception e)
         {
-            LoggingHelper.Log("Failed to reload {ControlUri}: {Error}", controlManager.Document.Uri, e);
+            LoggingHelper.LogError("Failed to reload {ControlUri}: {Exception}", controlManager.Document.Uri, e);
         }
     }
 
@@ -375,7 +375,7 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext
         if (!_controls.TryGetValue(oldFullPath, out AvaloniaControlManager? controlManager))
             return;
 
-        LoggingHelper.Log("{ControlUri} has been moved from {OldControlLocation} to {ControlLocation}.", controlManager.Document.Uri, oldFullPath, newFullPath);
+        LoggingHelper.LogInfo("{ControlUri} has been moved from {OldControlLocation} to {ControlLocation}.", controlManager.Document.Uri, oldFullPath, newFullPath);
         _controls.Remove(oldFullPath);
         _controls[newFullPath] = controlManager;
     }
@@ -386,7 +386,7 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext
     /// <param name="sender">The source of the event.</param>
     /// <param name="args">The event arguments containing the error details.</param>
     private void OnError(object sender, ErrorEventArgs args)
-        => LoggingHelper.Log(sender, "An unexpected error occurred while monitoring file changes: {Error}", args.GetException());
+        => LoggingHelper.LogError(sender, "An unexpected error occurred while monitoring file changes: {Exception}", args.GetException());
 }
 
 /// <summary>
@@ -425,7 +425,7 @@ file sealed class AvaloniaAssetsHotReloadContext : IHotReloadContext
     /// <inheritdoc/>
     public void EnableHotReload()
     {
-        LoggingHelper.Log("Enabling hot reload for assets...");
+        LoggingHelper.LogInfo("Enabling hot reload for assets...");
         IAssetLoader? currentAssetLoader = _assetManager.AssetLoader;
         if (currentAssetLoader is null or DynamicAssetLoader)
             return;
@@ -438,7 +438,7 @@ file sealed class AvaloniaAssetsHotReloadContext : IHotReloadContext
     /// <inheritdoc/>
     public void DisableHotReload()
     {
-        LoggingHelper.Log("Disabling hot reload for assets...");
+        LoggingHelper.LogInfo("Disabling hot reload for assets...");
         IAssetLoader? currentAssetLoader = _assetManager.AssetLoader;
         if (currentAssetLoader is not DynamicAssetLoader dynamicAssetLoader)
             return;

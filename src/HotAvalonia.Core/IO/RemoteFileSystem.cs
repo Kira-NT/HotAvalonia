@@ -394,7 +394,7 @@ internal sealed partial class RemoteFileSystem : IFileSystem
             }
             catch (Exception e)
             {
-                LoggingHelper.Log(this, "Failed to process a packet: {Exception}", e);
+                LoggingHelper.LogError(this, "Failed to process a packet: {Exception}", e);
                 continue;
             }
         }

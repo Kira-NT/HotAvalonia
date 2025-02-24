@@ -220,7 +220,7 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     /// <param name="rootControl">The root control to refresh.</param>
     public void Refresh(object rootControl)
     {
-        LoggingHelper.Log(rootControl, "Refreshing...");
+        LoggingHelper.LogDebug(rootControl, "Refreshing...");
         _refresh?.Invoke(rootControl);
     }
 

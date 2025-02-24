@@ -81,7 +81,7 @@ public static class FileSystem
     [return: NotNullIfNotNull(nameof(fallbackFileSystem))]
     public static IFileSystem? Connect(IFileSystem? fallbackFileSystem)
     {
-        LoggingHelper.Log("Unable to determine configuration options for connecting to the remote file system.");
+        LoggingHelper.LogError("Unable to determine configuration options for connecting to the remote file system.");
         return fallbackFileSystem;
     }
 
@@ -135,7 +135,7 @@ public static class FileSystem
         }
         catch (Exception e)
         {
-            LoggingHelper.Log("Failed to connect to the remote file system at {Endpoint}: {Exception}", endpoint, e);
+            LoggingHelper.LogError("Failed to connect to the remote file system at {Endpoint}: {Exception}", endpoint, e);
             return fallbackFileSystem;
         }
     }

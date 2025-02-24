@@ -204,7 +204,7 @@ public static class XamlCompiler
         }
         catch (Exception e)
         {
-            LoggingHelper.Log("Failed to recompile XamlIl compiler: {Exception}", e);
+            LoggingHelper.LogError("Failed to recompile XamlIl compiler: {Exception}", e);
         }
 
         // Welp, at least we have a fallback.

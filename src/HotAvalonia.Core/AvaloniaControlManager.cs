@@ -43,7 +43,7 @@ internal sealed class AvaloniaControlManager : IDisposable
         _controls = new();
 
         if (!TryInjectPopulateCallback(document, OnPopulate, out _populateInjection))
-            LoggingHelper.Log("Failed to subscribe to the 'Populate' event of {ControlUri}. The control won't be reloaded upon file changes.", document.Uri);
+            LoggingHelper.LogWarning("Failed to subscribe to the 'Populate' event of {ControlUri}. The control won't be reloaded upon file changes.", document.Uri);
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Avalonia.Logging;
 
 namespace HotAvalonia;
 
@@ -12,6 +13,11 @@ internal static class HotReloadFeatures
     /// Gets a value that indicates whether injections should be disabled.
     /// </summary>
     public static bool DisableInjections => GetBoolean("DISABLE_INJECTIONS");
+
+    /// <summary>
+    /// Gets the log level override for hot reload-related events.
+    /// </summary>
+    public static LogEventLevel LogLevelOverride => GetEnum<LogEventLevel>("LOG_LEVEL_OVERRIDE");
 
     /// <summary>
     /// Retrieves the environment variable value associated with the specified feature name.

@@ -11,11 +11,15 @@
         "HOTAVALONIA_STATICRESOURCEPATCHER": "true",
         "HOTAVALONIA_MERGERESOURCEINCLUDEPATCHER": "true",
         "HOTAVALONIA_DISABLE_INJECTIONS": "false",
+        "HOTAVALONIA_LOG_LEVEL_OVERRIDE": "error",
       },
       "args": [],
       "cwd": "${workspaceFolder}/samples/HotReloadDemo.Desktop",
       "console": "internalConsole",
       "stopAtEntry": false,
+      "logging": {
+        "moduleLoad": false,
+      }
     },
     {
       "name": ".NET Launch (Android Demo)",

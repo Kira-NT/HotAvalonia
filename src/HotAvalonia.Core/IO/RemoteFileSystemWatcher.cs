@@ -253,7 +253,7 @@ internal sealed partial class RemoteFileSystemWatcher : IFileSystemWatcher
             }
             catch (Exception e)
             {
-                LoggingHelper.Log(this, "Could not execute {Action}: {Exception}", action, e);
+                LoggingHelper.LogError(this, "Could not execute {Action}: {Exception}", action, e);
                 continue;
             }
         }
