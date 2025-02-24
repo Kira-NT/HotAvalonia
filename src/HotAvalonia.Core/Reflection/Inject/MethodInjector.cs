@@ -56,19 +56,12 @@ internal static class MethodInjector
         => throw new InvalidOperationException("Method injection is not available in the current runtime environment.");
 
     /// <summary>
-    /// Determines whether the injection system is disabled by the user.
-    /// </summary>
-    /// <returns><c>true</c> if the injection system is disabled; otherwise, <c>false</c>.</returns>
-    private static bool IsDisabled()
-        => Environment.GetEnvironmentVariable("HOTAVALONIA_DISABLE_INJECTIONS") is "1" or "true";
-
-    /// <summary>
     /// Detects the type of the method injection technique supported by the current runtime environment.
     /// </summary>
     /// <returns>The <see cref="Inject.InjectionType"/> supported by the current runtime environment.</returns>
     private static InjectionType DetectSupportedInjectionType()
     {
-        if (IsDisabled())
+        if (HotReloadFeatures.DisableInjections)
             return InjectionType.None;
 
         return NativeInjection.IsSupported ? InjectionType.Native : InjectionType.None;
