@@ -1,0 +1,7 @@
+<Project>
+
+  <ItemGroup>
+    <WeaverFiles Include="$(MSBuildThisFileDirectory)..\weavers\netstandard2.0\HotAvalonia.Fody.dll" />
+  </ItemGroup>
+
+</Project>

@@ -10,8 +10,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HotAvalonia.Extensions", "s
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HotAvalonia.Fody", "src/HotAvalonia.Fody/HotAvalonia.Fody.csproj", "{4D3AC651-616F-4FCC-9285-45A824A95F94}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HotAvalonia.Fody.Ref", "src/HotAvalonia.Fody.Ref/HotAvalonia.Fody.Ref.csproj", "{F68D81A1-899B-4638-8D11-DB1FB9C1013B}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HotAvalonia.Remote", "src/HotAvalonia.Remote/HotAvalonia.Remote.csproj", "{F5BF4495-B20F-4828-893D-464B08C3ACF0}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HotReloadDemo", "samples/HotReloadDemo/HotReloadDemo.csproj", "{692200A4-8EDB-493C-A2D2-B10CDE68DA0B}"
@@ -43,10 +41,6 @@ Global
         {4D3AC651-616F-4FCC-9285-45A824A95F94}.Debug|Any CPU.Build.0 = Debug|Any CPU
         {4D3AC651-616F-4FCC-9285-45A824A95F94}.Release|Any CPU.ActiveCfg = Release|Any CPU
         {4D3AC651-616F-4FCC-9285-45A824A95F94}.Release|Any CPU.Build.0 = Release|Any CPU
-        {F68D81A1-899B-4638-8D11-DB1FB9C1013B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-        {F68D81A1-899B-4638-8D11-DB1FB9C1013B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-        {F68D81A1-899B-4638-8D11-DB1FB9C1013B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-        {F68D81A1-899B-4638-8D11-DB1FB9C1013B}.Release|Any CPU.Build.0 = Release|Any CPU
         {F5BF4495-B20F-4828-893D-464B08C3ACF0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
         {F5BF4495-B20F-4828-893D-464B08C3ACF0}.Debug|Any CPU.Build.0 = Debug|Any CPU
         {F5BF4495-B20F-4828-893D-464B08C3ACF0}.Release|Any CPU.ActiveCfg = Release|Any CPU

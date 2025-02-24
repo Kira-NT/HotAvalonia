@@ -2,10 +2,24 @@
 
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <BuildOutputTargetFolder>weavers</BuildOutputTargetFolder>
+    <NoWarn>$(NoWarn);NU5100;NU5128</NoWarn>
+    <DisableFody>true</DisableFody>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <Description>Enhances the hot reload capabilities of HotAvalonia for users in restricted environments.</Description>
+    <PackageTags>avalonia avaloniaui hot-reload dynamic hot reload xaml axaml ui development tools net netstandard fody</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="FodyHelpers" Version="$(FodyVersion)" />
+    <None Include="HotAvalonia.Fody.props" PackagePath="build/" Pack="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fody" Version="$(FodyVersion)" PrivateAssets="None" />
+    <PackageReference Include="FodyHelpers" Version="$(FodyVersion)" PrivateAssets="All" />
   </ItemGroup>
 
 </Project>
