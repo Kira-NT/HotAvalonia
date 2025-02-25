@@ -10,7 +10,6 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <Description>Enhances the hot reload capabilities of HotAvalonia for users in restricted environments.</Description>
-    <PackageTags>avalonia avaloniaui hot-reload dynamic hot reload xaml axaml ui development tools net netstandard fody</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

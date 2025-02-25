@@ -8,7 +8,6 @@
   <PropertyGroup>
     <IsPackable>true</IsPackable>
     <Description>A .NET library that offers hot reload functionality for Avalonia applications. It allows developers to make updates to XAML and see those changes without the need for full recompilation, streamlining the development process.</Description>
-    <PackageTags>avalonia avaloniaui hot-reload dynamic hot reload xaml axaml ui development tools net netstandard</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

@@ -18,17 +18,22 @@
   </PropertyGroup>
 
   <ItemGroup Condition="'$(IsPackable)' == 'true'">
-    <PackageReference Include="DotNet.ReproducibleBuilds" Version="1.1.1" PrivateAssets="All" />
+    <None Condition="Exists('README.md')" Include="README.md" Pack="true" PackagePath="" Visible="false" />
+    <None Condition="!Exists('README.md')" Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="" Visible="false" />
+
+    <None Condition="Exists('LICENSE.md')" Include="LICENSE.md" Pack="true" PackagePath="" Visible="false" />
+    <None Condition="!Exists('LICENSE.md')" Include="$(MSBuildThisFileDirectory)LICENSE.md" Pack="true" PackagePath="" Visible="false" />
+
+    <None Condition="Exists('media/icon.png')" Include="media/icon.png" Pack="true" PackagePath="" Visible="false" />
+    <None Condition="!Exists('media/icon.png')" Include="$(MSBuildThisFileDirectory)media/icon.png" Pack="true" PackagePath="" Visible="false" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(IsPackable)' == 'true'">
-    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="" Visible="false" />
-    <None Include="$(MSBuildThisFileDirectory)LICENSE.md" Pack="true" PackagePath="" Visible="false" />
-    <None Include="$(MSBuildThisFileDirectory)media/icon.png" Pack="true" PackagePath="" Visible="false" />
+    <PackageReference Include="DotNet.ReproducibleBuilds" Version="1.1.1" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(PublishLzmaCompressed)' == 'true'">
-    <PackageReference Include="PublishAotCompressed" Version="1.0.3" />
+    <PackageReference Include="PublishAotCompressed" Version="1.0.3" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">

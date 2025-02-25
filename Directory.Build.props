@@ -11,22 +11,28 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <IsPackable>false</IsPackable>
-    <DevelopmentDependency>true</DevelopmentDependency>
     <Version>2.1.0</Version>
-    <Authors>Kira-NT</Authors>
-    <Company>$(Authors)</Company>
+    <Author>Kira-NT</Author>
     <ReleaseYear>2023</ReleaseYear>
-    <Copyright>Copyright © $(ReleaseYear) $(Authors)</Copyright>
-    <Copyright Condition="'$([System.DateTime]::Now.Year)' != '$(ReleaseYear)'">Copyright © $(ReleaseYear)-$([System.DateTime]::Now.Year) $(Authors)</Copyright>
-    <RepositoryUrl>https://github.com/Kira-NT/HotAvalonia</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-    <PackageProjectUrl>$(RepositoryUrl)</PackageProjectUrl>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <PackageTags>avalonia avaloniaui hot-reload dynamic hot reload xaml axaml ui development tools net netstandard</PackageTags>
   </PropertyGroup>
 
   <PropertyGroup>
     <AvaloniaVersion>11.0.0</AvaloniaVersion>
     <FodyVersion>6.9.1</FodyVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <Authors Condition="'$(Authors)' == ''">$(Author)</Authors>
+    <Company Condition="'$(Company)' == ''">$(Author)</Company>
+    <Copyright Condition="'$(Copyright)' == '' And '$([System.DateTime]::Now.Year)' != '$(ReleaseYear)'">Copyright © $(ReleaseYear)-$([System.DateTime]::Now.Year) $(Authors)</Copyright>
+    <Copyright Condition="'$(Copyright)' == ''">Copyright © $(ReleaseYear) $(Authors)</Copyright>
+    <ProjectName Condition="'$(ProjectName)' == ''">$([System.IO.Path]::GetFileNameWithoutExtension('$([System.IO.Directory]::GetFiles(`$(MSBuildThisFileDirectory)`, `*.sln`)[0])'))</ProjectName>
+    <RepositoryUrl Condition="'$(RepositoryUrl)' == ''">https://github.com/$(Author)/$(ProjectName)</RepositoryUrl>
+    <RepositoryType Condition="'$(RepositoryType)' == ''">git</RepositoryType>
+    <PackageProjectUrl Condition="'$(PackageProjectUrl)' == ''">$(RepositoryUrl)</PackageProjectUrl>
   </PropertyGroup>
 
 </Project>
