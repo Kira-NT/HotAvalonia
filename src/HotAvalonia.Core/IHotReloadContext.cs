@@ -1,4 +1,5 @@
 using System.Collections;
+using System.ComponentModel;
 using System.Reflection;
 
 namespace HotAvalonia;
@@ -91,7 +92,7 @@ public static class HotReloadContext
 /// <summary>
 /// A combined hot reload context that manages multiple <see cref="IHotReloadContext"/> instances.
 /// </summary>
-file sealed class CombinedHotReloadContext : IHotReloadContext, IEnumerable<IHotReloadContext>
+file sealed class CombinedHotReloadContext : IHotReloadContext, ISupportInitialize, IEnumerable<IHotReloadContext>
 {
     /// <summary>
     /// The <see cref="IHotReloadContext"/> instances to be managed.
@@ -110,6 +111,20 @@ file sealed class CombinedHotReloadContext : IHotReloadContext, IEnumerable<IHot
     /// <inheritdoc/>
     public bool IsHotReloadEnabled
         => _contexts.Length != 0 && _contexts.All(static x => x.IsHotReloadEnabled);
+
+    /// <inheritdoc/>
+    public void BeginInit()
+    {
+        foreach (IHotReloadContext context in _contexts)
+            (context as ISupportInitialize)?.BeginInit();
+    }
+
+    /// <inheritdoc/>
+    public void EndInit()
+    {
+        foreach (IHotReloadContext context in _contexts)
+            (context as ISupportInitialize)?.EndInit();
+    }
 
     /// <inheritdoc/>
     public void EnableHotReload()
@@ -144,7 +159,7 @@ file sealed class CombinedHotReloadContext : IHotReloadContext, IEnumerable<IHot
 /// A hot reload context that operates within an <see cref="AppDomain"/> and manages
 /// automatically created hot reload contexts for dynamically loaded assemblies.
 /// </summary>
-file sealed class AppDomainHotReloadContext : IHotReloadContext
+file sealed class AppDomainHotReloadContext : IHotReloadContext, ISupportInitializeNotification
 {
     /// <summary>
     /// The <see cref="AppDomain"/> associated with this hot reload context.
@@ -168,6 +183,16 @@ file sealed class AppDomainHotReloadContext : IHotReloadContext
     private readonly object _lock;
 
     /// <summary>
+    /// Indicates whether the initialization process has begun.
+    /// </summary>
+    private bool _isInitializing;
+
+    /// <summary>
+    /// Indicates whether the initialization process has completed.
+    /// </summary>
+    private bool _isInitialized;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="AppDomainHotReloadContext"/> class.
     /// </summary>
     /// <param name="appDomain">The <see cref="AppDomain"/> to manage.</param>
@@ -180,6 +205,8 @@ file sealed class AppDomainHotReloadContext : IHotReloadContext
         _appDomain = appDomain;
         _contextFactory = contextFactory;
         _lock = new();
+        _isInitializing = false;
+        _isInitialized = false;
 
         _context = appDomain.GetAssemblies()
             .Select(x => _contextFactory(_appDomain, x))
@@ -197,6 +224,30 @@ file sealed class AppDomainHotReloadContext : IHotReloadContext
             lock (_lock)
                 return _context.IsHotReloadEnabled;
         }
+    }
+
+    /// <inheritdoc/>
+    public bool IsInitialized => _isInitialized;
+
+    /// <inheritdoc/>
+    public event EventHandler? Initialized;
+
+    /// <inheritdoc/>
+    public void BeginInit()
+    {
+        _isInitializing = true;
+        lock (_lock)
+            (_context as ISupportInitialize)?.BeginInit();
+    }
+
+    /// <inheritdoc/>
+    public void EndInit()
+    {
+        lock (_lock)
+            (_context as ISupportInitialize)?.EndInit();
+
+        _isInitialized = true;
+        Initialized?.Invoke(this, EventArgs.Empty);
     }
 
     /// <inheritdoc/>
@@ -239,8 +290,14 @@ file sealed class AppDomainHotReloadContext : IHotReloadContext
 
         lock (_lock)
         {
+            if (_isInitializing)
+                (assemblyContext as ISupportInitialize)?.BeginInit();
+
             if (_context.IsHotReloadEnabled)
                 assemblyContext.EnableHotReload();
+
+            if (_isInitialized)
+                (assemblyContext as ISupportInitialize)?.EndInit();
 
             _context = _context.Combine(assemblyContext);
         }

@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Avalonia;
+using Avalonia.Threading;
 using HotAvalonia.Helpers;
 
 namespace HotAvalonia;
@@ -50,9 +51,7 @@ public static class AvaloniaHotReload
 
         appFactoryField.SetValue(builder, () =>
         {
-            IHotReloadContext context = contextFactory();
-            context.EnableHotReload();
-
+            IHotReloadContext context = CreateHotReloadContext(contextFactory);
             Application app = appFactory();
             s_contexts.Add(app, context);
             return app;
@@ -71,13 +70,15 @@ public static class AvaloniaHotReload
         _ = app ?? throw new ArgumentNullException(nameof(app));
         _ = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
 
-        if (!s_contexts.TryGetValue(app, out IHotReloadContext? context))
+        if (s_contexts.TryGetValue(app, out IHotReloadContext? context))
         {
-            context = contextFactory();
+            context.EnableHotReload();
+        }
+        else
+        {
+            context = CreateHotReloadContext(contextFactory);
             s_contexts.Add(app, context);
         }
-
-        context.EnableHotReload();
     }
 
     /// <summary>
@@ -90,5 +91,28 @@ public static class AvaloniaHotReload
 
         if (s_contexts.TryGetValue(app, out IHotReloadContext? context))
             context.DisableHotReload();
+    }
+
+    /// <summary>
+    /// Creates and initializes a new hot reload context using the specified factory method.
+    /// </summary>
+    /// <param name="contextFactory">A factory function that produces an <see cref="IHotReloadContext"/> instance.</param>
+    /// <returns>A fully initialized <see cref="IHotReloadContext"/> instance.</returns>
+    private static IHotReloadContext CreateHotReloadContext(Func<IHotReloadContext> contextFactory)
+    {
+        IHotReloadContext context = contextFactory();
+        ISupportInitialize? initContext = context as ISupportInitialize;
+
+        initContext?.BeginInit();
+        context.EnableHotReload();
+
+        // Since Avalonia doesn't provide anything similar to an "AppStarted" event
+        // of some sort (at least as far as I'm aware), we use this small "hack":
+        // actions posted to the UI thread are processed only after both the framework
+        // and the app are fully initialized, which is exactly what we need.
+        if (initContext is not null)
+            Dispatcher.UIThread.Post(initContext.EndInit);
+
+        return context;
     }
 }

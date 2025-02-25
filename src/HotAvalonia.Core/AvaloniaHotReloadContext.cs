@@ -245,7 +245,7 @@ public static class AvaloniaHotReloadContext
 /// <summary>
 /// Manages the hot reload context for Avalonia controls.
 /// </summary>
-file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext
+file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupportInitialize
 {
     /// <summary>
     /// The Avalonia control managers, mapped by their respective file paths.
@@ -298,6 +298,28 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext
 
     /// <inheritdoc/>
     public bool IsHotReloadEnabled => _enabled;
+
+    /// <inheritdoc/>
+    public void BeginInit() { }
+
+    /// <inheritdoc/>
+    public async void EndInit()
+    {
+        if (HotReloadFeatures.SkipInitialPatching)
+            return;
+
+        try
+        {
+            // Since this is an `async void` method, ensure that it does not hang indefinitely.
+            using CancellationTokenSource cancellationTokenSource = new(TimeSpan.FromSeconds(10));
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+            await Task.Run(() => PatchAllAsync(cancellationToken)).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            LoggingHelper.LogError("Failed to pre-patch all available documents: {Exception}", e);
+        }
+    }
 
     /// <inheritdoc/>
     public void EnableHotReload()
@@ -387,6 +409,43 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext
     /// <param name="args">The event arguments containing the error details.</param>
     private void OnError(object sender, ErrorEventArgs args)
         => LoggingHelper.LogError(sender, "An unexpected error occurred while monitoring file changes: {Exception}", args.GetException());
+
+    /// <summary>
+    /// Applies patches asynchronously to all registered controls.
+    /// </summary>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    private Task PatchAllAsync(CancellationToken cancellationToken)
+        => Task.WhenAll(_controls.Select(x => PatchAsync(x.Value, x.Key, cancellationToken)));
+
+    /// <summary>
+    /// Asynchronously applies a patch to a specified control if required.
+    /// </summary>
+    /// <param name="controlManager">The control manager responsible for reloading the patched XAML.</param>
+    /// <param name="path">The file path to the XAML document.</param>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    private async Task PatchAsync(AvaloniaControlManager controlManager, string path, CancellationToken cancellationToken)
+    {
+        try
+        {
+            IFileSystem fileSystem = _watcher.FileSystem;
+            if (!await fileSystem.FileExistsAsync(path, cancellationToken).ConfigureAwait(false))
+                return;
+
+            string xaml = await fileSystem.ReadAllTextAsync(path, TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
+            if (!_xamlPatcher.RequiresPatching(xaml))
+                return;
+
+            LoggingHelper.LogInfo("Patching {ControlUri}...", controlManager.Document.Uri);
+            string patchedXaml = _xamlPatcher.Patch(xaml);
+            await controlManager.ReloadAsync(patchedXaml, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            LoggingHelper.LogError("Failed to patch {ControlUri}: {Exception}", controlManager.Document.Uri, e);
+        }
+    }
 }
 
 /// <summary>

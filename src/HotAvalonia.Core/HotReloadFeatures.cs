@@ -15,6 +15,11 @@ internal static class HotReloadFeatures
     public static bool DisableInjections => GetBoolean("DISABLE_INJECTIONS");
 
     /// <summary>
+    /// Gets a value that indicates whether the initial patching should be skipped.
+    /// </summary>
+    public static bool SkipInitialPatching => GetBoolean("SKIP_INITIAL_PATCHING");
+
+    /// <summary>
     /// Gets the log level override for hot reload-related events.
     /// </summary>
     public static LogEventLevel LogLevelOverride => GetEnum<LogEventLevel>("LOG_LEVEL_OVERRIDE");
