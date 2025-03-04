@@ -9,7 +9,7 @@
 
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <Description>Enhances the hot reload capabilities of HotAvalonia for users in restricted environments.</Description>
+    <Description>A Fody weaver created to overcome certain limitations that would otherwise render hot reload infeasible on non-x64 devices, while also enhancing the overall experience for HotAvalonia users.</Description>
   </PropertyGroup>
 
   <ItemGroup>

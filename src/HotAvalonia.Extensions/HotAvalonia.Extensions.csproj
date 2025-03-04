@@ -3,13 +3,13 @@
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
     <ImplicitUsings>disable</ImplicitUsings>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup>
     <IsPackable>true</IsPackable>
-    <Description>Provides utility extension methods for HotAvalonia, making it simpler to enable or disable the hot reload feature as needed.</Description>
-    <IncludeBuildOutput>false</IncludeBuildOutput>
-    <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <Description>A companion library for HotAvalonia that provides extension methods for Avalonia.AppBuilder and Avalonia.Application, designed to make it easy to enable or disable hot reload for your application.</Description>
   </PropertyGroup>
 
   <ItemGroup>
