@@ -23,19 +23,15 @@
 
 ## Installation
 
-To instantly enable hot reload for Debug builds of your application, simply add the [`HotAvalonia`](https://nuget.org/packages/HotAvalonia) package to your startup project *(i.e., the project that produces the executable)*. You can do this by running the following command:
-
-```sh
-dotnet add package HotAvalonia
-```
-
-Alternatively, you can manually add a `PackageReference` to your project file *(e.g., `.csproj`, `.fsproj`, `.vbproj`, etc.)*:
+To instantly enable hot reload for Debug builds of your application, simply add the [`HotAvalonia`](https://nuget.org/packages/HotAvalonia) package to your startup project *(i.e., the project that produces the executable)* by inserting the following snippet into your project file *(e.g., `.csproj`, `.fsproj`, `.vbproj`, etc.)*:
 
 ```xml
-<PackageReference Include="HotAvalonia" Version="..." PrivateAssets="All" />
+<PackageReference Include="HotAvalonia" Version="..." PrivateAssets="All" Publish="True" />
 ```
 
-If you have a multi-project setup, it is **highly recommended** to add `HotAvalonia` to **every** project that contains Avalonia controls, especially if your target platform is non-x64. You can either do this manually for each project, or include a `PackageReference` to `HotAvalonia` in your [`Directory.Build.targets`](https://learn.microsoft.com/en-us/visualstudio/msbuild/customize-by-directory).
+If you're developing a mobile app, please double-check that `Publish="True"` is set. Otherwise, Debug builds of your app will immediately crash on startup due to an old .NET SDK bug (dotnet/sdk#47332).
+
+If you have a multi-project setup, it is **highly recommended** to add `HotAvalonia` to **every** project that contains Avalonia controls. You can either do this manually for each project, or include a `PackageReference` to `HotAvalonia` in your [`Directory.Build.targets`](https://learn.microsoft.com/en-us/visualstudio/msbuild/customize-by-directory).
 
 `HotAvalonia` is a development-only dependency, meaning it doesn't affect your Release builds in any way, shape, or form, and its binaries are **not** shipped with your application.
 
@@ -118,7 +114,6 @@ Below is a non-exhaustive list of the most common and useful properties supporte
 | `HotAvaloniaAutoEnable` | Specifies whether hot reload should be enabled automatically or if the user should manually call `.UseHotReload()` on their `AppBuilder` instance. | `true` if the current project is a startup project; otherwise, `false`. | `true` <br> `false` |
 | `HotAvaloniaRecompileResources` | Specifies whether `HotAvalonia` should recompile resources like styles and resource dictionaries to make them hot-reloadable even on non-x64 devices. | `true` | `true` <br> `false` |
 | `HotAvaloniaGeneratePathResolver` | Specifies whether `HotAvalonia` should generate a project path resolver during compile-time based on your solution file *(i.e., `.sln`)*, or if it should search for source project locations during runtime. <br><br> Resolving project paths at runtime may be more reliable in some situations, but it's also a tiny bit more time-demanding solution. | `true` | `true` <br> `false` |
-| `HotAvaloniaUseInjections` | Specifies whether `HotAvalonia` should use injection-based hot reload. <br><br> This approach is slightly heavier than the traditional method, but it makes it possible to hot reload styles and resource dictionaries even when `HotAvaloniaRecompileResources` is disabled, or if `HotAvalonia` is only included in the startup project. <br><br> This option only matters on x64 devices; otherwise, it's a no-op. | `true` if the target device is x64; otherwise, `false`. | `true` <br> `false` |
 
 Also, if you are using hot reload on a remote device *(for example, if you are developing a mobile app)*, there are some additional options to configure [`HotAvalonia.Remote`](https://github.com/Kira-NT/HotAvalonia/blob/HEAD/src/HotAvalonia.Remote) *(also known as `HotAvalonia Remote File System`, or just `HARFS` for short)*:
 
@@ -135,14 +130,16 @@ Also, if you are using hot reload on a remote device *(for example, if you are d
 | `HarfsTimeout` | Specifies a timeout (in milliseconds) for HARFS to shut down if no clients connect within the specified time window. | `300000` <br> *(5 minutes)* | `-1` <br> `10000` <br> `2147483647` |
 | `HarfsExitOnDisconnect` | Specifies whether HARFS should shut down as soon as its primary client *(that being your app)* disconnects. | `true` | `true` <br> `false` |
 
-Additionally, there are a couple of semi-unrelated properties that `HotAvalonia` checks to better adapt to your environment:
-
-| Name | Description | Default | Examples |
-| :--- | :---------- | :------ | :------- |
-| `AvaloniaVersion` | Specifies the version of the core [`Avalonia`](https://nuget.org/packages/Avalonia) package used by your project. | A version of any package prefixed with `Avalonia.` | `11.2.0` |
-| `MonoModRuntimeDetourVersion` | Specifies the version of the [`MonoMod.RuntimeDetour`](https://nuget.org/packages/MonoMod.RuntimeDetour) package used for injection-based hot reload when `HotAvaloniaUseInjections` is set to `true`. | `*` | `25.2.0` |
-
 As mentioned earlier, this list is far from exhaustive. For a complete overview of available options, please check out the [`HotAvalonia.targets`](https://github.com/Kira-NT/HotAvalonia/blob/HEAD/src/HotAvalonia/HotAvalonia.targets) file. However, note that any properties not listed here *(especially those prefixed with `_`)* are considered internal and may be renamed, replaced, or completely removed without notice. So, feel free to experiment with those, but do not rely on them for long-term compatibility.
+
+### Optional Dependencies
+
+To enhance your experience with `HotAvalonia`, you may want to install the following optional dependencies:
+
+| Name | Description | Snippet |
+| :--- | :---------- | :------ |
+| `Avalonia.Markup.Xaml.Loader` | HotAvalonia relies on this official Avalonia package to compile XAML during runtime.<br><br>To accommodate users of all Avalonia releases starting from v11.0.0, HotAvalonia includes a pretty old version of `Avalonia.Markup.Xaml.Loader`. So, you might want to bump it explicitly in your project file. | `<PackageReference Include="Avalonia.Markup.Xaml.Loader" Version="*" PrivateAssets="All" />` |
+| `MonoMod.RuntimeDetour` | If this package is installed, HotAvalonia will automatically switch to injection-based hot reload, enabling some of its more advanced features, such as asset hot reloading, which are otherwise disabled. | `<PackageReference Include="MonoMod.RuntimeDetour" Version="*" PrivateAssets="All" />` |
 
 ### Miscellaneous
 

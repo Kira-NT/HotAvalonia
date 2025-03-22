@@ -25,6 +25,7 @@ Like any other Fody weaver, `HotAvalonia.Fody` can be configured either via `Fod
         <PopulateOverride Enable="true" />
         <UseHotReload Enable="true" GeneratePathResolver="true" />
         <FileSystemCredentials Enable="true" Address="127.0.0.1" Port="20158" Secret="TXkgU3VwZXIgU2VjcmV0IFZhbHVl" />
+        <References Enable="true" Exclude="HotAvalonia.Core;Avalonia.Markup.Xaml.Loader" />
       </HotAvalonia>
     </Weavers>
   </WeaverConfiguration>
@@ -74,6 +75,15 @@ This feature weaver is responsible for injecting remote file system credentials 
 | `Address` | Provides the address of the remote file system to the app. | `127.0.0.1` | `192.168.0.2` |
 | `Port` | Provides the port of the remote file system to the app. | `20158` | `8080` |
 | `Secret` | Provides the secret required by the remote file system to the app. | N/A | `TXkgU3VwZXIgU2VjcmV0IFZhbHVl` |
+
+### References
+
+This feature weaver is responsible for removing specified assembly references from the main module definition of your project and cleaning up related copy-local paths.
+
+| Name | Description | Default | Examples |
+| :--- | :---------- | :------ | :------- |
+| `Enable` | Sets a value indicating whether this feature weaver is enabled. | `false` | `true` <br> `false` |
+| `Exclude` | Provides a semicolon-separated list of assembly names, all mentions of which should be erased from the target project. | N/A | `HotAvalonia.Core;Avalonia.Markup.Xaml.Loader` |
 
 ----
 
