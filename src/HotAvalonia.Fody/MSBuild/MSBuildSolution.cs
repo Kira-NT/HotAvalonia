@@ -43,7 +43,7 @@ public sealed class MSBuildSolution : MSBuildFile
             .Cast<Match>()
             .Select(x => x.Groups[1].Value)
             .Where(x => !string.IsNullOrEmpty(x))
-            .Select(x => x.Replace('\\', Path.DirectorySeparatorChar))
+            .Select(x => Uri.UnescapeDataString(x.Replace('\\', Path.DirectorySeparatorChar)))
             .Select(x => new MSBuildProject(Path.Combine(directoryName, x)));
     }
 
