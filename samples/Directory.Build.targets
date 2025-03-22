@@ -5,21 +5,25 @@
   <!-- This is what one would use in the actual project: -->
   <!--
   <ItemGroup>
-    <PackageReference Include="HotAvalonia" Version="*" />
+    <PackageReference Include="HotAvalonia" Version="*" PrivateAssets="All" Publish="True" />
   </ItemGroup>
   -->
 
   <PropertyGroup>
     <_HotAvaloniaHarfsFile>$(MSBuildThisFileDirectory)../src/HotAvalonia.Remote/bin/$(Configuration)/net7.0/HotAvalonia.Remote.dll</_HotAvaloniaHarfsFile>
     <_HotAvaloniaAssemblyFile>$(MSBuildThisFileDirectory)../src/HotAvalonia/bin/$(Configuration)/netstandard2.0/HotAvalonia.dll</_HotAvaloniaAssemblyFile>
-    <_HotAvaloniaCoreProjectFile>$(MSBuildThisFileDirectory)../src/HotAvalonia.Core/HotAvalonia.Core.csproj</_HotAvaloniaCoreProjectFile>
-    <_HotAvaloniaExtensionsFile>$(MSBuildThisFileDirectory)../src/HotAvalonia.Extensions/AvaloniaHotReloadExtensions.cs</_HotAvaloniaExtensionsFile>
-    <_HotAvaloniaWeaverFiles>$(MSBuildThisFileDirectory)../src/HotAvalonia.Fody/bin/$(Configuration)/netstandard2.0/HotAvalonia.Fody.dll</_HotAvaloniaWeaverFiles>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="$(MSBuildThisFileDirectory)../src/HotAvalonia/HotAvalonia.csproj" ReferenceOutputAssembly="False" />
+
+    <PackageReference Include="Avalonia.Markup.Xaml.Loader" Version="$(AvaloniaVersion)" PrivateAssets="All" Publish="True" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)../src/HotAvalonia.Core/HotAvalonia.Core.csproj" PrivateAssets="All" Publish="True" />
+    <Compile Include="$(MSBuildThisFileDirectory)../src/HotAvalonia.Extensions/AvaloniaHotReloadExtensions.cs" Link="AvaloniaHotReloadExtensions.cs" Visible="False" />
+
+    <PackageReference Include="Fody" Version="$(FodyVersion)" PrivateAssets="All" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)../src/HotAvalonia.Fody/HotAvalonia.Fody.csproj" ReferenceOutputAssembly="False" />
+    <WeaverFiles Include="$(MSBuildThisFileDirectory)../src/HotAvalonia.Fody/bin/$(Configuration)/netstandard2.0/HotAvalonia.Fody.dll" />
   </ItemGroup>
 
   <ImportGroup>

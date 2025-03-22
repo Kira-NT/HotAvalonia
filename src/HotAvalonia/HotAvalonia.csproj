@@ -4,9 +4,8 @@
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
     <HarfsTargetFramework>net7.0</HarfsTargetFramework>
     <BuildOutputTargetFolder>tasks</BuildOutputTargetFolder>
-    <NoWarn>$(NoWarn);NU5100</NoWarn>
-    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <NoWarn>$(NoWarn);NU5100;NU5128</NoWarn>
+    <DisableFody>true</DisableFody>
     <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);ExpandProps</TargetsForTfmSpecificContentInPackage>
   </PropertyGroup>
 
@@ -14,6 +13,13 @@
     <IsPackable>true</IsPackable>
     <Description>A hot reload plugin for Avalonia that enables you to see UI changes in real time as you edit XAML files, drastically accelerating your design and development workflow.</Description>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Markup.Xaml.Loader" Version="$(AvaloniaVersion)" PrivateAssets="None" />
+    <ProjectReference Include="../HotAvalonia.Core/HotAvalonia.Core.csproj" PrivateAssets="None" />
+    <ProjectReference Include="../HotAvalonia.Extensions/HotAvalonia.Extensions.csproj" PrivateAssets="None" />
+    <ProjectReference Include="../HotAvalonia.Fody/HotAvalonia.Fody.csproj" PrivateAssets="None" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.0.0" PrivateAssets="All" ExcludeAssets="Runtime" />

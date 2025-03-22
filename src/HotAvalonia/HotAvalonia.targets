@@ -14,11 +14,6 @@
     <_HotAvaloniaIsExe Condition="'$(_HotAvaloniaIsExe)' == '' And '$(_HotAvaloniaIsNotDesktop)' == 'true'">true</_HotAvaloniaIsExe>
     <_HotAvaloniaIsExe Condition="'$(_HotAvaloniaIsExe)' == ''">$(OutputType.ToLowerInvariant().EndsWith('exe'))</_HotAvaloniaIsExe>
 
-    <!-- `MonoMod`, which we use for injection-based hot reload, only works on x64 systems. -->
-    <!-- Therefore, we need to determine the architecture of the current machine. -->
-    <_HotAvaloniaIsX64 Condition="'$(_HotAvaloniaIsX64)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'X64'">true</_HotAvaloniaIsX64>
-    <_HotAvaloniaIsX64 Condition="'$(_HotAvaloniaIsX64)' == ''">false</_HotAvaloniaIsX64>
-
     <!-- `.vbproj` uses `,` to separate constants defined via `DefineConstants` instead of `;`. -->
     <!-- The funny thing is, MSBuild will throw an error if you try to use `;` because it's a forbidden character. -->
     <!-- So, this mf understands what you want, but instead of interpreting `;` as a separator, it still decides to crash. -->
@@ -29,9 +24,6 @@
     <!-- We primarily need these constants so we can redefine them locally for testing purposes. -->
     <_HotAvaloniaHarfsFile Condition="'$(_HotAvaloniaHarfsFile)' == ''">$(MSBuildThisFileDirectory)..\tools\HotAvalonia.Remote.dll</_HotAvaloniaHarfsFile>
     <_HotAvaloniaAssemblyFile Condition="'$(_HotAvaloniaAssemblyFile)' == ''">$(MSBuildThisFileDirectory)..\tasks\netstandard2.0\HotAvalonia.dll</_HotAvaloniaAssemblyFile>
-    <_HotAvaloniaCoreProjectFile Condition="'$(_HotAvaloniaCoreProjectFile)' == ''"></_HotAvaloniaCoreProjectFile>
-    <_HotAvaloniaExtensionsFile Condition="'$(_HotAvaloniaExtensionsFile)' == ''"></_HotAvaloniaExtensionsFile>
-    <_HotAvaloniaWeaverFiles Condition="'$(_HotAvaloniaWeaverFiles)' == ''"></_HotAvaloniaWeaverFiles>
   </PropertyGroup>
 
   <!-- Import our tasks from the `HotAvalonia` assembly. -->
@@ -67,10 +59,15 @@
     <!-- However, when enabled, we want it ON by default. -->
     <HotAvaloniaGeneratePathResolver Condition="'$(HotAvaloniaGeneratePathResolver)' == ''">$(HotAvaloniaAutoEnable)</HotAvaloniaGeneratePathResolver>
 
-    <!-- Since `MonoMod` only supports x64, we want to disable it for all other architectures. -->
-    <!-- Note that if remote hot reload is enabled, we cannot reliably determine the architecture of the target device. -->
-    <HotAvaloniaUseInjections Condition="'$(HotAvaloniaUseInjections)' == '' And '$(HotAvaloniaRemote)' != 'true'">$(_HotAvaloniaIsX64)</HotAvaloniaUseInjections>
-    <HotAvaloniaUseInjections Condition="'$(HotAvaloniaUseInjections)' == ''">false</HotAvaloniaUseInjections>
+    <!-- Since we cannot conditionally define dependencies here, HotAvalonia has been set to depend on all essential packages it might need. -->
+    <!-- Now, we can remove them as needed instead. -->
+    <!-- Technically, we only need to erase HotAvalonia.Core, but to be safe, let's enumerate all the other packages as well. -->
+    <HotAvaloniaExcludeReferences>$(HotAvaloniaExcludeReferences);HotAvalonia;HotAvalonia.Core;HotAvalonia.Fody</HotAvaloniaExcludeReferences>
+
+    <!-- Unfortunately, we cannot reliably determine whether Avalonia.Markup.Xaml.Loader should be erased too, -->
+    <!-- as there are legitimate reasons why users might already depend on it, even without HotAvalonia being present. -->
+    <!-- So, let's supply them with an opt-out switch and call it a day. -->
+    <HotAvaloniaExcludeReferences Condition="'$(HotAvaloniaIncludeXamlLoader)' == 'false'">$(HotAvaloniaExcludeReferences);Avalonia.Markup.Xaml.Loader</HotAvaloniaExcludeReferences>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -136,8 +133,19 @@
     <FodyDependsOnTargets Condition="'$(HotAvalonia)' == 'true' And '$(HotAvaloniaRemote)' != 'true'">$(FodyDependsOnTargets);CompileAvaloniaXaml</FodyDependsOnTargets>
   </PropertyGroup>
 
+  <!-- When HotAvalonia is disabled, we want to erase all its references from the user's project. -->
+  <PropertyGroup Condition="'$(HotAvalonia)' != 'true'">
+    <WeaverConfiguration>
+      <Weavers>
+        <HotAvalonia>
+          <References Enable="true" Exclude="$(HotAvaloniaExcludeReferences)" />
+        </HotAvalonia>
+      </Weavers>
+    </WeaverConfiguration>
+  </PropertyGroup>
+
   <!-- This is the default Fody config for scenarios where remote hot reload is disabled. -->
-  <PropertyGroup Condition="'$(HotAvaloniaRemote)' != 'true'">
+  <PropertyGroup Condition="'$(HotAvalonia)' == 'true' And '$(HotAvaloniaRemote)' != 'true'">
     <WeaverConfiguration>
       <Weavers>
         <HotAvalonia SolutionPath="$(SolutionPath)">
@@ -147,74 +155,6 @@
       </Weavers>
     </WeaverConfiguration>
   </PropertyGroup>
-
-  <PropertyGroup>
-    <!-- We cannot provide a sensible default for `AvaloniaVersion`, as it must match -->
-    <!-- the exact Avalonia version used in the current environment. -->
-    <!-- So, we'll deal with this later. -->
-    <AvaloniaVersion Condition="'$(AvaloniaVersion)' == ''"></AvaloniaVersion>
-
-    <!-- Since Fody will only be referenced when custom weavers are provided (e.g., in our testing environment), -->
-    <!-- we are not concerned about the wildcard breaking things. -->
-    <FodyVersion Condition="'$(FodyVersion)' == ''">*</FodyVersion>
-
-    <!-- Almost nobody uses `MonoMod` in their Avalonia apps, so it's actually beneficial to always -->
-    <!-- install the latest version, as it needs to be updated every time a new .NET version is released. -->
-    <MonoModRuntimeDetourVersion Condition="'$(MonoModRuntimeDetourVersion)' == ''">*</MonoModRuntimeDetourVersion>
-  </PropertyGroup>
-
-  <!-- `HotAvalonia.Extensions` should always be accessible, as it contains the definitions of -->
-  <!-- `AvaloniaHotReloadAttribute` and `AvaloniaHotReloadExtensions`. -->
-  <ItemGroup>
-    <PackageReference Condition="'$(_HotAvaloniaExtensionsFile)' == ''" Include="HotAvalonia.Extensions" Version="$(HotAvaloniaVersion)" PrivateAssets="All" />
-    <Compile Condition="'$(_HotAvaloniaExtensionsFile)' != ''" Include="$(_HotAvaloniaExtensionsFile)" Link="AvaloniaHotReloadExtensions.cs" Visible="False" />
-  </ItemGroup>
-
-  <!-- `HotAvalonia.Core` and `HotAvalonia.Fody` must be included **only** when hot reload is enabled. -->
-  <ItemGroup Condition="'$(HotAvalonia)' == 'true'">
-    <PackageReference Condition="'$(_HotAvaloniaCoreProjectFile)' == ''" Include="HotAvalonia.Core" Version="$(HotAvaloniaVersion)" />
-    <ProjectReference Condition="'$(_HotAvaloniaCoreProjectFile)' != ''" Include="$(_HotAvaloniaCoreProjectFile)" />
-
-    <PackageReference Condition="'$(_HotAvaloniaWeaverFiles)' == ''" Include="HotAvalonia.Fody" Version="$(HotAvaloniaVersion)" PrivateAssets="All" />
-    <PackageReference Condition="'$(_HotAvaloniaWeaverFiles)' != ''" Include="Fody" Version="$(FodyVersion)" PrivateAssets="All" />
-    <WeaverFiles Condition="'$(_HotAvaloniaWeaverFiles)' != ''" Include="$(_HotAvaloniaWeaverFiles)" />
-  </ItemGroup>
-
-  <!-- `Avalonia.Markup.Xaml.Loader` and `MonoMod.RuntimeDetour` only need to be referenced once, -->
-  <!-- as they are effectively shadow dependencies. -->
-  <!-- So, it makes sense to include them in the startup project only. -->
-  <ItemGroup Condition="'$(HotAvalonia)' == 'true' And '$(_HotAvaloniaIsExe)' == 'true'">
-    <PackageReference Condition="'$(AvaloniaVersion)' != ''" Include="Avalonia.Markup.Xaml.Loader" Version="$(AvaloniaVersion)" />
-    <PackageReference Condition="'$(HotAvaloniaUseInjections)' == 'true'" Include="MonoMod.RuntimeDetour" Version="$(MonoModRuntimeDetourVersion)" PrivateAssets="All" />
-  </ItemGroup>
-
-  <!-- If we need `Avalonia.Markup.Xaml.Loader`, but `AvaloniaVersion` has not been resolved yet, -->
-  <!-- we must manually find any Avalonia-related package referenced in the current project and use its version. -->
-  <Target
-    Name="HotAvaloniaInstallAvaloniaMarkupXamlLoader"
-    Condition="'$(AvaloniaVersion)' == '' And '$(HotAvalonia)' == 'true' And '$(_HotAvaloniaIsExe)' == 'true'"
-    BeforeTargets="CollectPackageReferences;CollectCentralPackageVersions"
-  >
-    <!-- Avalonia has reserved its prefix on NuGet, so any package that starts with `Avalonia.` (or is just `Avalonia`) -->
-    <!-- is an Avalonia package. Since all their packages are kept in sync, we can use the version of any Avalonia package we find. -->
-    <CreateProperty
-      Value="%(PackageReference.Version)"
-      Condition="'%(PackageReference.Identity)' == 'Avalonia' Or $([System.String]::new('%(PackageReference.Identity)').StartsWith('Avalonia.'))"
-    >
-      <Output TaskParameter="Value" PropertyName="AvaloniaVersion" />
-    </CreateProperty>
-
-    <!-- If no Avalonia-related package is found, emit a warning to inform the user about this kerfuffle, -->
-    <!-- default to the minimum supported Avalonia version, and pray that nothing breaks. -->
-    <Warning
-      Condition="'$(AvaloniaVersion)' == ''"
-      Text="Unable to determine the Avalonia version. Please set the 'AvaloniaVersion' property. Defaulting to '$(HotAvaloniaMinimumSupportedAvaloniaVersion)'."
-    />
-    <ItemGroup>
-      <PackageReference Condition="'$(AvaloniaVersion)' == ''" Include="Avalonia.Markup.Xaml.Loader" Version="[$(HotAvaloniaMinimumSupportedAvaloniaVersion),)" />
-      <PackageReference Condition="'$(AvaloniaVersion)' != ''" Include="Avalonia.Markup.Xaml.Loader" Version="$(AvaloniaVersion)" />
-    </ItemGroup>
-  </Target>
 
   <!-- If remote hot reload is enabled, we need to generate a HARFS config, -->
   <!-- and then pass the connection information to the app via a weaver. -->
