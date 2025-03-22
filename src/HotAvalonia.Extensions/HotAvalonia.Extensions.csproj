@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <LangVersion>8.0</LangVersion>
     <ImplicitUsings>disable</ImplicitUsings>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <NoWarn>$(NoWarn);NU5128</NoWarn>
@@ -13,14 +14,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="HotAvalonia.Extensions.props" PackagePath="build" Pack="true" />
+    <None Include="HotAvalonia.Extensions.props" PackagePath="build/" Pack="true" />
     <None Include="AvaloniaHotReloadExtensions.cs" PackagePath="contentFiles/cs/any/" Pack="true" BuildAction="Compile" />
     <None Include="AvaloniaHotReloadExtensions.fs" PackagePath="contentFiles/fs/any/" Pack="true" BuildAction="Compile" />
     <None Include="AvaloniaHotReloadExtensions.vb" PackagePath="contentFiles/vb/any/" Pack="true" BuildAction="Compile" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../HotAvalonia/HotAvalonia.csproj" PrivateAssets="All" />
+    <ProjectReference Include="../HotAvalonia.Core/HotAvalonia.Core.csproj" PrivateAssets="All" />
     <PackageReference Include="Avalonia" Version="$(AvaloniaVersion)" PrivateAssets="All" />
   </ItemGroup>
 
