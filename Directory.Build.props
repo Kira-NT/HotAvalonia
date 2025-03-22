@@ -20,7 +20,7 @@
 
   <PropertyGroup>
     <AvaloniaVersion>11.0.0</AvaloniaVersion>
-    <FodyVersion>6.9.1</FodyVersion>
+    <FodyVersion>6.9.2</FodyVersion>
   </PropertyGroup>
 
   <PropertyGroup>

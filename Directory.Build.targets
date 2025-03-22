@@ -29,11 +29,11 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(IsPackable)' == 'true'">
-    <PackageReference Include="DotNet.ReproducibleBuilds" Version="1.1.1" PrivateAssets="All" />
+    <PackageReference Include="DotNet.ReproducibleBuilds" Version="1.2.25" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(PublishLzmaCompressed)' == 'true'">
-    <PackageReference Include="PublishAotCompressed" Version="1.0.3" PrivateAssets="All" />
+    <PackageReference Include="PublishAotCompressed" Version="1.0.5" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
