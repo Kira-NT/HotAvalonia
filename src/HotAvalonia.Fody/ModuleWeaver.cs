@@ -32,6 +32,7 @@ public sealed class ModuleWeaver : BaseModuleWeaver, ITypeResolver
     [
         new FileSystemCredentialsWeaver(this),
         new PopulateOverrideWeaver(this),
+        new ReferencesWeaver(this),
         new UseHotReloadWeaver(this),
     ];
 
