@@ -92,6 +92,8 @@ public static class XamlCompiler
     public static CompiledXamlDocument Compile(this XamlDocument document, RuntimeXamlLoaderConfiguration config)
     {
         _ = config ?? throw new ArgumentNullException(nameof(config));
+
+        using IDisposable context = AssemblyHelper.ForceAllowDynamicCode();
         if (config.LocalAssembly is not null)
             DynamicXamlAssembly?.AllowAccessTo(config.LocalAssembly);
 
@@ -124,6 +126,8 @@ public static class XamlCompiler
     {
         _ = documents ?? throw new ArgumentNullException(nameof(documents));
         _ = config ?? throw new ArgumentNullException(nameof(config));
+
+        using IDisposable context = AssemblyHelper.ForceAllowDynamicCode();
         if (config.LocalAssembly is not null)
             DynamicXamlAssembly?.AllowAccessTo(config.LocalAssembly);
 
@@ -169,6 +173,9 @@ public static class XamlCompiler
     /// <returns>A <see cref="DynamicAssembly"/> instance if found; otherwise, <c>null</c>.</returns>
     private static DynamicAssembly? GetDynamicXamlAssembly(Assembly xamlLoaderAssembly)
     {
+        // Avalonia creates a dynamic assembly during AvaloniaXamlIlRuntimeCompiler's initialization.
+        using IDisposable context = AssemblyHelper.ForceAllowDynamicCode();
+
         Type xamlAssembly = xamlLoaderAssembly.GetType("XamlX.TypeSystem.IXamlAssembly") ?? typeof(object);
         Type? xamlIlRuntimeCompiler = xamlLoaderAssembly.GetType("Avalonia.Markup.Xaml.XamlIl.AvaloniaXamlIlRuntimeCompiler");
 
