@@ -204,7 +204,10 @@ internal static class MethodHelper
                 return pdbReader.GetString(document.Name);
             }
         }
-        catch { }
+        catch (Exception e)
+        {
+            LoggingHelper.LogError("Failed to locate debug information for {Method}: {Exception}", method, e);
+        }
 
         return null;
     }

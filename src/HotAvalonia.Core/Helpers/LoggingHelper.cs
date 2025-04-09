@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Logging;
+using Avalonia.Markup.Xaml;
 
 namespace HotAvalonia.Helpers;
 
@@ -27,10 +29,19 @@ internal static class LoggingHelper
     /// </summary>
     private static readonly ParametrizedLogger? s_error = CreateLogger(LogEventLevel.Error);
 
+    /// <summary>
+    /// Logs debug information about the current environment.
+    /// </summary>
+    static LoggingHelper()
+    {
+        LogDebug($"HotAvalonia, Version={typeof(LoggingHelper).Assembly.GetName().Version}");
+        LogDebug($"Avalonia, Version={typeof(AppBuilder).Assembly.GetName().Version}");
+        LogDebug($"Avalonia.Markup.Xaml.Loader, Version={typeof(AvaloniaRuntimeXamlLoader).Assembly.GetName().Version}");
+    }
 
     /// <inheritdoc cref="LogDebug{T0, T1, T2}(object?, string, T0, T1, T2)"/>
     public static void LogDebug(string messageTemplate)
-        => s_debug?.Log(source: null, $" {messageTemplate}");
+        => s_debug?.Log(source: null, messageTemplate);
 
     /// <inheritdoc cref="LogDebug{T0, T1, T2}(object?, string, T0, T1, T2)"/>
     public static void LogDebug<T0>(string messageTemplate, T0 arg0)
@@ -66,7 +77,7 @@ internal static class LoggingHelper
 
     /// <inheritdoc cref="LogInfo{T0, T1, T2}(object?, string, T0, T1, T2)"/>
     public static void LogInfo(string messageTemplate)
-        => s_info?.Log(source: null, $" {messageTemplate}");
+        => s_info?.Log(source: null, messageTemplate);
 
     /// <inheritdoc cref="LogInfo{T0, T1, T2}(object?, string, T0, T1, T2)"/>
     public static void LogInfo<T0>(string messageTemplate, T0 arg0)
@@ -102,7 +113,7 @@ internal static class LoggingHelper
 
     /// <inheritdoc cref="LogWarning{T0, T1, T2}(object?, string, T0, T1, T2)"/>
     public static void LogWarning(string messageTemplate)
-        => s_warning?.Log(source: null, $" {messageTemplate}");
+        => s_warning?.Log(source: null, messageTemplate);
 
     /// <inheritdoc cref="LogWarning{T0, T1, T2}(object?, string, T0, T1, T2)"/>
     public static void LogWarning<T0>(string messageTemplate, T0 arg0)
@@ -138,7 +149,7 @@ internal static class LoggingHelper
 
     /// <inheritdoc cref="LogError{T0, T1, T2}(object?, string, T0, T1, T2)"/>
     public static void LogError(string messageTemplate)
-        => s_error?.Log(source: null, $" {messageTemplate}");
+        => s_error?.Log(source: null, messageTemplate);
 
     /// <inheritdoc cref="LogError{T0, T1, T2}(object?, string, T0, T1, T2)"/>
     public static void LogError<T0>(string messageTemplate, T0 arg0)

@@ -133,13 +133,13 @@ public static class AvaloniaHotReloadContext
 
         if (!projectLocator.TryGetDirectoryName(assembly, documents, out string? rootPath))
         {
-            LoggingHelper.LogInfo("Found an assembly containing Avalonia controls ({AssemblyName}). However, its source project location could not be determined. Skipping.", assembly.GetName().Name);
+            LoggingHelper.LogWarning("Found an assembly containing Avalonia controls ({AssemblyName}). However, its source project location could not be determined. Skipping.", assembly.GetName().Name);
             return null;
         }
 
         if (!projectLocator.FileSystem.DirectoryExists(rootPath))
         {
-            LoggingHelper.LogInfo("Found an assembly containing Avalonia controls ({AssemblyName}) with its source project located at {ProjectLocation}. However, the project could not be found on the local system. Skipping.", assembly.GetName().Name, rootPath);
+            LoggingHelper.LogWarning("Found an assembly containing Avalonia controls ({AssemblyName}) with its source project located at {ProjectLocation}. However, the project could not be found on the local system. Skipping.", assembly.GetName().Name, rootPath);
             return null;
         }
 
