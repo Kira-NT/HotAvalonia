@@ -3,7 +3,6 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using HotAvalonia.IO;
 
 namespace HotAvalonia.Helpers;
@@ -176,7 +175,7 @@ internal static class MethodHelper
     /// The file path of the source code file where the specified method is defined,
     /// or <c>null</c> if the path cannot be determined.
     /// </returns>
-    public static string? GetFilePath(this MethodBase method, IFileSystem fileSystem)
+    public static unsafe string? GetFilePath(this MethodBase method, IFileSystem fileSystem)
     {
         if (method is not { DeclaringType: { FullName.Length: > 0, Assembly.IsDynamic: false } })
             return null;
@@ -192,8 +191,8 @@ internal static class MethodHelper
             using MetadataReaderProvider pdbReaderProvider = MetadataReaderProvider.FromPortablePdbStream(pdbStream);
             MetadataReader pdbReader = pdbReaderProvider.GetMetadataReader();
 
-            Span<int> rowId = stackalloc int[1] { method.MetadataToken & 0x00FFFFFF };
-            MethodDebugInformationHandle debugHandle = MemoryMarshal.Cast<int, MethodDebugInformationHandle>(rowId)[0];
+            int rowId = method.MetadataToken & 0x00FFFFFF;
+            MethodDebugInformationHandle debugHandle = *(MethodDebugInformationHandle*)&rowId;
             MethodDebugInformation debugInfo = pdbReader.GetMethodDebugInformation(debugHandle);
 
             foreach (SequencePoint sequencePoint in debugInfo.GetSequencePoints())
