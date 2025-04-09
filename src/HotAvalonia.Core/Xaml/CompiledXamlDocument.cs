@@ -246,29 +246,20 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     /// <param name="control">The control to clear.</param>
     private static void Clear(object? control)
     {
-        if (control is null)
-            return;
-
         if (control is StyledElement)
             s_stylesAppliedField?.SetValue(control, false);
 
-        if (control is IDictionary<object, object> dictionaryControl)
-            dictionaryControl.Clear();
-
-        if (control is ICollection<IStyle> styles)
-            styles.Clear();
-
-        if (control is Visual avaloniaControl)
+        (ICollection<KeyValuePair<object, object?>>? resources, ICollection<IStyle>? styles) = control switch
         {
-            avaloniaControl.Resources.Clear();
-            avaloniaControl.Styles.Clear();
-        }
-
-        if (control is Application app)
-        {
-            app.Resources.Clear();
-            app.Styles.Clear();
-        }
+            Application x => (x.Resources, x.Styles),
+            StyledElement x => (x.Resources, x.Styles),
+            Styles x => (x.Resources, x),
+            StyleBase x => (x.Resources, x as ICollection<IStyle> ?? (x as IStyleHost)?.Styles),
+            IStyleHost x => (x as ICollection<KeyValuePair<object, object?>>, x.Styles),
+            _ => (control as ICollection<KeyValuePair<object, object?>>, control as ICollection<IStyle>),
+        };
+        resources?.Clear();
+        styles?.Clear();
     }
 
     /// <summary>
