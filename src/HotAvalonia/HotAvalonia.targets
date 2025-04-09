@@ -115,6 +115,13 @@
     <DefineConstants Condition="'$(HotAvaloniaIncludeExtensions)' != 'true'">$(DefineConstants)$(_HotAvaloniaDefineConstantsSeparator)HOTAVALONIA_EXCLUDE_EXTENSIONS</DefineConstants>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(HotAvalonia)' == 'true' And '$(_HotAvaloniaIsIOS)' == 'true'">
+    <!-- Force-enable Mono Interpreter on iOS to accommodate the platform's fundamental design flaws. -->
+    <MtouchInterpreter>all</MtouchInterpreter>
+    <UseInterpreter>true</UseInterpreter>
+    <PublishAot>false</PublishAot>
+  </PropertyGroup>
+
   <PropertyGroup>
     <!-- For MSBuild `>= 17.0.0`, we want to use `TargetsTriggeredByCompilation` instead of `AfterTargets`, -->
     <!-- because the latter and the older one basically doesn't work with incremental builds. -->
