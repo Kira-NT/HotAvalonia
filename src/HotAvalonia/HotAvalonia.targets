@@ -126,11 +126,9 @@
     <!-- Ensure our target runs only when `CompileAvaloniaXaml` has completed. -->
     <HotAvaloniaDependsOnTargets Condition="'$(HotAvalonia)' == 'true'">$(HotAvaloniaDependsOnTargets);CompileAvaloniaXaml</HotAvaloniaDependsOnTargets>
 
-    <!-- If remote hot reload is enabled, Fody must run after our target generates a proper config for it. -->
+    <!-- If hot reload is enabled, Fody must run after our target generates a proper config for it. -->
     <FodyDependsOnTargets Condition="'$(HotAvalonia)' == 'true' And '$(HotAvaloniaRemote)' == 'true'">$(FodyDependsOnTargets);HotAvaloniaGenerateFileSystemServerConfig</FodyDependsOnTargets>
-
-    <!-- Otherwise, ensure that Fody runs only after Avalonia has finished compiling XAML. -->
-    <FodyDependsOnTargets Condition="'$(HotAvalonia)' == 'true' And '$(HotAvaloniaRemote)' != 'true'">$(FodyDependsOnTargets);CompileAvaloniaXaml</FodyDependsOnTargets>
+    <FodyDependsOnTargets Condition="'$(HotAvalonia)' == 'true' And '$(HotAvaloniaRemote)' != 'true'">$(FodyDependsOnTargets);HotAvaloniaPrepareFodyConfig</FodyDependsOnTargets>
   </PropertyGroup>
 
   <!-- When HotAvalonia is disabled, we want to erase all its references from the user's project. -->
@@ -145,16 +143,32 @@
   </PropertyGroup>
 
   <!-- This is the default Fody config for scenarios where remote hot reload is disabled. -->
-  <PropertyGroup Condition="'$(HotAvalonia)' == 'true' And '$(HotAvaloniaRemote)' != 'true'">
-    <WeaverConfiguration>
-      <Weavers>
-        <HotAvalonia SolutionPath="$(SolutionPath)">
-          <PopulateOverride Enable="$(HotAvaloniaRecompileResources)" />
-          <UseHotReload Enable="$(HotAvaloniaAutoEnable)" GeneratePathResolver="$(HotAvaloniaGeneratePathResolver)" />
-        </HotAvalonia>
-      </Weavers>
-    </WeaverConfiguration>
-  </PropertyGroup>
+  <Target
+    Name="HotAvaloniaPrepareFodyConfig"
+    Condition="'$(HotAvalonia)' == 'true' And '$(HotAvaloniaRemote)' != 'true'"
+    AfterTargets="$(HotAvaloniaAfterTargets)"
+    DependsOnTargets="$(HotAvaloniaDependsOnTargets)"
+  >
+    <ItemGroup Condition="'$(HotAvaloniaGeneratePathResolver)' == 'true'">
+      <_HotAvaloniaProject Include="$(MSBuildProjectFullPath)" MSBuildSourceProjectFile="$(MSBuildProjectFullPath)" FusionName="$(AssemblyName)" />
+      <_HotAvaloniaProject Include="@(ReferenceCopyLocalPaths->HasMetadata('MSBuildSourceProjectFile')->HasMetadata('FusionName'))" />
+    </ItemGroup>
+
+    <PropertyGroup Condition="'$(HotAvaloniaGeneratePathResolver)' == 'true'">
+      <_HotAvaloniaProjects Condition="'$(_HotAvaloniaProjects)' == ''">@(_HotAvaloniaProject->'%(FusionName)&amp;#x1ffff;%(MSBuildSourceProjectFile)', '&amp;#x1ffff;')</_HotAvaloniaProjects>
+    </PropertyGroup>
+
+    <PropertyGroup>
+      <WeaverConfiguration>
+        <Weavers>
+          <HotAvalonia SolutionPath="$(SolutionPath)">
+            <PopulateOverride Enable="$(HotAvaloniaRecompileResources)" />
+            <UseHotReload Enable="$(HotAvaloniaAutoEnable)" Projects="$(_HotAvaloniaProjects)" GeneratePathResolver="$(HotAvaloniaGeneratePathResolver)" />
+          </HotAvalonia>
+        </Weavers>
+      </WeaverConfiguration>
+    </PropertyGroup>
+  </Target>
 
   <!-- If remote hot reload is enabled, we need to generate a HARFS config, -->
   <!-- and then pass the connection information to the app via a weaver. -->

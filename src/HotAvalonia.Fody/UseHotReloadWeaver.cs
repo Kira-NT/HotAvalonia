@@ -53,6 +53,80 @@ internal sealed class UseHotReloadWeaver : FeatureWeaver
     /// </summary>
     private bool GeneratePathResolver => this[nameof(GeneratePathResolver), false];
 
+    /// <summary>
+    /// Gets a collection of projects to be included in the generated path resolution logic.
+    /// </summary>
+    private IEnumerable<MSBuildProject> Projects
+    {
+        get
+        {
+            // The attribute value should be formatted as follows:
+            // "AssemblyName0\U0001FFFFProjectPath0\U0001FFFFAssemblyName1\U0001FFFFProjectPath1"
+            //
+            // In other words, it's a stream of assembly name/project path pairs, where each value in a pair
+            // and each pair itself are separated by "\U0001FFFF". So, to parse the input, we split the string
+            // using the said separator and then group every two consecutive values. Hopefully, that's clear.
+            //
+            // Now, let's move on to the part that really demands some explanation:
+            // Why in the world are we using "\U0001FFFF" as a separator? What even is that?
+            //
+            // Obviously, I needed a symbol to separate assembly names and project paths in a sequence.
+            // Naturally, that symbol should be invalid both as part of an identifier and as a file/directory name.
+            // You'd think this would be the perfect job for the NULL character (ASCII 0, or just "\0"), right?
+            // After all, it's *the* one character that's prohibited in file paths on virtually any platform.
+            // Yeah, I thought it would do too. Imagine my surprise when the XML parser used by Fody to read weaver
+            // configs threw an exception complaining that "0x00 is an invalid character". Turns out, the XML spec
+            // explicitly forbids control characters like "\0". And before you tell me that it's "reasonable" - no,
+            // it's not. These characters are forbidden even in ESCAPED form. Why the hell would you define a syntax
+            // for escaping non-printable characters (e.g., "&#x00;") if you can't actually use it? Because of that,
+            // you literally cannot express strings containing control characters in XML. What a sad joke that is...
+            // No wonder we all moved away from this steaming pile of legacy nonsense to formats like JSON and YAML.
+            //
+            // So, the obvious, reasonable, and basically go-to choice was taken away from us by the XML spec. What now?
+            // Use something like ":" as a separator, because it's prohibited on Windows *(most of the time)*, hence it
+            // shouldn't appear in cross-platform project paths anyway? Yeah, no. It's perfectly valid on Linux,
+            // and since we're working with full paths, ":" could still show up, because it might be present outside of
+            // the project tree.
+            // Perhaps, use some obscure Unicode character then? Well, what's obscure in your culture might be quite
+            // common somewhere else. And dealing with culture-specific bugs is a whole other nightmare, and frankly,
+            // I'm not signing up for that.
+            //
+            // Now, there's an interesting category of Unicode characters called "noncharacters".
+            // As the name suggests, these code points are not actually valid characters and are not supposed to appear
+            // as a part of any meaningful text. The most notable <not a character> is U+FFFE, which has the reversed
+            // byte order of U+FEFF (BOM), so its presence usually indicates a file read with the wrong endianness.
+            // Initially, I tried using it and its close sibling U+FFFF for my deeds, however Fody's XML parser still
+            // throws an exception when it encounters these, even when they're properly escaped (e.g., "&#xffff;").
+            // Thankfully, noncharacters exist on *every* Unicode plane. Thus, I ventured beyond the BMP (Plane 0)
+            // straight into Plane 1, and tried using "\U0001FFFF" via its "&#x1ffff;" form. And guess what?
+            // The parser has no idea what to do with it - it doesn't recognize it as a prohibited code point
+            // and simply lets it through.
+            //
+            // Finally! We now have a code point that will never appear in a filename (it's literally not a character),
+            // and it doesn't get rejected by the XML parser. And that's good enough for me.
+            //
+            // Anyways, I hope you enjoyed this little story. Because I sure didn't.
+            IEnumerable<MSBuildProject> projects = this[nameof(Projects)]
+                .Split(["\U0001FFFF"], StringSplitOptions.None)
+                .Select((x, i) => (Value: x, Index: i)).GroupBy(x => x.Index / 2).Where(x => x.Count() == 2)
+                .Select(x => new MSBuildProject(assemblyName: x.ElementAt(0).Value, path: x.ElementAt(1).Value))
+                .ToArray();
+
+            // If the project list is empty (i.e., no one bothered to actually specify it,
+            // as it should at the very least include the project currently being weaved),
+            // then retrieve all known projects from the solution file.
+            // If the solution file doesn't exist or doesn't list the project being weaved, add it manually.
+            // Duplicates will be filtered out later, so don't worry about that.
+            if (!projects.Any())
+                projects = Solution.Projects.Concat([Project]);
+
+            // A path resolver must know the name of the assembly produced by each project for it to function.
+            // So, skip any projects where this correlation couldn't be determined, and
+            // let the runtime path resolver deal with it.
+            return projects.Where(x => !string.IsNullOrEmpty(x.AssemblyName)).Distinct();
+        }
+    }
+
     /// <inheritdoc/>
     public override void Execute()
     {
@@ -189,8 +263,7 @@ internal sealed class UseHotReloadWeaver : FeatureWeaver
         if (!GeneratePathResolver)
             return null;
 
-        IEnumerable<MSBuildProject> projects = Solution.Projects.Concat([Project]).Distinct().Where(x => !string.IsNullOrEmpty(x.AssemblyName));
-        pathResolver = CreatePathResolver(ResolveProjectPathMethodName, projects);
+        pathResolver = CreatePathResolver(ResolveProjectPathMethodName, Projects);
         declaringType.Methods.Add(pathResolver);
         return pathResolver;
     }

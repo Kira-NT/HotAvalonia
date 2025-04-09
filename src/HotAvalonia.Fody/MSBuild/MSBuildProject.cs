@@ -14,9 +14,12 @@ public sealed class MSBuildProject : MSBuildFile
     /// Initializes a new instance of the <see cref="MSBuildProject"/> class.
     /// </summary>
     /// <param name="path">The path to the project file.</param>
-    public MSBuildProject(string path) : base(path)
+    /// <param name="assemblyName">The assembly name associated with the project.</param>
+    public MSBuildProject(string path, string? assemblyName = null) : base(path)
     {
-        _assemblyName = null;
+        // If the assembly name is provided in its fully qualified form (e.g., "AssemblyName, Version=1.0.0.0, ..."),
+        // just strip everything beyond the actual name.
+        _assemblyName = assemblyName?.Substring(0, assemblyName.IndexOf(',') is int i and >= 0 ? i : assemblyName.Length);
     }
 
     /// <summary>
