@@ -201,7 +201,7 @@ internal static class LoggingHelper
     /// </returns>
     private static ParametrizedLogger? CreateLogger(LogEventLevel logLevel)
     {
-        LogEventLevel logLevelOverride = HotReloadFeatures.LogLevelOverride;
+        LogEventLevel logLevelOverride = HotReloadFeatures.Debug ? LogEventLevel.Error : HotReloadFeatures.LogLevelOverride;
         if (logLevel < logLevelOverride)
             logLevel = logLevelOverride;
 

@@ -10,6 +10,11 @@ namespace HotAvalonia;
 internal static class HotReloadFeatures
 {
     /// <summary>
+    /// Gets a value that indicates whether the debug mode is enabled.
+    /// </summary>
+    public static bool Debug => GetBoolean("DEBUG");
+
+    /// <summary>
     /// Gets a value that indicates whether injections should be disabled.
     /// </summary>
     public static bool DisableInjections => GetBoolean("DISABLE_INJECTIONS");
