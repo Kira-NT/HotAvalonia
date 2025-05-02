@@ -35,6 +35,11 @@ If you have a multi-project setup, it is **highly recommended** to add `HotAvalo
 
 `HotAvalonia` is a development-only dependency, meaning it doesn't affect your Release builds in any way, shape, or form, and its binaries are **not** shipped with your application.
 
+> [!IMPORTANT]
+> If you install `HotAvalonia` using the built-in **NuGet UI** in `Visual Studio` or `Rider`, it adds an `IncludeAssets` attribute to the `PackageReference`.
+>
+> This breaks the build — you will need to manually remove that attribute from your `.csproj` file to make the project compile.
+
 ----
 
 ## Examples
