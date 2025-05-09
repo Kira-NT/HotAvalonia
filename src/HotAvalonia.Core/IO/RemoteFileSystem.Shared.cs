@@ -11,7 +11,7 @@ partial class RemoteFileSystem
     /// <summary>
     /// Gets the hostname of the remote file system.
     /// </summary>
-    public static string Name { get; } = $"{nameof(HotAvalonia)}-{nameof(RemoteFileSystem)}";
+    public static string Hostname { get; } = $"{nameof(HotAvalonia)}-{nameof(RemoteFileSystem)}";
 
     /// <summary>
     /// Gets the version of the remote file system protocol.

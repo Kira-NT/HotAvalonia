@@ -57,7 +57,7 @@ internal sealed partial class RemoteFileSystem : IDisposable
     /// <param name="secret">The secret key used for authenticating clients during handshake.</param>
     /// <param name="endpoint">The endpoint on which to listen for incoming connections.</par
     public RemoteFileSystem(string root, byte[] secret, IPEndPoint endpoint)
-        : this(root, secret, new SslTcpListener(endpoint, Name))
+        : this(root, secret, new SslTcpListener(endpoint, Hostname))
     {
     }
 
