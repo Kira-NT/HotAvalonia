@@ -45,7 +45,7 @@ internal class DynamicAssetLoader
     {
         _assetLoader = fallbackAssetLoader ?? throw new ArgumentNullException(nameof(fallbackAssetLoader));
         _projectLocator = projectLocator ?? throw new ArgumentNullException(nameof(projectLocator));
-        _fileSystem = new CachingFileSystem(projectLocator.FileSystem);
+        _fileSystem = projectLocator.FileSystem.Cache(leaveOpen: true);
     }
 
     /// <inheritdoc cref="Create(IAssetLoader, AvaloniaProjectLocator)"/>
@@ -157,12 +157,8 @@ internal class DynamicAssetLoader
     /// <returns>A resolved <see cref="AssetInfo"/> instance.</returns>
     private AssetInfo ResolveAssetInfo(Uri uri, Assembly assembly, string project)
     {
-        project = _fileSystem.GetFullPath(project);
-        char projectEnd = project.Length > 0 ? project[project.Length - 1] : _fileSystem.DirectorySeparatorChar;
-        if (projectEnd != _fileSystem.DirectorySeparatorChar && projectEnd != _fileSystem.AltDirectorySeparatorChar)
-            project += _fileSystem.DirectorySeparatorChar;
-
-        return new(uri, assembly, new(project), _fileSystem.ResolvePathFromUri(project, uri));
+        string fullProjectPath = _fileSystem.EnsureTrailingSeparator(_fileSystem.GetFullPath(project));
+        return new(uri, assembly, new(fullProjectPath), _fileSystem.ResolvePathFromUri(fullProjectPath, uri));
     }
 }
 

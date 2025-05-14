@@ -236,7 +236,7 @@ file sealed class SharedFileObserver : IDisposable
         _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
 
         fileName = fileSystem.GetFullPath(fileName);
-        string volumeName = fileSystem.GetVolumeName(fileName);
+        string volumeName = fileSystem.GetPathRoot(fileName)!;
 
         s_volumeObservers
             .GetOrCreateValue(fileSystem)

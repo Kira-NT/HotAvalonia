@@ -2,4 +2,10 @@ T:System.IO.Directory;Use 'HotAvalonia.IO.IFileSystem' instead.
 T:System.IO.File;Use 'HotAvalonia.IO.IFileSystem' instead.
 T:System.IO.Path;Use 'HotAvalonia.IO.IFileSystem' instead.
 
+P:System.Environment.CurrentDirectory;Use 'HotAvalonia.IO.IFileSystem.CurrentDirectory' instead.
+M:System.Environment.GetLogicalDrives;Use 'HotAvalonia.IO.IFileSystem.GetLogicalDrives()' instead.
+
+T:System.IO.DirectoryInfo;Use 'HotAvalonia.IO.FileSystemDirectoryInfo' instead.
+T:System.IO.FileInfo;Use 'HotAvalonia.IO.FileSystemFileInfo' instead.
+T:System.IO.FileSystemInfo;Use 'HotAvalonia.IO.FileSystemEntryInfo' instead.
 T:System.IO.FileSystemWatcher;Use 'HotAvalonia.IO.IFileSystemWatcher' instead.

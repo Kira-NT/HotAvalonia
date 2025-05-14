@@ -3,7 +3,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
-using System.Runtime.CompilerServices;
 using System.Text;
 using HotAvalonia.Helpers;
 using HotAvalonia.Net;
@@ -68,11 +67,13 @@ internal sealed partial class RemoteFileSystem : IFileSystem
     /// <summary>
     /// Initializes a new instance of the <see cref="RemoteFileSystem"/> class.
     /// </summary>
+    /// <param name="name">The name of this file system.</param>
     /// <param name="client">The TCP client used for communication with the remote file system.</param>
     /// <param name="clientFactory">The factory function used to create authenticated TCP clients.</param>
     /// <param name="fileSystemState">The initial state of the file system.</param>
-    private RemoteFileSystem(SslTcpClient client, Func<CancellationToken, Task<SslTcpClient>> clientFactory, FileSystemState fileSystemState)
+    private RemoteFileSystem(string name, SslTcpClient client, Func<CancellationToken, Task<SslTcpClient>> clientFactory, FileSystemState fileSystemState)
     {
+        Name = name;
         _client = client;
         _clientFactory = clientFactory;
         _fileSystemState = fileSystemState;
@@ -82,6 +83,58 @@ internal sealed partial class RemoteFileSystem : IFileSystem
         _readLoopCancellationTokenSource = null;
         _timeout = DefaultTimeout;
     }
+
+    /// <inheritdoc/>
+    public string Name { get; }
+
+    /// <inheritdoc/>
+    public string CurrentDirectory
+    {
+        get => _fileSystemState.CurrentDirectory;
+        set => throw new NotImplementedException();
+    }
+
+    /// <inheritdoc/>
+    public string TempDirectory => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public StringComparison PathComparison => _fileSystemState.PathComparison;
+
+    /// <inheritdoc/>
+    public StringComparer PathComparer => _fileSystemState.PathComparer;
+
+    /// <inheritdoc/>
+    public char DirectorySeparator => _fileSystemState.DirectorySeparatorChar;
+
+    /// <inheritdoc/>
+    public char AltDirectorySeparator => _fileSystemState.AltDirectorySeparatorChar;
+
+    /// <inheritdoc/>
+    public char VolumeSeparator => _fileSystemState.VolumeSeparatorChar;
+
+    /// <inheritdoc/>
+    public char PathSeparator => throw new NotImplementedException();
+
+    /// <summary>
+    /// Gets or sets the length of time, in milliseconds, before a synchronous operation times out.
+    /// </summary>
+    public int Timeout
+    {
+        get => _timeout;
+        set => _timeout = value is > 0 and < MinTimeout ? MinTimeout : value;
+    }
+
+    /// <inheritdoc/>
+    public char[] InvalidPathChars => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public char[] InvalidFileNameChars => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public string[] GetLogicalDrives() => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public Task<string[]> GetLogicalDrivesAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
 
     /// <summary>
     /// Connects to a remote file system and initializes it.
@@ -100,7 +153,7 @@ internal sealed partial class RemoteFileSystem : IFileSystem
         await WritePacketAsync(stream, 0, ActionType.GetFileSystemState, [], cancellationToken).ConfigureAwait(false);
         FileSystemState state = FileSystemState.FromByteArray((await ReadPacketAsync(stream, cancellationToken).ConfigureAwait(false)).Data);
 
-        RemoteFileSystem fileSystem = new(client, CreateClientAsync, state);
+        RemoteFileSystem fileSystem = new($"@{endpoint}", client, CreateClientAsync, state);
         fileSystem.Start();
         return fileSystem;
     }
@@ -145,193 +198,6 @@ internal sealed partial class RemoteFileSystem : IFileSystem
             throw new ProtocolViolationException("The server did not indicate whether the handshake was successful.");
     }
 
-    /// <inheritdoc/>
-    public StringComparer PathComparer => _fileSystemState.PathComparer;
-
-    /// <inheritdoc/>
-    public StringComparison PathComparison => _fileSystemState.PathComparison;
-
-    /// <inheritdoc/>
-    public char DirectorySeparatorChar => _fileSystemState.DirectorySeparatorChar;
-
-    /// <inheritdoc/>
-    public char AltDirectorySeparatorChar => _fileSystemState.AltDirectorySeparatorChar;
-
-    /// <inheritdoc/>
-    public char VolumeSeparatorChar => _fileSystemState.VolumeSeparatorChar;
-
-    /// <summary>
-    /// Gets or sets the length of time, in milliseconds, before a synchronous operation times out.
-    /// </summary>
-    public int Timeout
-    {
-        get => _timeout;
-        set => _timeout = value is > 0 and < MinTimeout ? MinTimeout : value;
-    }
-
-    /// <inheritdoc/>
-    public IFileSystemWatcher CreateFileSystemWatcher()
-    {
-        using CancellationTokenSource? tokenSource = _timeout > 0 ? new(_timeout) : null;
-        CancellationToken cancellationToken = tokenSource?.Token ?? default;
-        return CreateFileSystemWatcherAsync(cancellationToken).GetAwaiter().GetResult();
-    }
-
-    /// <inheritdoc/>
-    public async ValueTask<IFileSystemWatcher> CreateFileSystemWatcherAsync(CancellationToken cancellationToken = default)
-    {
-        SslTcpClient client = await _clientFactory(cancellationToken).ConfigureAwait(false);
-        SslStream stream = client.GetStream();
-
-        await WritePacketAsync(stream, 0, ActionType.CreateFileSystemWatcher, [], cancellationToken).ConfigureAwait(false);
-        return RemoteFileSystemWatcher.Create(this, client);
-    }
-
-    /// <inheritdoc/>
-    public bool DirectoryExists([NotNullWhen(true)] string? path)
-    {
-        using CancellationTokenSource? tokenSource = _timeout > 0 ? new(_timeout) : null;
-        CancellationToken cancellationToken = tokenSource?.Token ?? default;
-        return DirectoryExistsAsync(path, cancellationToken).GetAwaiter().GetResult();
-    }
-
-    /// <inheritdoc/>
-    public async ValueTask<bool> DirectoryExistsAsync([NotNullWhen(true)] string? path, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrEmpty(path))
-            return false;
-
-        byte[] request = Encoding.UTF8.GetBytes(path);
-        byte[] response = await SendRequestAsync(ActionType.DirectoryExists, request, cancellationToken).ConfigureAwait(false);
-        return BitConverter.ToBoolean(response);
-    }
-
-    /// <inheritdoc/>
-    public IEnumerable<string> EnumerateFiles(string path, string searchPattern, SearchOption searchOption)
-    {
-        using CancellationTokenSource? tokenSource = _timeout > 0 ? new(_timeout) : null;
-        CancellationToken cancellationToken = tokenSource?.Token ?? default;
-        return GetFilesAsync(path, searchPattern, searchOption, cancellationToken).GetAwaiter().GetResult();
-    }
-
-    /// <inheritdoc/>
-    public async IAsyncEnumerable<string> EnumerateFilesAsync(string path, string searchPattern, SearchOption searchOption, [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        IEnumerable<string> files = await GetFilesAsync(path, searchPattern, searchOption, cancellationToken).ConfigureAwait(false);
-        foreach (string file in files)
-            yield return file;
-    }
-
-    /// <summary>
-    /// Asynchronously returns an enumerable collection of full file names that match a search pattern
-    /// in a specified path, and optionally searches subdirectories.
-    /// </summary>
-    /// <param name="path">The relative or absolute path to the directory to search.</param>
-    /// <param name="searchPattern">The search string to match against the names of files in <paramref name="path"/>.</param>
-    /// <param name="searchOption">One of the enumeration values that specifies whether the search operation should include only the current directory or should include all subdirectories.</param>
-    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
-    /// <returns>
-    /// An enumerable collection of the full names (including paths) for the files in the directory specified by <paramref name="path"/> and that match the specified search pattern and search option.
-    /// </returns>
-    private async Task<IEnumerable<string>> GetFilesAsync(string path, string searchPattern, SearchOption searchOption, CancellationToken cancellationToken = default)
-    {
-        _ = path ?? throw new ArgumentNullException(nameof(path));
-        _ = searchPattern ?? throw new ArgumentNullException(nameof(searchPattern));
-
-        int pathByteCount = Encoding.UTF8.GetByteCount(path);
-        int searchPatternByteCount = Encoding.UTF8.GetByteCount(searchPattern);
-        int requestLength = pathByteCount + searchPatternByteCount + 2 * sizeof(int);
-        byte[] request = new byte[requestLength];
-        BitConverter.TryWriteBytes(request.AsSpan(0, sizeof(int)), (int)searchOption);
-        BitConverter.TryWriteBytes(request.AsSpan(sizeof(int), sizeof(int)), pathByteCount);
-        Encoding.UTF8.GetBytes(path, 0, path.Length, request, 2 * sizeof(int));
-        Encoding.UTF8.GetBytes(searchPattern, 0, searchPattern.Length, request, requestLength - searchPatternByteCount);
-
-        byte[] response = await SendRequestAsync(ActionType.GetFiles, request, cancellationToken).ConfigureAwait(false);
-        List<string> files = new();
-        for (int i = 0; i < response.Length;)
-        {
-            int fileByteCount = BitConverter.ToInt32(response.AsSpan(i, sizeof(int)));
-            string file = Encoding.UTF8.GetString(response, i + sizeof(int), fileByteCount);
-            files.Add(file);
-
-            i += sizeof(int) + fileByteCount;
-        }
-        return files;
-    }
-
-    /// <inheritdoc/>
-    public bool FileExists([NotNullWhen(true)] string? path)
-    {
-        using CancellationTokenSource? tokenSource = _timeout > 0 ? new(_timeout) : null;
-        CancellationToken cancellationToken = tokenSource?.Token ?? default;
-        return FileExistsAsync(path, cancellationToken).GetAwaiter().GetResult();
-    }
-
-    /// <inheritdoc/>
-    public async ValueTask<bool> FileExistsAsync([NotNullWhen(true)] string? path, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrEmpty(path))
-            return false;
-
-        byte[] request = Encoding.UTF8.GetBytes(path);
-        byte[] response = await SendRequestAsync(ActionType.FileExists, request, cancellationToken).ConfigureAwait(false);
-        return BitConverter.ToBoolean(response);
-    }
-
-    /// <inheritdoc/>
-    public DateTime GetLastWriteTimeUtc(string path)
-    {
-        using CancellationTokenSource? tokenSource = _timeout > 0 ? new(_timeout) : null;
-        CancellationToken cancellationToken = tokenSource?.Token ?? default;
-        return GetLastWriteTimeUtcAsync(path).GetAwaiter().GetResult();
-    }
-
-    /// <inheritdoc/>
-    public async ValueTask<DateTime> GetLastWriteTimeUtcAsync(string path, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrEmpty(path))
-            return DateTime.MinValue;
-
-        byte[] request = Encoding.UTF8.GetBytes(path);
-        byte[] response = await SendRequestAsync(ActionType.GetLastWriteTimeUtc, request, cancellationToken).ConfigureAwait(false);
-        return new DateTime(BitConverter.ToInt64(response));
-    }
-
-    /// <inheritdoc/>
-    public Stream OpenRead(string path)
-    {
-        using CancellationTokenSource? tokenSource = _timeout > 0 ? new(_timeout) : null;
-        CancellationToken cancellationToken = tokenSource?.Token ?? default;
-        return OpenReadAsync(path).GetAwaiter().GetResult();
-    }
-
-    /// <inheritdoc/>
-    public async Task<Stream> OpenReadAsync(string path, CancellationToken cancellationToken = default)
-    {
-        _ = path ?? throw new ArgumentNullException(nameof(path));
-
-        byte[] request = Encoding.UTF8.GetBytes(path);
-        byte[] response = await SendRequestAsync(ActionType.OpenRead, request, cancellationToken).ConfigureAwait(false);
-        return new MemoryStream(response);
-    }
-
-    /// <inheritdoc/>
-    public void Dispose()
-    {
-        Stop();
-        _client.Dispose();
-        _writeLock.Dispose();
-    }
-
-    /// <inheritdoc/>
-    public async ValueTask DisposeAsync()
-    {
-        Stop();
-        await _client.DisposeAsync().ConfigureAwait(false);
-        _writeLock.Dispose();
-    }
-
     /// <summary>
     /// Starts the loop responsible for processing remote file system events.
     /// </summary>
@@ -349,10 +215,9 @@ internal sealed partial class RemoteFileSystem : IFileSystem
     /// </summary>
     private void Stop()
     {
-        using CancellationTokenSource? tokenSource = _readLoopCancellationTokenSource;
+        using CancellationTokenSource? cancellationTokenSource = _readLoopCancellationTokenSource;
         _readLoopCancellationTokenSource = null;
-        tokenSource?.Cancel();
-
+        cancellationTokenSource?.Cancel();
         CancelAllRequests();
     }
 
@@ -414,210 +279,463 @@ internal sealed partial class RemoteFileSystem : IFileSystem
         if (_readLoopCancellationTokenSource is null || !_client.Connected)
             throw new InvalidOperationException("Cannot send a request without first establishing a connection to the server.");
 
+        ushort taskId = 0;
         TaskCompletionSource<byte[]> taskCompletionSource = new();
-        using CancellationTokenSource cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        cancellationToken = cancellationTokenSource.Token;
 
         await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            ++_currentId;
-            cancellationToken.Register(() => taskCompletionSource.TrySetCanceled());
-            _requests[_currentId] = taskCompletionSource;
-
-            SslStream stream = _client.GetStream();
-            await WritePacketAsync(stream, _currentId, action, data, cancellationToken).ConfigureAwait(false);
+            taskId = ++_currentId;
+            _requests[taskId] = taskCompletionSource;
+            await WritePacketAsync(_client.GetStream(), taskId, action, data, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            _requests.TryRemove(taskId, out _);
+            throw;
         }
         finally
         {
             _writeLock.Release();
         }
-        return await taskCompletionSource.Task.ConfigureAwait(false);
+
+        try
+        {
+            using CancellationTokenRegistration cancellationContext = cancellationToken.Register(() => taskCompletionSource.TrySetCanceled());
+            return await taskCompletionSource.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            _requests.TryRemove(taskId, out _);
+        }
     }
 
     /// <inheritdoc/>
-    public string GetFullPath(string path)
+    public IFileSystemWatcher CreateFileSystemWatcher()
+    {
+        using CancellationTokenSource? cancellationTokenSource = _timeout is int timeout and > 0 ? new(timeout) : null;
+        CancellationToken cancellationToken = cancellationTokenSource?.Token ?? default;
+        return CreateFileSystemWatcherAsync(cancellationToken).GetAwaiter().GetResult();
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask<IFileSystemWatcher> CreateFileSystemWatcherAsync(CancellationToken cancellationToken = default)
+    {
+        SslTcpClient client = await _clientFactory(cancellationToken).ConfigureAwait(false);
+        await WritePacketAsync(client.GetStream(), 0, ActionType.CreateFileSystemWatcher, [], cancellationToken).ConfigureAwait(false);
+        return RemoteFileSystemWatcher.Create(this, client);
+    }
+
+    /// <inheritdoc/>
+    public bool DirectoryExists([NotNullWhen(true)] string? path)
+        => GetBoolean(ActionType.DirectoryExists, path);
+
+    /// <inheritdoc/>
+    public ValueTask<bool> DirectoryExistsAsync([NotNullWhen(true)] string? path, CancellationToken cancellationToken = default)
+        => GetBooleanAsync(ActionType.DirectoryExists, path, cancellationToken);
+
+    /// <inheritdoc/>
+    public bool FileExists([NotNullWhen(true)] string? path)
+        => GetBoolean(ActionType.FileExists, path);
+
+    /// <inheritdoc/>
+    public ValueTask<bool> FileExistsAsync([NotNullWhen(true)] string? path, CancellationToken cancellationToken = default)
+        => GetBooleanAsync(ActionType.FileExists, path, cancellationToken);
+
+    /// <inheritdoc/>
+    public Stream Open(string path, FileMode mode, FileAccess access, FileShare share)
+    {
+        using CancellationTokenSource? cancellationTokenSource = _timeout is int timeout and > 0 ? new(timeout) : null;
+        CancellationToken cancellationToken = cancellationTokenSource?.Token ?? default;
+        return OpenAsync(path, mode, access, share, cancellationToken).GetAwaiter().GetResult();
+    }
+
+    /// <inheritdoc/>
+    public Task<Stream> OpenAsync(string path, FileMode mode, FileAccess access, FileShare share, CancellationToken cancellationToken = default)
+    {
+        if ((mode, access, share & ~FileShare.Read) == (FileMode.Open, FileAccess.Read, FileShare.None))
+            return OpenReadAsync(path, cancellationToken);
+
+        throw new NotImplementedException();
+    }
+
+    /// <inheritdoc cref="FileSystemExtensions.OpenReadAsync(IFileSystem, string, CancellationToken)"/>
+    private async Task<Stream> OpenReadAsync(string path, CancellationToken cancellationToken = default)
     {
         _ = path ?? throw new ArgumentNullException(nameof(path));
-        if (GetRootLength(path) == 0)
-            path = Combine(_fileSystemState.CurrentDirectory, path);
 
-        string result = RemoveRelativeSegments(path);
-        return result.Length == 0 ? $"{_fileSystemState.DirectorySeparatorChar}" : result;
+        byte[] request = Encoding.UTF8.GetBytes(path);
+        byte[] response = await SendRequestAsync(ActionType.OpenRead, request, cancellationToken).ConfigureAwait(false);
+        return new MemoryStream(response);
     }
 
     /// <inheritdoc/>
-    public string? GetDirectoryName(string? path)
+    public void CopyFile(string sourceFileName, string destFileName, bool overwrite = false)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask CopyFileAsync(string sourceFileName, string destFileName, bool overwrite = false, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public void MoveFile(string sourceFileName, string destFileName, bool overwrite = false)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask MoveFileAsync(string sourceFileName, string destFileName, bool overwrite = false, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public void MoveDirectory(string sourceDirName, string destDirName)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask MoveDirectoryAsync(string sourceDirName, string destDirName, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public void ReplaceFile(string sourceFileName, string destinationFileName, string? destinationBackupFileName, bool ignoreMetadataErrors = false)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask ReplaceFileAsync(string sourceFileName, string destinationFileName, string? destinationBackupFileName, bool ignoreMetadataErrors = false, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public void DeleteFile(string path)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask DeleteFileAsync(string path, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public void DeleteDirectory(string path, bool recursive = false)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask DeleteDirectoryAsync(string path, bool recursive = false, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public FileSystemFileInfo CreateFileSymbolicLink(string path, string pathToTarget)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask<FileSystemFileInfo> CreateFileSymbolicLinkAsync(string path, string pathToTarget, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public FileSystemDirectoryInfo CreateDirectorySymbolicLink(string path, string pathToTarget)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask<FileSystemDirectoryInfo> CreateDirectorySymbolicLinkAsync(string path, string pathToTarget, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public FileSystemFileInfo? ResolveFileLinkTarget(string linkPath, bool returnFinalTarget)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask<FileSystemFileInfo?> ResolveFileLinkTargetAsync(string linkPath, bool returnFinalTarget, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public FileSystemDirectoryInfo? ResolveDirectoryLinkTarget(string linkPath, bool returnFinalTarget)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask<FileSystemDirectoryInfo?> ResolveDirectoryLinkTargetAsync(string linkPath, bool returnFinalTarget, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public FileSystemDirectoryInfo CreateDirectory(string path)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask<FileSystemDirectoryInfo> CreateDirectoryAsync(string path, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public string GetTempFileName()
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask<string> GetTempFileNameAsync(CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public FileSystemDirectoryInfo CreateTempSubdirectory(string? prefix = null)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask<FileSystemDirectoryInfo> CreateTempSubdirectoryAsync(string? prefix = null, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public IEnumerable<string> EnumerateDirectories(string path, string searchPattern, SearchOption searchOption)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public IAsyncEnumerable<string> EnumerateDirectoriesAsync(string path, string searchPattern, SearchOption searchOption, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public IEnumerable<string> EnumerateFiles(string path, string searchPattern, SearchOption searchOption)
+        => GetFileSystemEntries(ActionType.GetFiles, path, searchPattern, searchOption);
+
+    /// <inheritdoc/>
+    public IAsyncEnumerable<string> EnumerateFilesAsync(string path, string searchPattern, SearchOption searchOption, CancellationToken cancellationToken = default)
+        => GetFileSystemEntriesAsync(ActionType.GetFiles, path, searchPattern, searchOption, cancellationToken).ToAsyncEnumerable();
+
+    /// <inheritdoc/>
+    public IEnumerable<string> EnumerateFileSystemEntries(string path, string searchPattern, SearchOption searchOption)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public IAsyncEnumerable<string> EnumerateFileSystemEntriesAsync(string path, string searchPattern, SearchOption searchOption, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public FileAttributes GetFileAttributes(string path)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask<FileAttributes> GetFileAttributesAsync(string path, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public void SetFileAttributes(string path, FileAttributes fileAttributes)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask SetFileAttributesAsync(string path, FileAttributes fileAttributes, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public DateTime GetFileCreationTimeUtc(string path)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask<DateTime> GetFileCreationTimeUtcAsync(string path, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public DateTime GetDirectoryCreationTimeUtc(string path)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask<DateTime> GetDirectoryCreationTimeUtcAsync(string path, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public void SetFileCreationTimeUtc(string path, DateTime creationTimeUtc)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask SetFileCreationTimeUtcAsync(string path, DateTime creationTimeUtc, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public void SetDirectoryCreationTimeUtc(string path, DateTime creationTimeUtc)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask SetDirectoryCreationTimeUtcAsync(string path, DateTime creationTimeUtc, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public DateTime GetFileLastAccessTimeUtc(string path)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask<DateTime> GetFileLastAccessTimeUtcAsync(string path, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public DateTime GetDirectoryLastAccessTimeUtc(string path)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask<DateTime> GetDirectoryLastAccessTimeUtcAsync(string path, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public void SetFileLastAccessTimeUtc(string path, DateTime lastAccessTimeUtc)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask SetFileLastAccessTimeUtcAsync(string path, DateTime lastAccessTimeUtc, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public void SetDirectoryLastAccessTimeUtc(string path, DateTime lastAccessTimeUtc)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask SetDirectoryLastAccessTimeUtcAsync(string path, DateTime lastAccessTimeUtc, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public DateTime GetDirectoryLastWriteTimeUtc(string path)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask<DateTime> GetDirectoryLastWriteTimeUtcAsync(string path, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public DateTime GetFileLastWriteTimeUtc(string path)
+        => GetTimestamp(ActionType.GetLastWriteTimeUtc, path);
+
+    /// <inheritdoc/>
+    public ValueTask<DateTime> GetFileLastWriteTimeUtcAsync(string path, CancellationToken cancellationToken = default)
+        => GetTimestampAsync(ActionType.GetLastWriteTimeUtc, path, cancellationToken);
+
+    /// <inheritdoc/>
+    public void SetFileLastWriteTimeUtc(string path, DateTime lastWriteTimeUtc)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask SetFileLastWriteTimeUtcAsync(string path, DateTime lastWriteTimeUtc, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public void SetDirectoryLastWriteTimeUtc(string path, DateTime lastWriteTimeUtc)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public ValueTask SetDirectoryLastWriteTimeUtcAsync(string path, DateTime lastWriteTimeUtc, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    /// <inheritdoc/>
+    public void Dispose()
     {
-        if (path is null or { Length: 0 })
-            return null;
-
-        int rootLength = GetRootLength(path);
-        int end = path.Length;
-        if (end <= rootLength)
-            return string.Empty;
-
-        char directorySeparatorChar = _fileSystemState.DirectorySeparatorChar;
-        char altDirectorySeparatorChar = _fileSystemState.AltDirectorySeparatorChar;
-        while (end > rootLength)
-        {
-            char currentChar = path[--end];
-            if (currentChar == directorySeparatorChar || currentChar == altDirectorySeparatorChar)
-                break;
-        }
-
-        while (end > rootLength)
-        {
-            char currentChar = path[end - 1];
-            if (currentChar == directorySeparatorChar || currentChar == altDirectorySeparatorChar)
-            {
-                end--;
-            }
-            else
-            {
-                break;
-            }
-        }
-
-        return path.Substring(0, end);
+        Stop();
+        _client.Dispose();
+        _writeLock.Dispose();
     }
 
     /// <inheritdoc/>
-    [return: NotNullIfNotNull(nameof(path))]
-    public string? GetFileName(string? path)
+    public async ValueTask DisposeAsync()
     {
-        if (path is null)
-            return null;
-
-        int root = GetRootLength(path);
-        char directorySeparatorChar = _fileSystemState.DirectorySeparatorChar;
-        char altDirectorySeparatorChar = _fileSystemState.AltDirectorySeparatorChar;
-        int i = directorySeparatorChar == altDirectorySeparatorChar ?
-            path.LastIndexOf(directorySeparatorChar) :
-            path.LastIndexOfAny([directorySeparatorChar, altDirectorySeparatorChar]);
-
-        return path.Substring(i < root ? root : i + 1);
+        Stop();
+        await _client.DisposeAsync().ConfigureAwait(false);
+        _writeLock.Dispose();
     }
 
     /// <inheritdoc/>
-    public string ChangeExtension(string path, string? extension)
-#pragma warning disable RS0030 // Do not use banned APIs
-        => Path.ChangeExtension(path, extension);
-#pragma warning restore RS0030 // Do not use banned APIs
+    public override string ToString() => this.ToFormattedString();
 
-    /// <inheritdoc/>
-    public string Combine(string path1, string path2)
+    /// <summary>
+    /// Retrieves a boolean value based on the specified action and path.
+    /// </summary>
+    /// <param name="action">The type of action to perform.</param>
+    /// <param name="path">The target path for the action.</param>
+    /// <returns>A boolean value resulting from the operation.</returns>
+    private bool GetBoolean(ActionType action, [NotNullWhen(true)] string? path)
     {
-        if (string.IsNullOrEmpty(path1))
-            return path2;
-
-        if (string.IsNullOrEmpty(path2))
-            return path1;
-
-        if (GetRootLength(path2) != 0)
-            return path2;
-
-        char dir = _fileSystemState.DirectorySeparatorChar;
-        char altDir = _fileSystemState.AltDirectorySeparatorChar;
-        char l = path1[path1.Length - 1];
-        char r = path2[0];
-        bool hasSeparator = l == dir || l == altDir || r == dir || r == altDir;
-        return hasSeparator ? $"{path1}{path2}" : $"{path1}{dir}{path2}";
+        using CancellationTokenSource? cancellationTokenSource = _timeout is int timeout and > 0 ? new(timeout) : null;
+        CancellationToken cancellationToken = cancellationTokenSource?.Token ?? default;
+        return GetBooleanAsync(action, path, cancellationToken).GetAwaiter().GetResult();
     }
 
     /// <summary>
-    /// Gets the length of the root part of the specified path.
+    /// Asynchronously retrieves a boolean value based on the specified action and path.
     /// </summary>
-    /// <param name="path">The path to check.</param>
-    /// <returns>The length of the root part of the path.</returns>
-    private int GetRootLength(string? path)
+    /// <param name="action">The type of action to perform.</param>
+    /// <param name="path">The target path for the action.</param>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    /// <returns>A boolean value resulting from the operation.</returns>
+    private async ValueTask<bool> GetBooleanAsync(ActionType action, [NotNullWhen(true)] string? path, CancellationToken cancellationToken)
     {
-        if (path is null or { Length: 0 })
-            return 0;
+        if (path is not { Length: > 0 })
+            return false;
 
-        char dir = _fileSystemState.DirectorySeparatorChar;
-        char altDir = _fileSystemState.AltDirectorySeparatorChar;
-        if (path[0] == dir || path[0] == altDir)
-            return 1;
-
-        char vol = _fileSystemState.VolumeSeparatorChar;
-        if (dir != altDir && path.Length > 1 && path[1] == vol && char.IsLetter(path[0]))
-            return path.Length > 2 && (path[2] == dir || path[2] == altDir) ? 3 : 2;
-
-        return 0;
+        byte[] request = Encoding.UTF8.GetBytes(path);
+        byte[] response = await SendRequestAsync(action, request, cancellationToken).ConfigureAwait(false);
+        return BitConverter.ToBoolean(response);
     }
 
     /// <summary>
-    /// Removes relative path segments from the specified path.
+    /// Retrieves a timestamp based on the specified action and path.
     /// </summary>
-    /// <param name="path">The path to clean up.</param>
-    /// <returns>The path with relative segments removed.</returns>
-    private string RemoveRelativeSegments(string path)
+    /// <param name="action">The type of action to perform.</param>
+    /// <param name="path">The target path for the action.</param>
+    /// <returns>A <see cref="DateTime"/> representing the timestamp from the operation.</returns>
+    private DateTime GetTimestamp(ActionType action, string path)
     {
-        StringBuilder builder = new(path.Length);
-        bool flippedSeparator = false;
+        using CancellationTokenSource? cancellationTokenSource = _timeout is int timeout and > 0 ? new(timeout) : null;
+        CancellationToken cancellationToken = cancellationTokenSource?.Token ?? default;
+        return GetTimestampAsync(action, path, cancellationToken).GetAwaiter().GetResult();
+    }
 
-        char dir = _fileSystemState.DirectorySeparatorChar;
-        char altDir = _fileSystemState.AltDirectorySeparatorChar;
+    /// <summary>
+    /// Asynchronously retrieves a timestamp based on the specified action and path.
+    /// </summary>
+    /// <param name="action">The type of action to perform.</param>
+    /// <param name="path">The target path for the action.</param>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    /// <returns>A <see cref="DateTime"/> representing the timestamp from the operation.</returns>
+    private async ValueTask<DateTime> GetTimestampAsync(ActionType action, string path, CancellationToken cancellationToken)
+    {
+        if (path is not { Length: > 0 })
+            return FileSystem.s_missingFileSystemEntryTimestampUtc;
 
-        int rootLength = GetRootLength(path);
-        int skip = rootLength;
-        if (path[skip - 1] == dir || path[skip - 1] == altDir)
-            skip--;
+        byte[] request = Encoding.UTF8.GetBytes(path);
+        byte[] response = await SendRequestAsync(action, request, cancellationToken).ConfigureAwait(false);
+        return new DateTime(BitConverter.ToInt64(response), DateTimeKind.Utc);
+    }
 
-        if (skip > 0)
-            builder.Append(path, 0, skip);
+    /// <summary>
+    /// Retrieves an enumerable collection of file names and/or directory names that match a search pattern in a specified path, and optionally searches subdirectories.
+    /// </summary>
+    /// <param name="action">The action type.</param>
+    /// <param name="path">The relative or absolute path to the directory to search.</param>
+    /// <param name="searchPattern">The search string to match against file-system entries in <paramref name="path"/>.</param>
+    /// <param name="searchOption">One of the enumeration values that specifies whether the search operation should include only the current directory or should include all subdirectories.</param>
+    /// <returns>An enumerable collection of file-system entries in the directory specified by <paramref name="path"/> and that match the specified search pattern and option.</returns>
+    private IEnumerable<string> GetFileSystemEntries(ActionType action, string path, string searchPattern, SearchOption searchOption)
+    {
+        using CancellationTokenSource? cancellationTokenSource = _timeout is int timeout and > 0 ? new(timeout) : null;
+        CancellationToken cancellationToken = cancellationTokenSource?.Token ?? default;
+        return GetFileSystemEntriesAsync(action, path, searchPattern, searchOption, cancellationToken).GetAwaiter().GetResult();
+    }
 
-        for (int i = skip; i < path.Length; i++)
+    /// <summary>
+    /// Asynchronously retrieves an enumerable collection of file names and/or directory names that match a search pattern in a specified path, and optionally searches subdirectories.
+    /// </summary>
+    /// <param name="action">The action type.</param>
+    /// <param name="path">The relative or absolute path to the directory to search.</param>
+    /// <param name="searchPattern">The search string to match against file-system entries in <paramref name="path"/>.</param>
+    /// <param name="searchOption">One of the enumeration values that specifies whether the search operation should include only the current directory or should include all subdirectories.</param>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    /// <returns>An enumerable collection of file-system entries in the directory specified by <paramref name="path"/> and that match the specified search pattern and option.</returns>
+    private async Task<IEnumerable<string>> GetFileSystemEntriesAsync(ActionType action, string path, string searchPattern, SearchOption searchOption, CancellationToken cancellationToken)
+    {
+        _ = path ?? throw new ArgumentNullException(nameof(path));
+        _ = searchPattern ?? throw new ArgumentNullException(nameof(searchPattern));
+
+        int pathByteCount = Encoding.UTF8.GetByteCount(path);
+        int searchPatternByteCount = Encoding.UTF8.GetByteCount(searchPattern);
+        int requestLength = pathByteCount + searchPatternByteCount + 2 * sizeof(int);
+        byte[] request = new byte[requestLength];
+        BitConverter.TryWriteBytes(request.AsSpan(0, sizeof(int)), (int)searchOption);
+        BitConverter.TryWriteBytes(request.AsSpan(sizeof(int), sizeof(int)), pathByteCount);
+        Encoding.UTF8.GetBytes(path, 0, path.Length, request, 2 * sizeof(int));
+        Encoding.UTF8.GetBytes(searchPattern, 0, searchPattern.Length, request, requestLength - searchPatternByteCount);
+
+        byte[] response = await SendRequestAsync(action, request, cancellationToken).ConfigureAwait(false);
+        List<string> entries = new();
+        for (int i = 0; i < response.Length;)
         {
-            char c = path[i];
+            int entryByteCount = BitConverter.ToInt32(response.AsSpan(i, sizeof(int)));
+            string entry = Encoding.UTF8.GetString(response, i + sizeof(int), entryByteCount);
+            entries.Add(entry);
 
-            if ((c == dir || c == altDir) && i + 1 < path.Length)
-            {
-                if (path[i + 1] == dir || path[i + 1] == altDir)
-                    continue;
-
-                if ((i + 2 == path.Length || path[i + 2] == dir || path[i + 2] == altDir) && path[i + 1] == '.')
-                {
-                    i++;
-                    continue;
-                }
-
-                if (i + 2 < path.Length && (i + 3 == path.Length || path[i + 3] == dir || path[i + 3] == altDir) && path[i + 1] == '.' && path[i + 2] == '.')
-                {
-                    int s;
-                    for (s = builder.Length - 1; s >= skip; s--)
-                    {
-                        if (builder[s] == dir || builder[s] == altDir)
-                        {
-                            builder.Length = (i + 3 >= path.Length && s == skip) ? s + 1 : s;
-                            break;
-                        }
-                    }
-
-                    if (s < skip)
-                        builder.Length = skip;
-
-                    i += 2;
-                    continue;
-                }
-            }
-
-            if (c != dir && c == altDir)
-            {
-                c = dir;
-                flippedSeparator = true;
-            }
-
-            builder.Append(c);
+            i += sizeof(int) + entryByteCount;
         }
-
-        if (!flippedSeparator && builder.Length == path.Length)
-            return path;
-
-        if (skip != rootLength && builder.Length < rootLength)
-            builder.Append(path[rootLength - 1]);
-
-        return builder.ToString();
+        return entries;
     }
 }
