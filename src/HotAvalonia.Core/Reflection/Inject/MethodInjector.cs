@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Reflection.Emit;
 using HotAvalonia.Helpers;
+using HotAvalonia.Reflection.Emit;
 
 namespace HotAvalonia.Reflection.Inject;
 
@@ -109,7 +110,7 @@ file sealed class NativeInjection : IInjection
         if (hookCtor is null || hookApply is null || hookUndo is null || hookDispose is null)
             return;
 
-        using IDisposable context = MethodHelper.DefineDynamicMethod($"Create<{hook}>", typeof(object), [typeof(MethodBase), typeof(MethodInfo)], out DynamicMethod createHook);
+        using DynamicMethodBuilder createHook = DynamicAssembly.Shared.DefineMethod("CreateRuntimeDetourHook", typeof(object), [typeof(MethodBase), typeof(MethodInfo)], skipVisibility: true);
         ILGenerator hookIl = createHook.GetILGenerator();
         hookIl.Emit(OpCodes.Ldarg_0);
         hookIl.Emit(OpCodes.Ldarg_1);
@@ -153,7 +154,7 @@ file sealed class NativeInjection : IInjection
         // Enable dynamic code generation, which is required for MonoMod to function.
         // Note that we cannot enable it forcefully just once and call it a day,
         // because this only affects the current thread.
-        _ = AssemblyHelper.ForceAllowDynamicCode();
+        _ = DynamicCodeScope.Create("*", nameof(NativeInjection));
 
         _hook = s_createHook!(source, replacement);
     }
@@ -171,7 +172,7 @@ file sealed class NativeInjection : IInjection
             try
             {
                 // Enable dynamic code generation, which is required for MonoMod to function.
-                using IDisposable context = AssemblyHelper.ForceAllowDynamicCode();
+                using DynamicCodeScope scope = DynamicCodeScope.Create(nameof(IsSupported), nameof(NativeInjection));
 
                 Type? platformTriple = Type.GetType("MonoMod.Core.Platforms.PlatformTriple, MonoMod.Core");
                 return platformTriple?.GetStaticProperty("Current")?.GetValue(null) is not null;

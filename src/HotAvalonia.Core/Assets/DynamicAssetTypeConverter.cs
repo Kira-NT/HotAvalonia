@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using Avalonia.Markup.Xaml;
 using HotAvalonia.Helpers;
+using HotAvalonia.Reflection.Emit;
 
 namespace HotAvalonia.Assets;
 
@@ -57,7 +58,7 @@ internal static class DynamicAssetTypeConverter<TAsset, TAssetTypeConverter>
     /// <summary>
     /// The type of the dynamic asset type converter.
     /// </summary>
-    private static readonly Type s_type = DynamicAssetTypeConverterBuilder.CreateDynamicAssetConverterType(typeof(TAsset), typeof(TAssetTypeConverter));
+    private static readonly Type s_type = DynamicAssetTypeConverter.CreateDynamicAssetConverterType(typeof(TAsset), typeof(TAssetTypeConverter));
 
     /// <summary>
     /// Creates a new instance of the <typeparamref name="TAssetTypeConverter"/> class.
@@ -71,7 +72,7 @@ internal static class DynamicAssetTypeConverter<TAsset, TAssetTypeConverter>
 /// <summary>
 /// Provides functionality to dynamically generate custom asset type converters at runtime.
 /// </summary>
-file static class DynamicAssetTypeConverterBuilder
+internal static class DynamicAssetTypeConverter
 {
     /// <summary>
     /// Creates a type that serves as a custom asset type converter.
@@ -89,18 +90,16 @@ file static class DynamicAssetTypeConverterBuilder
         _ = assetType ?? throw new ArgumentNullException(nameof(assetType));
         _ = assetConverterType ?? throw new ArgumentNullException(nameof(assetConverterType));
 
-        using IDisposable context = AssemblyHelper.GetDynamicAssembly(out AssemblyBuilder assemblyBuilder, out ModuleBuilder moduleBuilder);
         string fullName = $"{assetConverterType.FullName}$Dynamic";
-        Type? existingType = assemblyBuilder.GetType(fullName, throwOnError: false);
-        if (existingType is not null)
+        if (DynamicAssembly.Shared.GetType(fullName, throwOnError: false) is Type existingType)
             return existingType;
 
-        assemblyBuilder.AllowAccessTo(assetType);
-        assemblyBuilder.AllowAccessTo(assetConverterType);
+        DynamicAssembly.Shared.AllowAccessTo(assetType);
+        DynamicAssembly.Shared.AllowAccessTo(assetConverterType);
 
         // public sealed class {TAssetTypeConverter}$Dynamic : TAssetTypeConverter
         // {
-        TypeBuilder typeBuilder = moduleBuilder.DefineType(fullName, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Class);
+        using DynamicTypeBuilder typeBuilder = DynamicAssembly.Shared.DefineType(fullName, TypeAttributes.Public | TypeAttributes.Sealed);
         typeBuilder.SetParent(assetConverterType);
 
         //     private readonly DynamicAssetTypeConverter<TAsset> _converter;

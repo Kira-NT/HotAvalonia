@@ -4,6 +4,7 @@ using System.Reflection.Emit;
 using Avalonia.Platform;
 using HotAvalonia.Helpers;
 using HotAvalonia.IO;
+using HotAvalonia.Reflection.Emit;
 
 namespace HotAvalonia.Assets;
 
@@ -15,7 +16,7 @@ internal class DynamicAssetLoader
     /// <summary>
     /// The type of the dynamic asset loader.
     /// </summary>
-    private static readonly Type s_type = DynamicAssetLoaderBuilder.CreateDynamicAssetLoaderType();
+    private static readonly Type s_type = CreateDynamicAssetLoaderType();
 
     /// <summary>
     /// The fallback asset loader used when dynamic asset loading fails.
@@ -160,36 +161,26 @@ internal class DynamicAssetLoader
         string fullProjectPath = _fileSystem.EnsureTrailingSeparator(_fileSystem.GetFullPath(project));
         return new(uri, assembly, new(fullProjectPath), _fileSystem.ResolvePathFromUri(fullProjectPath, uri));
     }
-}
 
-/// <summary>
-/// Provides a way to generate a subclass of <see cref="DynamicAssetLoader"/>
-/// that properly implements the <see cref="IAssetLoader"/> interface.
-/// </summary>
-file static class DynamicAssetLoaderBuilder
-{
     /// <summary>
     /// Creates a <see cref="DynamicAssetLoader"/> that implements <see cref="IAssetLoader"/>.
     /// </summary>
     /// <returns>
     /// A <see cref="Type"/> representing the generated dynamic asset loader.
     /// </returns>
-    public static Type CreateDynamicAssetLoaderType()
+    private static Type CreateDynamicAssetLoaderType()
     {
         const MethodAttributes VirtualMethod = MethodAttributes.Public | MethodAttributes.Final | MethodAttributes.HideBySig | MethodAttributes.NewSlot | MethodAttributes.Virtual;
 
-        using IDisposable context = AssemblyHelper.GetDynamicAssembly(out AssemblyBuilder assemblyBuilder, out ModuleBuilder moduleBuilder);
         Type parentType = typeof(DynamicAssetLoader);
         FieldInfo fallbackAssetLoader = parentType.GetInstanceFields().First(x => typeof(IAssetLoader).IsAssignableFrom(x.FieldType));
-
         string fullName = $"{parentType.FullName}Impl";
-        Type? existingType = assemblyBuilder.GetType(fullName, throwOnError: false);
-        if (existingType is not null)
+        if (DynamicAssembly.Shared.GetType(fullName, throwOnError: false) is Type existingType)
             return existingType;
 
         // public sealed class DynamicAssetLoaderImpl : DynamicAssetLoader, IAssetLoader
         // {
-        TypeBuilder typeBuilder = moduleBuilder.DefineType(fullName, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Class);
+        using DynamicTypeBuilder typeBuilder = DynamicAssembly.Shared.DefineType(fullName, TypeAttributes.Public | TypeAttributes.Sealed);
         typeBuilder.SetParent(parentType);
         typeBuilder.AddInterfaceImplementation(typeof(IAssetLoader));
 

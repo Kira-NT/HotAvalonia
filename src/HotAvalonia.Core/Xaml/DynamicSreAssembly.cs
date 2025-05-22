@@ -4,6 +4,7 @@ using System.Reflection.Emit;
 using Avalonia.Markup.Xaml;
 using HotAvalonia.Helpers;
 using HotAvalonia.Reflection;
+using HotAvalonia.Reflection.Emit;
 
 namespace HotAvalonia.Xaml;
 
@@ -18,16 +19,16 @@ internal static class DynamicSreAssembly
     private static readonly Type s_type = CreateDynamicSreAssemblyType();
 
     /// <summary>
-    /// Creates a new instance of the <see cref="DynamicAssembly"/> class
+    /// Creates a new instance of the <see cref="AssemblyAccessManager"/> class
     /// using the specified assembly and type system.
     /// </summary>
     /// <param name="assembly">The assembly to wrap.</param>
     /// <param name="sreTypeSystem">The <c>SreTypeSystem</c> to use.</param>
     /// <returns>
-    /// A <see cref="DynamicAssembly"/> instance wrapping the provided <paramref name="assembly"/>.
+    /// A <see cref="AssemblyAccessManager"/> instance wrapping the provided <paramref name="assembly"/>.
     /// </returns>
-    public static DynamicAssembly Create(Assembly assembly, object sreTypeSystem)
-        => (DynamicAssembly)Activator.CreateInstance(s_type, assembly, sreTypeSystem);
+    public static AssemblyAccessManager Create(Assembly assembly, object sreTypeSystem)
+        => (AssemblyAccessManager)Activator.CreateInstance(s_type, assembly, sreTypeSystem);
 
     /// <summary>
     /// Creates a <see cref="Type"/> that serves as a substitute
@@ -40,14 +41,12 @@ internal static class DynamicSreAssembly
     {
         const MethodAttributes VirtualMethod = MethodAttributes.Public | MethodAttributes.Final | MethodAttributes.HideBySig | MethodAttributes.NewSlot | MethodAttributes.Virtual;
 
-        using IDisposable context = AssemblyHelper.GetDynamicAssembly(out AssemblyBuilder assemblyBuilder, out ModuleBuilder moduleBuilder);
-        string fullName = nameof(DynamicSreAssembly);
-        Type? existingType = assemblyBuilder.GetType(fullName, throwOnError: false);
-        if (existingType is not null)
+        string fullName = "XamlX.IL.DynamicSreAssembly";
+        if (DynamicAssembly.Shared.GetType(fullName, throwOnError: false) is Type existingType)
             return existingType;
 
         Assembly xamlAssembly = typeof(AvaloniaRuntimeXamlLoader).Assembly;
-        Type parentType = typeof(DynamicAssembly);
+        Type parentType = typeof(AssemblyAccessManager);
         Type interfaceType = xamlAssembly.GetType("XamlX.TypeSystem.IXamlAssembly") ?? typeof(IEquatable<object>);
         Type assemblyType = xamlAssembly.GetType("XamlX.TypeSystem.IXamlAssembly") ?? typeof(object);
         Type xamlType = xamlAssembly.GetType("XamlX.TypeSystem.IXamlType") ?? typeof(object);
@@ -55,12 +54,12 @@ internal static class DynamicSreAssembly
         Type sreTypeSystem = xamlAssembly.GetType("XamlX.IL.SreTypeSystem") ?? typeof(object);
         Type sreType = xamlAssembly.GetType("XamlX.IL.SreTypeSystem+SreType") ?? typeof(object);
 
-        assemblyBuilder.AllowAccessTo(xamlAssembly);
+        DynamicAssembly.Shared.AllowAccessTo(xamlAssembly);
 
         // public sealed class DynamicSreAssembly : DynamicAssembly, IXamlAssembly
         // {
-        TypeBuilder typeBuilder = moduleBuilder.DefineType(fullName, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Class);
-        typeBuilder.SetParent(typeof(DynamicAssembly));
+        using DynamicTypeBuilder typeBuilder = DynamicAssembly.Shared.DefineType(fullName, TypeAttributes.Public | TypeAttributes.Sealed);
+        typeBuilder.SetParent(typeof(AssemblyAccessManager));
         typeBuilder.AddInterfaceImplementation(interfaceType);
 
         //     private readonly SreTypeSystem _system;
@@ -99,12 +98,12 @@ internal static class DynamicSreAssembly
         ctorIl.Emit(OpCodes.Ret);
 
         //     string IXamlAssembly.Name => Name;
-        PropertyBuilder nameBuilder = typeBuilder.DefineProperty(nameof(DynamicAssembly.Name), PropertyAttributes.None, typeof(string), null);
+        PropertyBuilder nameBuilder = typeBuilder.DefineProperty(nameof(AssemblyAccessManager.Name), PropertyAttributes.None, typeof(string), null);
         MethodBuilder getNameBuilder = typeBuilder.DefineMethod($"get_{nameBuilder.Name}", VirtualMethod | MethodAttributes.SpecialName, typeof(string), Type.EmptyTypes);
         nameBuilder.SetGetMethod(getNameBuilder);
         ILGenerator getNameIl = getNameBuilder.GetILGenerator();
         getNameIl.Emit(OpCodes.Ldarg_0);
-        getNameIl.Emit(OpCodes.Call, parentType.GetProperty(nameof(DynamicAssembly.Name))!.GetMethod!);
+        getNameIl.Emit(OpCodes.Call, parentType.GetProperty(nameof(AssemblyAccessManager.Name))!.GetMethod!);
         getNameIl.Emit(OpCodes.Ret);
 
         //     public IReadOnlyList<IXamlCustomAttribute> CustomAttributes => [];
@@ -128,8 +127,8 @@ internal static class DynamicSreAssembly
         //         }
         //         _assemblies.Add(assembly);
         //     }
-        MethodInfo allowDeclaration = typeof(DynamicAssembly).GetMethod(nameof(DynamicAssembly.AllowAccessTo), [typeof(Assembly)]);
-        MethodBuilder allowBuilder = typeBuilder.DefineMethod(nameof(DynamicAssembly.AllowAccessTo), VirtualMethod ^ MethodAttributes.NewSlot, typeof(void), [typeof(Assembly)]);
+        MethodInfo allowDeclaration = typeof(AssemblyAccessManager).GetMethod(nameof(AssemblyAccessManager.AllowAccessTo), [typeof(Assembly)]);
+        MethodBuilder allowBuilder = typeBuilder.DefineMethod(nameof(AssemblyAccessManager.AllowAccessTo), VirtualMethod ^ MethodAttributes.NewSlot, typeof(void), [typeof(Assembly)]);
         typeBuilder.DefineMethodOverride(allowBuilder, allowDeclaration);
         ILGenerator allowIl = allowBuilder.GetILGenerator();
         LocalBuilder allowIlEnumerator = allowIl.DeclareLocal(typeof(IEnumerator<Type>));

@@ -9,3 +9,40 @@ T:System.IO.DirectoryInfo;Use 'HotAvalonia.IO.FileSystemDirectoryInfo' instead.
 T:System.IO.FileInfo;Use 'HotAvalonia.IO.FileSystemFileInfo' instead.
 T:System.IO.FileSystemInfo;Use 'HotAvalonia.IO.FileSystemEntryInfo' instead.
 T:System.IO.FileSystemWatcher;Use 'HotAvalonia.IO.IFileSystemWatcher' instead.
+
+M:System.Reflection.Emit.SignatureHelper.GetMethodSigHelper(System.Reflection.Module,System.Type,System.Type[]);Use 'HotAvalonia.Reflection.Emit.SignatureBuilder.CreateMethodSignature(Module, Type, Type[])' instead.
+M:System.Reflection.Emit.SignatureHelper.GetMethodSigHelper(System.Reflection.CallingConventions,System.Type);Use 'HotAvalonia.Reflection.Emit.SignatureBuilder.CreateMethodSignature(CallingConventions, Type)' instead.
+M:System.Reflection.Emit.SignatureHelper.GetMethodSigHelper(System.Reflection.Module,System.Reflection.CallingConventions,System.Type);Use 'HotAvalonia.Reflection.Emit.SignatureBuilder.CreateMethodSignature(Module, CallingConventions, Type)' instead.
+M:System.Reflection.Emit.SignatureHelper.GetLocalVarSigHelper();Use 'HotAvalonia.Reflection.Emit.SignatureBuilder.CreateLocalSignature()' instead.
+M:System.Reflection.Emit.SignatureHelper.GetLocalVarSigHelper(System.Reflection.Module);Use 'HotAvalonia.Reflection.Emit.SignatureBuilder.CreateLocalSignature(Module)' instead.
+M:System.Reflection.Emit.SignatureHelper.GetFieldSigHelper(System.Reflection.Module);Use 'HotAvalonia.Reflection.Emit.SignatureBuilder.CreateFieldSignature(Module)' instead.
+M:System.Reflection.Emit.SignatureHelper.GetPropertySigHelper(System.Reflection.Module,System.Type,System.Type[]);Use 'HotAvalonia.Reflection.Emit.SignatureBuilder.CreatePropertySignature(Module, Type, Type[])' instead.
+M:System.Reflection.Emit.SignatureHelper.GetPropertySigHelper(System.Reflection.Module,System.Type,System.Type[],System.Type[],System.Type[],System.Type[][],System.Type[][]);Use 'HotAvalonia.Reflection.Emit.SignatureBuilder.CreatePropertySignature(Module, Type, Type[], Type[], Type[], Type[][], Type[][])' instead.
+M:System.Reflection.Emit.SignatureHelper.GetPropertySigHelper(System.Reflection.Module,System.Reflection.CallingConventions,System.Type,System.Type[],System.Type[],System.Type[],System.Type[][],System.Type[][]);Use 'HotAvalonia.Reflection.Emit.SignatureBuilder.CreatePropertySignature(Module, CallingConventions, Type, Type[], Type[], Type[], Type[][], Type[][])' instead.
+
+M:System.Reflection.Emit.CustomAttributeBuilder.#ctor(System.Reflection.ConstructorInfo,System.Object[]);Use 'HotAvalonia.Reflection.Emit.CustomAttribute(ConstructorInfo, object[])' instead.
+M:System.Reflection.Emit.CustomAttributeBuilder.#ctor(System.Reflection.ConstructorInfo,System.Object[],System.Reflection.FieldInfo[],System.Object[]);Use 'HotAvalonia.Reflection.Emit.CustomAttribute(ConstructorInfo, object[], FieldInfo[], object[])' instead.
+M:System.Reflection.Emit.CustomAttributeBuilder.#ctor(System.Reflection.ConstructorInfo,System.Object[],System.Reflection.PropertyInfo[],System.Object[]);Use 'HotAvalonia.Reflection.Emit.CustomAttribute(ConstructorInfo, object[], PropertyInfo[], object[])' instead.
+M:System.Reflection.Emit.CustomAttributeBuilder.#ctor(System.Reflection.ConstructorInfo,System.Object[],System.Reflection.PropertyInfo[],System.Object[],System.Reflection.FieldInfo[],System.Object[]);Use 'HotAvalonia.Reflection.Emit.CustomAttribute(ConstructorInfo, object[], PropertyInfo[], object[], FieldInfo[], object[])' instead.
+
+M:System.Reflection.Emit.DynamicMethod.#ctor(System.String,System.Type,System.Type[]);Use 'HotAvalonia.Reflection.Emit.DynamicMethodBuilder(string, Type, Type[])' instead.
+M:System.Reflection.Emit.DynamicMethod.#ctor(System.String,System.Type,System.Type[],System.Boolean);Use 'HotAvalonia.Reflection.Emit.DynamicMethodBuilder(string, Type, Type[], bool)' instead.
+M:System.Reflection.Emit.DynamicMethod.#ctor(System.String,System.Type,System.Type[],System.Type);Use 'HotAvalonia.Reflection.Emit.DynamicMethodBuilder(string, Type, Type[], Type)' instead.
+M:System.Reflection.Emit.DynamicMethod.#ctor(System.String,System.Type,System.Type[],System.Type,System.Boolean);Use 'HotAvalonia.Reflection.Emit.DynamicMethodBuilder(string, Type, Type[], Type, bool)' instead.
+M:System.Reflection.Emit.DynamicMethod.#ctor(System.String,System.Reflection.MethodAttributes,System.Reflection.CallingConventions,System.Type,System.Type[],System.Type,System.Boolean);Use 'HotAvalonia.Reflection.Emit.DynamicMethodBuilder(string, Type, Type[], Type, bool)' instead.
+M:System.Reflection.Emit.DynamicMethod.#ctor(System.String,System.Type,System.Type[],System.Reflection.Module);Use 'HotAvalonia.Reflection.Emit.DynamicMethodBuilder(string, Type, Type[], Module)' instead.
+M:System.Reflection.Emit.DynamicMethod.#ctor(System.String,System.Type,System.Type[],System.Reflection.Module,System.Boolean);Use 'HotAvalonia.Reflection.Emit.DynamicMethodBuilder(string, Type, Type[], Module, bool)' instead.
+M:System.Reflection.Emit.DynamicMethod.#ctor(System.String,System.Reflection.MethodAttributes,System.Reflection.CallingConventions,System.Type,System.Type[],System.Reflection.Module,System.Boolean);Use 'HotAvalonia.Reflection.Emit.DynamicMethodBuilder(string, Type, Type[], Module, bool)' instead.
+
+M:System.Reflection.Emit.AssemblyBuilder.DefineDynamicAssembly(System.Reflection.AssemblyName,System.Reflection.Emit.AssemblyBuilderAccess);Use 'HotAvalonia.Reflection.Emit.DynamicAssembly(AssemblyName, AssemblyBuilderAccess)' instead.
+M:System.Reflection.Emit.AssemblyBuilder.DefineDynamicAssembly(System.Reflection.AssemblyName,System.Reflection.Emit.AssemblyBuilderAccess,System.Collections.Generic.IEnumerable{System.Reflection.Emit.CustomAttributeBuilder});Use 'HotAvalonia.Reflection.Emit.DynamicAssembly(AssemblyName, AssemblyBuilderAccess, IEnumerable<CustomAttributeBuilder>)' instead.
+M:System.Reflection.Emit.AssemblyBuilder.DefineDynamicModule(System.String);Use 'HotAvalonia.Reflection.Emit.DynamicAssembly(AssemblyName, AssemblyBuilderAccess)' instead.
+
+M:System.Reflection.Emit.ModuleBuilder.DefineEnum(System.String,System.Reflection.TypeAttributes,System.Type);Use 'HotAvalonia.Reflection.Emit.DynamicEnumBuilder(ModuleBuilder, string, TypeAttributes, Type)' instead.
+M:System.Reflection.Emit.ModuleBuilder.DefineType(System.String);Use 'HotAvalonia.Reflection.Emit.DynamicTypeBuilder(ModuleBuilder, string)' instead.
+M:System.Reflection.Emit.ModuleBuilder.DefineType(System.String,System.Reflection.TypeAttributes);Use 'HotAvalonia.Reflection.Emit.DynamicTypeBuilder(ModuleBuilder, string, TypeAttributes)' instead.
+M:System.Reflection.Emit.ModuleBuilder.DefineType(System.String,System.Reflection.TypeAttributes,System.Type);Use 'HotAvalonia.Reflection.Emit.DynamicTypeBuilder(ModuleBuilder, string, TypeAttributes, Type)' instead.
+M:System.Reflection.Emit.ModuleBuilder.DefineType(System.String,System.Reflection.TypeAttributes,System.Type,System.Type[]);Use 'HotAvalonia.Reflection.Emit.DynamicTypeBuilder(ModuleBuilder, string, TypeAttributes, Type, Type[])' instead.
+M:System.Reflection.Emit.ModuleBuilder.DefineType(System.String,System.Reflection.TypeAttributes,System.Type,System.Int32);Use 'HotAvalonia.Reflection.Emit.DynamicTypeBuilder(ModuleBuilder, string, TypeAttributes, Type, int)' instead.
+M:System.Reflection.Emit.ModuleBuilder.DefineType(System.String,System.Reflection.TypeAttributes,System.Type,System.Reflection.Emit.PackingSize);Use 'HotAvalonia.Reflection.Emit.DynamicTypeBuilder(ModuleBuilder, string, TypeAttributes, Type, PackingSize)' instead.
+M:System.Reflection.Emit.ModuleBuilder.DefineType(System.String,System.Reflection.TypeAttributes,System.Type,System.Reflection.Emit.PackingSize,System.Int32);Use 'HotAvalonia.Reflection.Emit.DynamicTypeBuilder(ModuleBuilder, string, TypeAttributes, Type, PackingSize, int)' instead.

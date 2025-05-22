@@ -3,6 +3,7 @@ using System.Reflection.Emit;
 using Avalonia.Platform;
 using HotAvalonia.Helpers;
 using HotAvalonia.IO;
+using HotAvalonia.Reflection.Emit;
 
 namespace HotAvalonia.Assets;
 
@@ -38,22 +39,22 @@ internal sealed class DynamicAsset<TAsset> : IObservable<TAsset> where TAsset : 
     /// </summary>
     static DynamicAsset()
     {
-        s_fromStream = (Func<Stream, TAsset>)DynamicAssetBuilder.CreateAssetFactory(
+        s_fromStream = (Func<Stream, TAsset>)DynamicAsset.CreateAssetFactory(
             typeof(Func<Stream, TAsset>),
             typeof(TAsset)
         );
 
-        s_fromFileName = (Func<string, TAsset>)DynamicAssetBuilder.CreateAssetFactory(
+        s_fromFileName = (Func<string, TAsset>)DynamicAsset.CreateAssetFactory(
             typeof(Func<string, TAsset>),
             typeof(TAsset)
         );
 
-        s_create = (Func<DynamicAsset<TAsset>, Stream?, TAsset>)DynamicAssetBuilder.CreateAssetFactory(
+        s_create = (Func<DynamicAsset<TAsset>, Stream?, TAsset>)DynamicAsset.CreateAssetFactory(
             typeof(Func<DynamicAsset<TAsset>, Stream?, TAsset>),
-            DynamicAssetBuilder.CreateDynamicAssetType(typeof(TAsset))
+            DynamicAsset.CreateDynamicAssetType(typeof(TAsset))
         );
 
-        s_copy = (Action<TAsset, TAsset>)DynamicAssetBuilder.CreateAssetCopier(typeof(TAsset));
+        s_copy = (Action<TAsset, TAsset>)DynamicAsset.CreateAssetCopier(typeof(TAsset));
     }
 
 
@@ -159,7 +160,7 @@ internal sealed class DynamicAsset<TAsset> : IObservable<TAsset> where TAsset : 
 /// Provides functionality to generate types and delegates
 /// for working with dynamic assets.
 /// </summary>
-file static class DynamicAssetBuilder
+internal static class DynamicAsset
 {
     /// <summary>
     /// Creates a type that represents a dynamic version of the provided asset type.
@@ -172,17 +173,15 @@ file static class DynamicAssetBuilder
 
         _ = assetType ?? throw new ArgumentNullException(nameof(assetType));
 
-        using IDisposable context = AssemblyHelper.GetDynamicAssembly(out AssemblyBuilder assemblyBuilder, out ModuleBuilder moduleBuilder);
         string fullName = $"{assetType.FullName}$Dynamic";
-        Type? existingType = assemblyBuilder.GetType(fullName, throwOnError: false);
-        if (existingType is not null)
+        if (DynamicAssembly.Shared.GetType(fullName, throwOnError: false) is Type existingType)
             return existingType;
 
-        assemblyBuilder.AllowAccessTo(assetType);
+        DynamicAssembly.Shared.AllowAccessTo(assetType);
 
         // public sealed class {TAsset}$Dynamic : TAsset, IObservable<TAsset>, IDisposable
         // {
-        TypeBuilder typeBuilder = moduleBuilder.DefineType(fullName, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Class);
+        using DynamicTypeBuilder typeBuilder = DynamicAssembly.Shared.DefineType(fullName, TypeAttributes.Public | TypeAttributes.Sealed);
         typeBuilder.SetParent(assetType);
         typeBuilder.AddInterfaceImplementation(typeof(IObservable<>).MakeGenericType(assetType));
         typeBuilder.AddInterfaceImplementation(typeof(IDisposable));
@@ -288,7 +287,7 @@ file static class DynamicAssetBuilder
 
         // public static TAsset Create{TAsset}(...args)
         //     => new(...args);
-        using IDisposable context = MethodHelper.DefineDynamicMethod($"Create{assetType.Name}", assetType, parameterTypes, out DynamicMethod factory);
+        using DynamicMethodBuilder factory = DynamicAssembly.Shared.DefineMethod($"Create{assetType.Name}", assetType, parameterTypes, skipVisibility: true);
         ILGenerator il = factory.GetILGenerator();
 
         for (int i = 0; i < parameterTypes.Length; i++)
@@ -315,7 +314,7 @@ file static class DynamicAssetBuilder
 
         // public static void Copy{TAsset}(TAsset from, TAsset to)
         // {
-        using IDisposable context = MethodHelper.DefineDynamicMethod($"Copy{assetType.Name}", typeof(void), [assetType, assetType], out DynamicMethod copier);
+        using DynamicMethodBuilder copier = DynamicAssembly.Shared.DefineMethod($"Copy{assetType.Name}", typeof(void), [assetType, assetType], skipVisibility: true);
         ILGenerator il = copier.GetILGenerator();
 
         //     if (to.fieldN is IDisposable)

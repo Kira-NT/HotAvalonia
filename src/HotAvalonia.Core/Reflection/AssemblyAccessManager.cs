@@ -1,6 +1,6 @@
 using System.Reflection;
 using System.Reflection.Emit;
-using HotAvalonia.Helpers;
+using HotAvalonia.Reflection.Emit;
 
 namespace HotAvalonia.Reflection;
 
@@ -8,7 +8,7 @@ namespace HotAvalonia.Reflection;
 /// Encapsulates a dynamic assembly, providing mechanisms to manage
 /// runtime access to types and metadata within the assembly.
 /// </summary>
-public class DynamicAssembly
+public class AssemblyAccessManager
 {
     /// <summary>
     /// The underlying assembly.
@@ -16,10 +16,10 @@ public class DynamicAssembly
     private readonly Assembly _assembly;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="DynamicAssembly"/> class.
+    /// Initializes a new instance of the <see cref="AssemblyAccessManager"/> class.
     /// </summary>
     /// <param name="assembly">The assembly to wrap.</param>
-    public DynamicAssembly(Assembly assembly)
+    public AssemblyAccessManager(Assembly assembly)
     {
         _assembly = assembly ?? throw new ArgumentNullException(nameof(assembly));
     }

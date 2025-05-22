@@ -4,6 +4,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
 using HotAvalonia.Helpers;
 using HotAvalonia.Reflection;
+using HotAvalonia.Reflection.Emit;
 
 namespace HotAvalonia.Xaml;
 
@@ -49,7 +50,7 @@ public static class XamlCompiler
     /// <summary>
     /// Gets the dynamic assembly that houses compiled XAML types
     /// </summary>
-    public static DynamicAssembly? DynamicXamlAssembly => field ??= GetDynamicXamlAssembly(s_xamlLoaderAssembly);
+    public static AssemblyAccessManager? DynamicXamlAssembly => field ??= GetDynamicXamlAssembly(s_xamlLoaderAssembly);
 
     /// <inheritdoc cref="Compile(string, Uri, Assembly?)"/>
     public static CompiledXamlDocument Compile(string xaml, string uri, Assembly? assembly = null)
@@ -93,7 +94,7 @@ public static class XamlCompiler
     {
         _ = config ?? throw new ArgumentNullException(nameof(config));
 
-        using IDisposable context = AssemblyHelper.ForceAllowDynamicCode();
+        using DynamicCodeScope scope = DynamicCodeScope.Create(document.Uri.ToString(), nameof(XamlCompiler));
         if (config.LocalAssembly is not null)
             DynamicXamlAssembly?.AllowAccessTo(config.LocalAssembly);
 
@@ -127,7 +128,7 @@ public static class XamlCompiler
         _ = documents ?? throw new ArgumentNullException(nameof(documents));
         _ = config ?? throw new ArgumentNullException(nameof(config));
 
-        using IDisposable context = AssemblyHelper.ForceAllowDynamicCode();
+        using DynamicCodeScope scope = DynamicCodeScope.Create("...", nameof(XamlCompiler));
         if (config.LocalAssembly is not null)
             DynamicXamlAssembly?.AllowAccessTo(config.LocalAssembly);
 
@@ -171,10 +172,10 @@ public static class XamlCompiler
     /// </summary>
     /// <param name="xamlLoaderAssembly">The assembly containing the XAML loader.</param>
     /// <returns>A <see cref="DynamicAssembly"/> instance if found; otherwise, <c>null</c>.</returns>
-    private static DynamicAssembly? GetDynamicXamlAssembly(Assembly xamlLoaderAssembly)
+    private static AssemblyAccessManager? GetDynamicXamlAssembly(Assembly xamlLoaderAssembly)
     {
         // Avalonia creates a dynamic assembly during AvaloniaXamlIlRuntimeCompiler's initialization.
-        using IDisposable context = AssemblyHelper.ForceAllowDynamicCode();
+        using DynamicCodeScope scope = DynamicCodeScope.Create(nameof(GetDynamicXamlAssembly), nameof(XamlCompiler));
 
         Type xamlAssembly = xamlLoaderAssembly.GetType("XamlX.TypeSystem.IXamlAssembly") ?? typeof(object);
         Type? xamlIlRuntimeCompiler = xamlLoaderAssembly.GetType("Avalonia.Markup.Xaml.XamlIl.AvaloniaXamlIlRuntimeCompiler");
@@ -187,7 +188,7 @@ public static class XamlCompiler
         if (sreAsm is not Assembly asm || sreTypeSystem is null)
             return null;
 
-        DynamicAssembly dynamicAssembly = DynamicSreAssembly.Create(asm, sreTypeSystem);
+        AssemblyAccessManager dynamicAssembly = DynamicSreAssembly.Create(asm, sreTypeSystem);
         object? sreTypeSystemAssemblies = sreTypeSystem.GetType().GetInstanceField("_assemblies")?.GetValue(sreTypeSystem);
         MethodInfo? addAssembly = sreTypeSystemAssemblies?.GetType().GetMethod(nameof(List<string>.Add), [xamlAssembly]);
         if (xamlAssembly.IsAssignableFrom(dynamicAssembly.GetType()))
@@ -296,10 +297,10 @@ public static class XamlCompiler
             throw new NotSupportedException("Provided method contains unsupported exception block(s).");
 
         Module module = compile.Module;
-        string name = $"<Recompiled{Guid.NewGuid():N}>{compile.Name}";
+        string name = $"{compile.Name}$Recompiled";
         Type returnType = typeof(IEnumerable<Type>);
         Type[] parameterTypes = compile.GetParameterTypes();
-        using IDisposable ctx = MethodHelper.DefineDynamicMethod(name, returnType, parameterTypes, out DynamicMethod recompiled);
+        using DynamicMethodBuilder recompiled = DynamicAssembly.Shared.DefineMethod(name, returnType, parameterTypes, skipVisibility: true);
 
         ILGenerator il = recompiled.GetILGenerator();
         il.DeclareLocals(body.LocalVariables);

@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Reflection.Emit;
 using HotAvalonia.Helpers;
+using HotAvalonia.Reflection.Emit;
 
 namespace HotAvalonia.Reflection.Inject;
 
@@ -55,15 +56,13 @@ internal static class CallbackInjector
 
         ThrowIfNotSupported();
 
-        using IDisposable context = AssemblyHelper.GetDynamicAssembly(out AssemblyBuilder assemblyBuilder, out ModuleBuilder moduleBuilder);
-
         // Bypass access modifiers
-        assemblyBuilder.AllowAccessTo(target);
-        assemblyBuilder.AllowAccessTo(callback);
+        DynamicAssembly.Shared.AllowAccessTo(target);
+        DynamicAssembly.Shared.AllowAccessTo(callback);
 
         // Define
         string name = $"Injection_{target.Name}_{Guid.NewGuid():N}";
-        TypeBuilder injectionBuilder = moduleBuilder.DefineType(name, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Class);
+        using DynamicTypeBuilder injectionBuilder = DynamicAssembly.Shared.DefineType(name, TypeAttributes.Public | TypeAttributes.Sealed);
         injectionBuilder.AddInterfaceImplementation(typeof(IInjection));
 
         // Emit

@@ -5,6 +5,7 @@ using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.Text;
 using HotAvalonia.Helpers;
+using HotAvalonia.Reflection.Emit;
 
 namespace HotAvalonia.IO;
 
@@ -692,7 +693,7 @@ public static class FileSystemExtensions
         ConstructorInfo ctor = returnType.GetInstanceConstructor(parameterTypes)!;
         FieldInfo fullPathField = returnType.GetInstanceField("_fullPath") ?? returnType.GetInstanceField("fullPath")!;
 
-        using IDisposable context = MethodHelper.DefineDynamicMethod("CreateFileSystemEventArgs", returnType, parameterTypes, out DynamicMethod method);
+        using DynamicMethodBuilder method = DynamicAssembly.Shared.DefineMethod("CreateFileSystemEventArgs", returnType, parameterTypes, skipVisibility: true);
         ILGenerator il = method.GetILGenerator();
         il.Emit(OpCodes.Ldarg_0);
 #pragma warning disable RS0030 // Do not use banned APIs
@@ -745,7 +746,7 @@ public static class FileSystemExtensions
         FieldInfo fullPathField = parentType.GetInstanceField("_fullPath") ?? parentType.GetInstanceField("fullPath")!;
         FieldInfo oldFullPathField = returnType.GetInstanceField("_oldFullPath") ?? returnType.GetInstanceField("oldFullPath")!;
 
-        using IDisposable context = MethodHelper.DefineDynamicMethod("CreateRenamedEventArgs", returnType, parameterTypes, out DynamicMethod method);
+        using DynamicMethodBuilder method = DynamicAssembly.Shared.DefineMethod("CreateRenamedEventArgs", returnType, parameterTypes, skipVisibility: true);
         ILGenerator il = method.GetILGenerator();
         il.Emit(OpCodes.Ldarg_0);
 #pragma warning disable RS0030 // Do not use banned APIs
