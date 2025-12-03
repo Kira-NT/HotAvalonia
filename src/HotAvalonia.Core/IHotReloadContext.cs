@@ -207,13 +207,11 @@ file sealed class AppDomainHotReloadContext : IHotReloadContext, ISupportInitial
         _lock = new();
         _isInitializing = false;
         _isInitialized = false;
+        _context = new CombinedHotReloadContext([]);
+        _appDomain.AssemblyLoad += OnAssemblyLoad;
 
-        _context = appDomain.GetAssemblies()
-            .Select(x => _contextFactory(_appDomain, x))
-            .Where(x => x is not null)!
-            .Combine();
-
-        appDomain.AssemblyLoad += OnAssemblyLoad;
+        foreach (Assembly assembly in appDomain.GetAssemblies())
+            OnAssemblyLoad(appDomain, new(assembly));
     }
 
     /// <inheritdoc/>
