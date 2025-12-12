@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/packages/">
+    <Project Path="src/HotAvalonia.Core/HotAvalonia.Core.csproj" />
+    <Project Path="src/HotAvalonia.Extensions/HotAvalonia.Extensions.csproj" />
+    <Project Path="src/HotAvalonia.Fody/HotAvalonia.Fody.csproj" />
+    <Project Path="src/HotAvalonia/HotAvalonia.csproj" />
+  </Folder>
+
+  <Folder Name="/tools/">
+    <Project Path="src/HotAvalonia.Remote/HotAvalonia.Remote.csproj" />
+  </Folder>
+
+  <Folder Name="/samples/">
+    <Project Path="samples/HotReloadDemo.Desktop/HotReloadDemo.Desktop.csproj" />
+    <Project Path="samples/HotReloadDemo/HotReloadDemo.csproj" />
+  </Folder>
+</Solution>

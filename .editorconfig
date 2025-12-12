@@ -214,11 +214,15 @@ csharp_style_prefer_parameter_null_checking = true:suggestion
 
 # Diagnostics
 dotnet_diagnostic.IDE0290.severity = none # Prefer primary constructors
-dotnet_diagnostic.IDE0079.severity = none # Remove unnecessary suppression. # TODO: Remove when it is not broken.
-dotnet_diagnostic.IDE0028.severity = none # Collection initialization can be simplified. TODO: Remove when the feature is actually ready.
-dotnet_diagnostic.IDE0300.severity = none # Collection initialization can be simplified. TODO: Remove when the feature is actually ready.
-dotnet_diagnostic.IDE0301.severity = none # Collection initialization can be simplified. TODO: Remove when the feature is actually ready.
-dotnet_diagnostic.IDE0305.severity = none # Collection initialization can be simplified. TODO: Remove when the feature is actually ready.
+dotnet_diagnostic.IDE0079.severity = none # Remove unnecessary suppression
+dotnet_diagnostic.IDE0028.severity = none # Collection initialization can be simplified
+dotnet_diagnostic.IDE0300.severity = none # Collection initialization can be simplified
+dotnet_diagnostic.IDE0301.severity = none # Collection initialization can be simplified
+dotnet_diagnostic.IDE0302.severity = none # Collection initialization can be simplified
+dotnet_diagnostic.IDE0303.severity = none # Collection initialization can be simplified
+dotnet_diagnostic.IDE0304.severity = none # Collection initialization can be simplified
+dotnet_diagnostic.IDE0305.severity = none # Collection initialization can be simplified
+dotnet_diagnostic.IDE0306.severity = none # Collection initialization can be simplified
 dotnet_diagnostic.CA1852.severity = warning # Seal internal types
 
 # Suppression preferences

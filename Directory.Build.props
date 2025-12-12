@@ -28,7 +28,7 @@
     <Company Condition="'$(Company)' == ''">$(Author)</Company>
     <Copyright Condition="'$(Copyright)' == '' And '$([System.DateTime]::Now.Year)' != '$(ReleaseYear)'">Copyright © $(ReleaseYear)-$([System.DateTime]::Now.Year) $(Authors)</Copyright>
     <Copyright Condition="'$(Copyright)' == ''">Copyright © $(ReleaseYear) $(Authors)</Copyright>
-    <ProjectName Condition="'$(ProjectName)' == ''">$([System.IO.Path]::GetFileNameWithoutExtension('$([System.IO.Directory]::GetFiles(`$(MSBuildThisFileDirectory)`, `*.sln`)[0])'))</ProjectName>
+    <ProjectName Condition="'$(ProjectName)' == ''">$([System.IO.Path]::GetFileNameWithoutExtension('$([System.IO.Directory]::GetFiles(`$(MSBuildThisFileDirectory)`, `*.sln?`)[0])'))</ProjectName>
     <RepositoryUrl Condition="'$(RepositoryUrl)' == ''">https://github.com/$(Author)/$(ProjectName)</RepositoryUrl>
     <RepositoryType Condition="'$(RepositoryType)' == ''">git</RepositoryType>
     <PackageProjectUrl Condition="'$(PackageProjectUrl)' == ''">$(RepositoryUrl)</PackageProjectUrl>

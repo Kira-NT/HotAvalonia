@@ -7,7 +7,7 @@
       "type": "process",
       "args": [
         "build",
-        "${workspaceFolder}/HotAvalonia.sln",
+        "${workspaceFolder}/HotAvalonia.slnx",
         "/property:Configuration=Debug",
         "/property:GenerateFullPaths=true",
         "/consoleloggerparameters:NoSummary",
