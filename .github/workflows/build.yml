@@ -1,12 +1,6 @@
 name: build
 
-on:
-  push:
-    branches:
-      - master
-      - development
-  pull_request:
-  workflow_dispatch:
+on: [push, pull_request, workflow_dispatch]
 
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
