@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 
 namespace HotAvalonia.Collections;
 
-#if NETSTANDARD2_1_OR_GREATER
+#if !NETSTANDARD2_0
 /// <summary>
 /// Represents a dynamically resizable set of weak references.
 /// </summary>
@@ -34,7 +34,7 @@ internal sealed class WeakSet<T> : ICollection<T> where T : class
     /// <param name="item">The item to add.</param>
     public void Add(T item)
     {
-        _ = item ?? throw new ArgumentNullException(nameof(item));
+        ArgumentNullException.ThrowIfNull(item);
 
         _items.AddOrUpdate(item, default);
     }
@@ -46,7 +46,7 @@ internal sealed class WeakSet<T> : ICollection<T> where T : class
     /// <returns><c>true</c> if the item was successfully removed; otherwise, <c>false</c>.</returns>
     public bool Remove(T item)
     {
-        _ = item ?? throw new ArgumentNullException(nameof(item));
+        ArgumentNullException.ThrowIfNull(item);
 
         return _items.Remove(item);
     }
@@ -63,7 +63,7 @@ internal sealed class WeakSet<T> : ICollection<T> where T : class
     /// <returns><c>true</c> if the item is found in the set; otherwise, <c>false</c>.</returns>
     public bool Contains(T item)
     {
-        _ = item ?? throw new ArgumentNullException(nameof(item));
+        ArgumentNullException.ThrowIfNull(item);
 
         return _items.TryGetValue(item, out _);
     }
@@ -75,13 +75,13 @@ internal sealed class WeakSet<T> : ICollection<T> where T : class
     /// <param name="arrayIndex">The zero-based index in the array at which copying begins.</param>
     public void CopyTo(T[] array, int arrayIndex)
     {
-        _ = array ?? throw new ArgumentNullException(nameof(array));
-        _ = arrayIndex < 0 ? throw new ArgumentOutOfRangeException(nameof(arrayIndex)) : arrayIndex;
+        ArgumentNullException.ThrowIfNull(array);
+        ArgumentOutOfRangeException.ThrowIfNegative(arrayIndex);
 
         foreach ((T item, _) in _items)
         {
             if (arrayIndex >= array.Length)
-                throw new ArgumentException(nameof(array));
+                ArgumentException.Throw(nameof(array));
 
             array[arrayIndex++] = item;
         }
@@ -158,7 +158,7 @@ internal sealed class WeakSet<T> : ICollection<T> where T : class
     /// <param name="item">The item to add.</param>
     public void Add(T item)
     {
-        _ = item ?? throw new ArgumentNullException(nameof(item));
+        ArgumentNullException.ThrowIfNull(item);
 
         if (_accessibleItems.TryGetValue(item, out _))
             return;
@@ -201,7 +201,7 @@ internal sealed class WeakSet<T> : ICollection<T> where T : class
     /// <returns><c>true</c> if the item was successfully removed; otherwise, <c>false</c>.</returns>
     public bool Remove(T item)
     {
-        _ = item ?? throw new ArgumentNullException(nameof(item));
+        ArgumentNullException.ThrowIfNull(item);
 
         if (!_accessibleItems.TryGetValue(item, out _))
             return false;
@@ -224,11 +224,8 @@ internal sealed class WeakSet<T> : ICollection<T> where T : class
     /// </summary>
     public void Clear()
     {
-        for (int i = 0; i < _items.Length; ++i)
-            _items[i] = null;
-
-        // Clear is not available in .NET Standard 2.0
         _accessibleItems = new();
+        _items.AsSpan().Clear();
     }
 
     /// <summary>
@@ -238,7 +235,7 @@ internal sealed class WeakSet<T> : ICollection<T> where T : class
     /// <returns><c>true</c> if the item is found in the set; otherwise, <c>false</c>.</returns>
     public bool Contains(T item)
     {
-        _ = item ?? throw new ArgumentNullException(nameof(item));
+        ArgumentNullException.ThrowIfNull(item);
 
         return _accessibleItems.TryGetValue(item, out _);
     }
@@ -250,8 +247,8 @@ internal sealed class WeakSet<T> : ICollection<T> where T : class
     /// <param name="arrayIndex">The zero-based index in the array at which copying begins.</param>
     public void CopyTo(T[] array, int arrayIndex)
     {
-        _ = array ?? throw new ArgumentNullException(nameof(array));
-        _ = arrayIndex < 0 ? throw new ArgumentOutOfRangeException(nameof(arrayIndex)) : arrayIndex;
+        ArgumentNullException.ThrowIfNull(array);
+        ArgumentOutOfRangeException.ThrowIfNegative(arrayIndex);
 
         for (int i = 0; i < _items.Length; ++i)
         {
@@ -260,7 +257,7 @@ internal sealed class WeakSet<T> : ICollection<T> where T : class
                 continue;
 
             if (arrayIndex >= array.Length)
-                throw new ArgumentException(nameof(array));
+                ArgumentException.Throw(nameof(array));
 
             array[arrayIndex++] = target;
         }

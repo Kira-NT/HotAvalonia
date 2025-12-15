@@ -118,7 +118,7 @@ internal sealed class DynamicAsset<TAsset> : IObservable<TAsset> where TAsset : 
     /// <returns>A new instance of the asset.</returns>
     public static TAsset Create(Uri uri, Uri? baseUri, AvaloniaProjectLocator projectLocator)
     {
-        _ = uri ?? throw new ArgumentNullException(nameof(uri));
+        ArgumentNullException.ThrowIfNull(uri);
 
         if (!uri.IsAbsoluteUri && baseUri is not null)
             uri = new(baseUri, uri);
@@ -170,7 +170,7 @@ file static class DynamicAssetBuilder
     {
         const MethodAttributes VirtualMethod = MethodAttributes.Public | MethodAttributes.Final | MethodAttributes.HideBySig | MethodAttributes.NewSlot | MethodAttributes.Virtual;
 
-        _ = assetType ?? throw new ArgumentNullException(nameof(assetType));
+        ArgumentNullException.ThrowIfNull(assetType);
 
         using IDisposable context = AssemblyHelper.GetDynamicAssembly(out AssemblyBuilder assemblyBuilder, out ModuleBuilder moduleBuilder);
         string fullName = $"{assetType.FullName}$Dynamic";
@@ -276,8 +276,8 @@ file static class DynamicAssetBuilder
     /// <returns>A delegate of the specified type that can be used to construct assets.</returns>
     public static Delegate CreateAssetFactory(Type delegateType, Type assetType)
     {
-        _ = delegateType ?? throw new ArgumentNullException(nameof(delegateType));
-        _ = assetType ?? throw new ArgumentNullException(nameof(assetType));
+        ArgumentNullException.ThrowIfNull(delegateType);
+        ArgumentNullException.ThrowIfNull(assetType);
 
         MethodInfo? invoke = delegateType.GetMethod(nameof(Action.Invoke));
         _ = invoke ?? throw new MissingMethodException(delegateType.FullName, nameof(Action.Invoke));
@@ -307,7 +307,7 @@ file static class DynamicAssetBuilder
     /// <returns>A delegate that performs a copy operation.</returns>
     public static Delegate CreateAssetCopier(Type assetType)
     {
-        _ = assetType ?? throw new ArgumentNullException(nameof(assetType));
+        ArgumentNullException.ThrowIfNull(assetType);
 
         Type delegateType = typeof(Action<,>).MakeGenericType(assetType, assetType);
         MethodInfo disposeMethod = typeof(IDisposable).GetMethod(nameof(IDisposable.Dispose))!;

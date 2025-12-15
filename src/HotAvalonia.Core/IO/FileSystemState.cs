@@ -18,11 +18,13 @@ internal sealed class FileSystemState
     /// <param name="currentDirectory">The current working directory.</param>
     public FileSystemState(StringComparison pathComparison, char directorySeparatorChar, char altDirectorySeparatorChar, char volumeSeparatorChar, string currentDirectory)
     {
+        ArgumentNullException.ThrowIfNull(currentDirectory);
+
         PathComparison = pathComparison;
         DirectorySeparatorChar = directorySeparatorChar;
         AltDirectorySeparatorChar = altDirectorySeparatorChar;
         VolumeSeparatorChar = volumeSeparatorChar;
-        CurrentDirectory = currentDirectory ?? throw new ArgumentNullException(nameof(currentDirectory));
+        CurrentDirectory = currentDirectory;
     }
 
 #pragma warning disable RS0030 // Do not use banned APIs
@@ -115,7 +117,7 @@ internal sealed class FileSystemState
     /// <returns>A <see cref="FileSystemState"/> instance with properties derived from the byte array.</returns>
     public static FileSystemState FromByteArray(byte[] bytes)
     {
-        _ = bytes ?? throw new ArgumentNullException(nameof(bytes));
+        ArgumentNullException.ThrowIfNull(bytes);
 
         int minByteCount = 2 * sizeof(int) + 3 * sizeof(char);
         if (bytes.Length < minByteCount)

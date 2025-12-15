@@ -78,8 +78,8 @@ public static class AvaloniaHotReloadContext
     /// <returns>A hot reload context for Avalonia assets.</returns>
     public static IHotReloadContext ForAssets(IServiceProvider serviceProvider, AvaloniaProjectLocator projectLocator)
     {
-        _ = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-        _ = projectLocator ?? throw new ArgumentNullException(nameof(projectLocator));
+        ArgumentNullException.ThrowIfNull(serviceProvider);
+        ArgumentNullException.ThrowIfNull(projectLocator);
 
         return new AvaloniaAssetsHotReloadContext(serviceProvider, projectLocator);
     }
@@ -109,8 +109,8 @@ public static class AvaloniaHotReloadContext
     /// <returns>A hot reload context for the specified application domain.</returns>
     public static IHotReloadContext FromAppDomain(AppDomain appDomain, AvaloniaProjectLocator projectLocator)
     {
-        _ = appDomain ?? throw new ArgumentNullException(nameof(appDomain));
-        _ = projectLocator ?? throw new ArgumentNullException(nameof(projectLocator));
+        ArgumentNullException.ThrowIfNull(appDomain);
+        ArgumentNullException.ThrowIfNull(projectLocator);
 
         return HotReloadContext.FromAppDomain(appDomain, (_, asm) => FromUnverifiedAssembly(asm, projectLocator));
     }
@@ -159,8 +159,8 @@ public static class AvaloniaHotReloadContext
     /// <inheritdoc cref="FromAssembly(Assembly, string)"/>
     public static IHotReloadContext FromAssembly(Assembly assembly, AvaloniaProjectLocator projectLocator)
     {
-        _ = assembly ?? throw new ArgumentNullException(nameof(assembly));
-        _ = projectLocator ?? throw new ArgumentNullException(nameof(projectLocator));
+        ArgumentNullException.ThrowIfNull(assembly);
+        ArgumentNullException.ThrowIfNull(projectLocator);
 
         CompiledXamlDocument[] documents = XamlScanner.GetDocuments(assembly).ToArray();
         string rootPath = projectLocator.GetDirectoryName(assembly, documents);
@@ -179,8 +179,8 @@ public static class AvaloniaHotReloadContext
     /// <returns>A hot reload context for the specified assembly.</returns>
     public static IHotReloadContext FromAssembly(Assembly assembly, string rootPath, IFileSystem fileSystem)
     {
-        _ = assembly ?? throw new ArgumentNullException(nameof(assembly));
-        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        ArgumentNullException.ThrowIfNull(assembly);
+        ArgumentNullException.ThrowIfNull(fileSystem);
 
         IEnumerable<CompiledXamlDocument> documents = XamlScanner.GetDocuments(assembly);
         return new AvaloniaProjectHotReloadContext(rootPath, fileSystem, documents);
@@ -189,7 +189,7 @@ public static class AvaloniaHotReloadContext
     /// <inheritdoc cref="FromControl(object, string)"/>
     public static IHotReloadContext FromControl(object control)
     {
-        _ = control ?? throw new ArgumentNullException(nameof(control));
+        ArgumentNullException.ThrowIfNull(control);
 
         return FromControl(control.GetType());
     }
@@ -197,7 +197,7 @@ public static class AvaloniaHotReloadContext
     /// <inheritdoc cref="FromControl(Type, string)"/>
     public static IHotReloadContext FromControl(Type controlType)
     {
-        _ = controlType ?? throw new ArgumentNullException(nameof(controlType));
+        ArgumentNullException.ThrowIfNull(controlType);
 
         return FromAssembly(controlType.Assembly);
     }
@@ -210,7 +210,7 @@ public static class AvaloniaHotReloadContext
     /// <returns>A hot reload context for the specified control.</returns>
     public static IHotReloadContext FromControl(object control, string controlPath)
     {
-        _ = control ?? throw new ArgumentNullException(nameof(control));
+        ArgumentNullException.ThrowIfNull(control);
 
         return FromControl(control.GetType(), controlPath);
     }
@@ -228,14 +228,14 @@ public static class AvaloniaHotReloadContext
     /// <returns>A hot reload context for the specified control type.</returns>
     public static IHotReloadContext FromControl(Type controlType, string controlPath, IFileSystem fileSystem)
     {
-        _ = controlType ?? throw new ArgumentNullException(nameof(controlType));
-        _ = controlPath ?? throw new ArgumentNullException(nameof(controlPath));
-        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        ArgumentNullException.ThrowIfNull(controlType);
+        ArgumentNullException.ThrowIfNull(controlPath);
+        ArgumentNullException.ThrowIfNull(fileSystem);
         _ = fileSystem.FileExists(controlPath) ? controlPath : throw new FileNotFoundException(controlPath);
 
         controlPath = fileSystem.GetFullPath(controlPath);
         if (!XamlScanner.TryExtractDocumentUri(controlType, out string? controlUri))
-            throw new ArgumentException("The provided control is not a valid user-defined Avalonia control. Could not determine its URI.", nameof(controlType));
+            ArgumentException.Throw(nameof(controlType), "The provided control is not a valid user-defined Avalonia control. Could not determine its URI.");
 
         string rootPath = UriHelper.ResolveHostPath(controlUri, controlPath);
         return FromAssembly(controlType.Assembly, rootPath, fileSystem);
@@ -276,8 +276,8 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupportI
     /// <param name="xamlPatcher">An optional XAML patcher to be applied to the contents of updated files.</param>
     public AvaloniaProjectHotReloadContext(string rootPath, IFileSystem fileSystem, IEnumerable<CompiledXamlDocument> documents, XamlPatcher? xamlPatcher = null)
     {
-        _ = rootPath ?? throw new ArgumentNullException(nameof(rootPath));
-        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        ArgumentNullException.ThrowIfNull(rootPath);
+        ArgumentNullException.ThrowIfNull(fileSystem);
         _ = fileSystem.DirectoryExists(rootPath) ? rootPath : throw new DirectoryNotFoundException(rootPath);
 
         rootPath = fileSystem.GetFullPath(rootPath);

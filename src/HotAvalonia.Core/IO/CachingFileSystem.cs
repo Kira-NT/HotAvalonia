@@ -28,7 +28,9 @@ internal sealed class CachingFileSystem : IFileSystem
     /// </param>
     public CachingFileSystem(IFileSystem fileSystem, IEqualityComparer<string>? fileNameComparer = null)
     {
-        _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        ArgumentNullException.ThrowIfNull(fileSystem);
+
+        _fileSystem = fileSystem;
         _cache = new(fileNameComparer ?? fileSystem.PathComparer);
     }
 
@@ -124,7 +126,7 @@ internal sealed class CachingFileSystem : IFileSystem
     /// <inheritdoc/>
     public Stream OpenRead(string path)
     {
-        _ = path ?? throw new ArgumentNullException(nameof(path));
+        ArgumentNullException.ThrowIfNull(path);
 
         if (!_fileSystem.FileExists(path))
             throw new FileNotFoundException(path);
@@ -135,7 +137,7 @@ internal sealed class CachingFileSystem : IFileSystem
     /// <inheritdoc/>
     public async Task<Stream> OpenReadAsync(string path, CancellationToken cancellationToken = default)
     {
-        _ = path ?? throw new ArgumentNullException(nameof(path));
+        ArgumentNullException.ThrowIfNull(path);
 
         if (!await _fileSystem.FileExistsAsync(path, cancellationToken).ConfigureAwait(false))
             throw new FileNotFoundException(path);
@@ -183,8 +185,11 @@ internal sealed class CachingFileSystem : IFileSystem
         /// <param name="fileSystem">The file system where <paramref name="fileName"/> can be found.</param>
         public Entry(string fileName, IFileSystem fileSystem)
         {
-            _fileName = fileName ?? throw new ArgumentNullException(nameof(fileName));
-            _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+            ArgumentNullException.ThrowIfNull(fileName);
+            ArgumentNullException.ThrowIfNull(fileSystem);
+
+            _fileName = fileName;
+            _fileSystem = fileSystem;
             _lastWriteTime = DateTime.MinValue.Ticks;
         }
 

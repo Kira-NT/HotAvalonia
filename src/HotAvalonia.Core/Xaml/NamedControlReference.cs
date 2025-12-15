@@ -27,8 +27,11 @@ internal sealed class NamedControlReference
     /// <inheritdoc cref="NamedControlReference(string, Type, FieldInfo?)"/>
     public NamedControlReference(string name, Type type)
     {
-        _name = name ?? throw new ArgumentNullException(nameof(name));
-        _controlType = type ?? throw new ArgumentNullException(nameof(type));
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(type);
+
+        _name = name;
+        _controlType = type;
     }
 
     /// <summary>
@@ -60,7 +63,7 @@ internal sealed class NamedControlReference
     /// <returns>The resolved control, if found; otherwise, <c>null</c>.</returns>
     public object? Resolve(object scope)
     {
-        _ = scope ?? throw new ArgumentNullException(nameof(scope));
+        ArgumentNullException.ThrowIfNull(scope);
 
         object? control = (scope as ILogical)?.FindNameScope()?.Find(_name);
         return _controlType.IsAssignableFrom(control?.GetType()) ? control : null;
@@ -73,7 +76,7 @@ internal sealed class NamedControlReference
     /// <param name="scope">The scope within which to refresh the cache.</param>
     internal void Refresh(object scope)
     {
-        _ = scope ?? throw new ArgumentNullException(nameof(scope));
+        ArgumentNullException.ThrowIfNull(scope);
         if (_cache is { IsStatic: false } && !_cache.DeclaringType.IsAssignableFrom(scope.GetType()))
             return;
 

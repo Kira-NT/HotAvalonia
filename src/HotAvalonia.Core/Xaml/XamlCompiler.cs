@@ -64,8 +64,8 @@ public static class XamlCompiler
     /// <returns>A <see cref="CompiledXamlDocument"/> representing the compiled XAML.</returns>
     public static CompiledXamlDocument Compile(string xaml, Uri uri, Assembly? assembly = null)
     {
-        _ = xaml ?? throw new ArgumentNullException(nameof(xaml));
-        _ = uri ?? throw new ArgumentNullException(nameof(uri));
+        ArgumentNullException.ThrowIfNull(xaml);
+        ArgumentNullException.ThrowIfNull(uri);
 
         XamlDocument document = new(uri, xaml);
         RuntimeXamlLoaderConfiguration config = CreateDefaultXamlLoaderConfig(document, assembly);
@@ -91,7 +91,7 @@ public static class XamlCompiler
     /// <returns>A <see cref="CompiledXamlDocument"/> representing the compiled XAML.</returns>
     public static CompiledXamlDocument Compile(this XamlDocument document, RuntimeXamlLoaderConfiguration config)
     {
-        _ = config ?? throw new ArgumentNullException(nameof(config));
+        ArgumentNullException.ThrowIfNull(config);
 
         using IDisposable context = AssemblyHelper.ForceAllowDynamicCode();
         if (config.LocalAssembly is not null)
@@ -108,7 +108,7 @@ public static class XamlCompiler
     /// <returns>An enumerable collection of compiled XAML documents.</returns>
     public static IEnumerable<CompiledXamlDocument> Compile(this IEnumerable<XamlDocument> documents)
     {
-        _ = documents ?? throw new ArgumentNullException(nameof(documents));
+        ArgumentNullException.ThrowIfNull(documents);
 
         IReadOnlyCollection<XamlDocument> documentCollection = (documents as IReadOnlyCollection<XamlDocument>) ?? documents.ToArray();
         XamlDocument firstDocument = documentCollection.FirstOrDefault();
@@ -124,8 +124,8 @@ public static class XamlCompiler
     /// <returns>An enumerable collection of compiled XAML documents.</returns>
     public static IEnumerable<CompiledXamlDocument> Compile(this IEnumerable<XamlDocument> documents, RuntimeXamlLoaderConfiguration config)
     {
-        _ = documents ?? throw new ArgumentNullException(nameof(documents));
-        _ = config ?? throw new ArgumentNullException(nameof(config));
+        ArgumentNullException.ThrowIfNull(documents);
+        ArgumentNullException.ThrowIfNull(config);
 
         using IDisposable context = AssemblyHelper.ForceAllowDynamicCode();
         if (config.LocalAssembly is not null)
@@ -161,7 +161,7 @@ public static class XamlCompiler
         MethodInfo? buildMethod = compiledXamlType.GetStaticMethod(BuildMethodName);
         MethodInfo? populateMethod = compiledXamlType.GetStaticMethod(PopulateMethodName);
         if (buildMethod is null || populateMethod is null)
-            throw new ArgumentException(null, nameof(compiledXamlType));
+            ArgumentException.Throw(nameof(compiledXamlType));
 
         return new(uri, buildMethod, populateMethod);
     }

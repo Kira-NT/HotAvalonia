@@ -21,7 +21,9 @@ public class DynamicAssembly
     /// <param name="assembly">The assembly to wrap.</param>
     public DynamicAssembly(Assembly assembly)
     {
-        _assembly = assembly ?? throw new ArgumentNullException(nameof(assembly));
+        ArgumentNullException.ThrowIfNull(assembly);
+
+        _assembly = assembly;
     }
 
     /// <summary>
@@ -40,7 +42,7 @@ public class DynamicAssembly
     /// <param name="assembly">The assembly to allow access to.</param>
     public virtual void AllowAccessTo(Assembly assembly)
     {
-        _ = assembly ?? throw new ArgumentNullException(nameof(assembly));
+        ArgumentNullException.ThrowIfNull(assembly);
 
         if (_assembly is AssemblyBuilder assemblyBuilder)
             assemblyBuilder.AllowAccessTo(assembly);

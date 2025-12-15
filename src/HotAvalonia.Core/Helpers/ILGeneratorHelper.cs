@@ -164,7 +164,7 @@ internal static class ILGeneratorHelper
         {
             LocalVariableInfo local = locals[i];
             if (local.LocalIndex <= previousVariableIndex)
-                throw new ArgumentException($"Invalid or duplicate index: {local.LocalIndex}", nameof(variables));
+                ArgumentException.Throw(nameof(variables), $"Invalid or duplicate index: {local.LocalIndex}");
 
             while (++previousVariableIndex != local.LocalIndex)
                 generator.DeclareLocal(typeof(byte));

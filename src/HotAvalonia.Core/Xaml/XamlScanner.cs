@@ -183,7 +183,7 @@ public static class XamlScanner
     /// <returns>An enumerable containing compiled XAML documents.</returns>
     public static IEnumerable<CompiledXamlDocument> GetDocuments(Assembly assembly)
     {
-        _ = assembly ?? throw new ArgumentNullException(nameof(assembly));
+        ArgumentNullException.ThrowIfNull(assembly);
 
         Type? xamlLoader = assembly.GetType("CompiledAvaloniaXaml.!XamlLoader");
         MethodInfo? tryLoad = xamlLoader?.GetStaticMethods("TryLoad").OrderByDescending(x => x.GetParameters().Length).FirstOrDefault();
@@ -304,7 +304,7 @@ public static class XamlScanner
     /// <returns>An enumerable containing extracted named control references.</returns>
     private static IEnumerable<NamedControlReference> ExtractNamedControlReferences(ReadOnlyMemory<byte> methodBody, Module module)
     {
-        _ = module ?? throw new ArgumentNullException(nameof(module));
+        ArgumentNullException.ThrowIfNull(module);
 
         MethodBodyReader reader = new(methodBody);
         while (reader.Next())

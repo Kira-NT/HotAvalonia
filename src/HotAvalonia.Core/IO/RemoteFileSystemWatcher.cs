@@ -76,8 +76,8 @@ internal sealed partial class RemoteFileSystemWatcher : IFileSystemWatcher
     /// <returns>A new instance of the <see cref="RemoteFileSystemWatcher"/> class.</returns>
     public static RemoteFileSystemWatcher Create(RemoteFileSystem fileSystem, SslTcpClient client)
     {
-        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
-        _ = client ?? throw new ArgumentNullException(nameof(client));
+        ArgumentNullException.ThrowIfNull(fileSystem);
+        ArgumentNullException.ThrowIfNull(client);
 
         RemoteFileSystemWatcher watcher = new(fileSystem, client);
         watcher.Start();

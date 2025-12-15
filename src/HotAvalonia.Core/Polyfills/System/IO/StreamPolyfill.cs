@@ -7,14 +7,14 @@ internal static class StreamPolyfill
     {
         public async Task ReadExactlyAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
         {
-            _ = stream ?? throw new ArgumentNullException(nameof(stream));
+            ArgumentNullException.ThrowIfNull(stream);
 
             int totalRead = 0;
             while (totalRead < count)
             {
                 int read = await stream.ReadAsync(buffer, offset + totalRead, count - totalRead, cancellationToken).ConfigureAwait(false);
                 if (read == 0)
-                    throw new EndOfStreamException();
+                    EndOfStreamException.Throw();
 
                 totalRead += read;
             }

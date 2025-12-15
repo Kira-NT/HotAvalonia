@@ -45,8 +45,8 @@ public static class HotReloadContext
         AppDomain appDomain,
         Func<AppDomain, Assembly, IHotReloadContext?> contextFactory)
     {
-        _ = appDomain ?? throw new ArgumentNullException(nameof(appDomain));
-        _ = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
+        ArgumentNullException.ThrowIfNull(appDomain);
+        ArgumentNullException.ThrowIfNull(contextFactory);
 
         return new AppDomainHotReloadContext(appDomain, contextFactory);
     }
@@ -64,8 +64,8 @@ public static class HotReloadContext
     /// <returns>A combined <see cref="IHotReloadContext"/>.</returns>
     public static IHotReloadContext Combine(this IHotReloadContext context, IEnumerable<IHotReloadContext> contexts)
     {
-        _ = context ?? throw new ArgumentNullException(nameof(context));
-        _ = contexts ?? throw new ArgumentNullException(nameof(contexts));
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(contexts);
 
         return Combine(contexts.Concat([context]));
     }
@@ -78,7 +78,7 @@ public static class HotReloadContext
     /// <returns>A combined <see cref="IHotReloadContext"/>.</returns>
     public static IHotReloadContext Combine(this IEnumerable<IHotReloadContext> contexts)
     {
-        _ = contexts ?? throw new ArgumentNullException(nameof(contexts));
+        ArgumentNullException.ThrowIfNull(contexts);
 
         IHotReloadContext[] contextArray = contexts
             .SelectMany(static x => x is CombinedHotReloadContext c ? c.AsEnumerable() : [x])

@@ -39,9 +39,10 @@ internal sealed class AvaloniaControlManager : IDisposable
     /// <param name="document">The document associated with controls managed by this instance.</param>
     public AvaloniaControlManager(CompiledXamlDocument document)
     {
-        _document = document ?? throw new ArgumentNullException(nameof(document));
-        _controls = new();
+        ArgumentNullException.ThrowIfNull(document);
 
+        _document = document;
+        _controls = new();
         if (!TryInjectPopulateCallback(document, OnPopulate, out _populateInjection))
             LoggingHelper.LogWarning("Failed to subscribe to the 'Populate' event of {ControlUri}. The control won't be reloaded upon file changes.", document.Uri);
     }

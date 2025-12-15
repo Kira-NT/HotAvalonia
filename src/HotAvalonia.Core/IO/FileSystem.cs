@@ -105,8 +105,8 @@ public static class FileSystem
     /// <returns>A new instance of <see cref="IFileSystem"/> representing the remote file system.</returns>
     public static async Task<IFileSystem> ConnectAsync(IPEndPoint endpoint, byte[] secret, CancellationToken cancellationToken = default)
     {
-        _ = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
-        _ = secret ?? throw new ArgumentNullException(nameof(secret));
+        ArgumentNullException.ThrowIfNull(endpoint);
+        ArgumentNullException.ThrowIfNull(secret);
 
         return await RemoteFileSystem.ConnectAsync(endpoint, secret, cancellationToken).ConfigureAwait(false);
     }
@@ -126,8 +126,8 @@ public static class FileSystem
     [return: NotNullIfNotNull(nameof(fallbackFileSystem))]
     public static async Task<IFileSystem?> ConnectAsync(IPEndPoint endpoint, byte[] secret, IFileSystem? fallbackFileSystem, CancellationToken cancellationToken = default)
     {
-        _ = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
-        _ = secret ?? throw new ArgumentNullException(nameof(secret));
+        ArgumentNullException.ThrowIfNull(endpoint);
+        ArgumentNullException.ThrowIfNull(secret);
 
         try
         {
@@ -154,8 +154,8 @@ public static class FileSystem
     /// <returns>A new <see cref="FileSystemEventArgs"/> instance for the specified file system event.</returns>
     public static FileSystemEventArgs CreateFileSystemEventArgs(this IFileSystem fileSystem, WatcherChangeTypes changeType, string fullPath)
     {
-        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
-        _ = fullPath ?? throw new ArgumentNullException(nameof(fullPath));
+        ArgumentNullException.ThrowIfNull(fileSystem);
+        ArgumentNullException.ThrowIfNull(fullPath);
 
         string name = fileSystem.GetFileName(fullPath);
         return s_fileSystemEventArgsFactory(changeType, name, fullPath);
@@ -211,8 +211,8 @@ public static class FileSystem
     /// <returns>A new <see cref="RenamedEventArgs"/> instance for the specified file system event.</returns>
     public static RenamedEventArgs CreateFileSystemEventArgs(this IFileSystem fileSystem, WatcherChangeTypes changeType, string fullPath, string oldFullPath)
     {
-        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
-        _ = fullPath ?? throw new ArgumentNullException(nameof(fullPath));
+        ArgumentNullException.ThrowIfNull(fileSystem);
+        ArgumentNullException.ThrowIfNull(fullPath);
 
         string name = fileSystem.GetFileName(fullPath);
         string oldName = fileSystem.GetFileName(oldFullPath);
@@ -269,8 +269,8 @@ public static class FileSystem
     /// <returns>The volume name if it exists; otherwise, an empty string.</returns>
     public static string GetVolumeName(this IFileSystem fileSystem, string path)
     {
-        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
-        _ = path ?? throw new ArgumentNullException(nameof(path));
+        ArgumentNullException.ThrowIfNull(fileSystem);
+        ArgumentNullException.ThrowIfNull(path);
 
         int i = path.IndexOf(fileSystem.VolumeSeparatorChar);
         return i <= 0 ? string.Empty : path.Substring(0, i);
@@ -290,7 +290,7 @@ public static class FileSystem
     /// </returns>
     public static string GetCommonPath(this IFileSystem fileSystem, string leftPath, string rightPath)
     {
-        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        ArgumentNullException.ThrowIfNull(fileSystem);
 
         StringComparison comparison = fileSystem.PathComparison;
         char directorySeparatorChar = fileSystem.DirectorySeparatorChar;
@@ -346,7 +346,7 @@ public static class FileSystem
     /// <returns>A read-only <see cref="Stream"/> on the specified path.</returns>
     public static async Task<Stream> OpenReadAsync(this IFileSystem fileSystem, string path, TimeSpan pollingInterval = default, CancellationToken cancellationToken = default)
     {
-        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        ArgumentNullException.ThrowIfNull(fileSystem);
 
         CancellationTokenSource? tokenSource = null;
         if (!cancellationToken.CanBeCanceled)
@@ -382,7 +382,7 @@ public static class FileSystem
     /// <returns>A byte array containing the contents of the file.</returns>
     public static byte[] ReadAllBytes(this IFileSystem fileSystem, string path)
     {
-        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        ArgumentNullException.ThrowIfNull(fileSystem);
 
         using Stream stream = fileSystem.OpenRead(path);
         using MemoryStream reader = new(stream.CanSeek ? (int)stream.Length : 0);
@@ -394,7 +394,7 @@ public static class FileSystem
     /// <inheritdoc cref="ReadAllBytesAsync(IFileSystem, string, TimeSpan, CancellationToken)"/>
     public static async Task<byte[]> ReadAllBytesAsync(this IFileSystem fileSystem, string path, CancellationToken cancellationToken = default)
     {
-        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        ArgumentNullException.ThrowIfNull(fileSystem);
 
         using Stream stream = await fileSystem.OpenReadAsync(path, cancellationToken);
         using MemoryStream reader = new(stream.CanSeek ? (int)stream.Length : 0);
@@ -413,7 +413,7 @@ public static class FileSystem
     /// <returns>A byte array containing the contents of the file.</returns>
     public static async Task<byte[]> ReadAllBytesAsync(this IFileSystem fileSystem, string path, TimeSpan pollingInterval, CancellationToken cancellationToken = default)
     {
-        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        ArgumentNullException.ThrowIfNull(fileSystem);
 
         using Stream stream = await fileSystem.OpenReadAsync(path, pollingInterval, cancellationToken);
         using MemoryStream reader = new(stream.CanSeek ? (int)stream.Length : 0);
@@ -430,7 +430,7 @@ public static class FileSystem
     /// <returns>A string containing all the text in the file.</returns>
     public static string ReadAllText(this IFileSystem fileSystem, string path)
     {
-        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        ArgumentNullException.ThrowIfNull(fileSystem);
 
         using Stream stream = fileSystem.OpenRead(path);
         using StreamReader reader = new(stream);
@@ -440,7 +440,7 @@ public static class FileSystem
     /// <inheritdoc cref="ReadAllTextAsync(IFileSystem, string, TimeSpan, CancellationToken)"/>
     public static async Task<string> ReadAllTextAsync(this IFileSystem fileSystem, string path, CancellationToken cancellationToken = default)
     {
-        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        ArgumentNullException.ThrowIfNull(fileSystem);
 
         using Stream stream = await fileSystem.OpenReadAsync(path, cancellationToken).ConfigureAwait(false);
         using StreamReader reader = new(stream);
@@ -457,7 +457,7 @@ public static class FileSystem
     /// <returns>A string containing all the text in the file.</returns>
     public static async Task<string> ReadAllTextAsync(this IFileSystem fileSystem, string path, TimeSpan pollingInterval, CancellationToken cancellationToken = default)
     {
-        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        ArgumentNullException.ThrowIfNull(fileSystem);
 
         using Stream stream = await fileSystem.OpenReadAsync(path, pollingInterval, cancellationToken).ConfigureAwait(false);
         using StreamReader reader = new(stream);

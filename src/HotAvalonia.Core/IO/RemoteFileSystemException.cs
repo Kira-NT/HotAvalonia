@@ -42,7 +42,7 @@ internal sealed class RemoteFileSystemException : Exception
     /// <returns>A byte array representing the serialized exception.</returns>
     internal static byte[] GetBytes(Exception exception)
     {
-        _ = exception ?? throw new ArgumentNullException(nameof(exception));
+        ArgumentNullException.ThrowIfNull(exception);
 
         exception = (exception as RemoteFileSystemException)?.InnerException ?? exception;
         Type exceptionType = string.IsNullOrEmpty(exception.GetType().FullName) ? typeof(Exception) : exception.GetType();
@@ -67,7 +67,7 @@ internal sealed class RemoteFileSystemException : Exception
     /// <returns>An <see cref="Exception"/> instance based on the byte array content.</returns>
     internal static Exception ToException(byte[] value)
     {
-        _ = value ?? throw new ArgumentNullException(nameof(value));
+        ArgumentNullException.ThrowIfNull(value);
 
         int typeNameByteCount = BitConverter.ToInt32(value.AsSpan(0, sizeof(int)));
         int messageByteCount = value.Length - sizeof(int) - typeNameByteCount;

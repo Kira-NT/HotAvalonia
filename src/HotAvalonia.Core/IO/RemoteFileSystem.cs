@@ -235,8 +235,8 @@ internal sealed partial class RemoteFileSystem : IFileSystem
     /// </returns>
     private async Task<IEnumerable<string>> GetFilesAsync(string path, string searchPattern, SearchOption searchOption, CancellationToken cancellationToken = default)
     {
-        _ = path ?? throw new ArgumentNullException(nameof(path));
-        _ = searchPattern ?? throw new ArgumentNullException(nameof(searchPattern));
+        ArgumentNullException.ThrowIfNull(path);
+        ArgumentNullException.ThrowIfNull(searchPattern);
 
         int pathByteCount = Encoding.UTF8.GetByteCount(path);
         int searchPatternByteCount = Encoding.UTF8.GetByteCount(searchPattern);
@@ -309,7 +309,7 @@ internal sealed partial class RemoteFileSystem : IFileSystem
     /// <inheritdoc/>
     public async Task<Stream> OpenReadAsync(string path, CancellationToken cancellationToken = default)
     {
-        _ = path ?? throw new ArgumentNullException(nameof(path));
+        ArgumentNullException.ThrowIfNull(path);
 
         byte[] request = Encoding.UTF8.GetBytes(path);
         byte[] response = await SendRequestAsync(ActionType.OpenRead, request, cancellationToken).ConfigureAwait(false);
@@ -438,7 +438,7 @@ internal sealed partial class RemoteFileSystem : IFileSystem
     /// <inheritdoc/>
     public string GetFullPath(string path)
     {
-        _ = path ?? throw new ArgumentNullException(nameof(path));
+        ArgumentNullException.ThrowIfNull(path);
         if (GetRootLength(path) == 0)
             path = Combine(_fileSystemState.CurrentDirectory, path);
 

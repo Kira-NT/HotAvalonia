@@ -39,8 +39,8 @@ internal sealed class SslTcpClient : IDisposable, IAsyncDisposable
     /// <returns>An authenticated <see cref="SslTcpClient"/> instance.</returns>
     public static SslTcpClient AuthenticateAsServer(TcpClient client, X509Certificate certificate)
     {
-        _ = client ?? throw new ArgumentNullException(nameof(client));
-        _ = certificate ?? throw new ArgumentNullException(nameof(certificate));
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(certificate);
 
         SslStream sslStream = new(client.GetStream(), false);
         SslTcpClient sslClient = new(client, sslStream);
@@ -66,8 +66,8 @@ internal sealed class SslTcpClient : IDisposable, IAsyncDisposable
     /// <returns>An authenticated <see cref="SslTcpClient"/> instance.</returns>
     public static async Task<SslTcpClient> AuthenticateAsServerAsync(TcpClient client, X509Certificate certificate, CancellationToken cancellationToken = default)
     {
-        _ = client ?? throw new ArgumentNullException(nameof(client));
-        _ = certificate ?? throw new ArgumentNullException(nameof(certificate));
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(certificate);
 
         SslStream sslStream = new(client.GetStream(), false);
         SslTcpClient sslClient = new(client, sslStream);
@@ -98,8 +98,8 @@ internal sealed class SslTcpClient : IDisposable, IAsyncDisposable
     /// <returns>An authenticated <see cref="SslTcpClient"/> instance.</returns>
     public static SslTcpClient AuthenticateAsClient(TcpClient client, string targetHost)
     {
-        _ = client ?? throw new ArgumentNullException(nameof(client));
-        _ = targetHost ?? throw new ArgumentNullException(nameof(targetHost));
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(targetHost);
 
         SslStream sslStream = new(client.GetStream(), false, (s, c, h, e) => ValidateRemoteCertificate(s, targetHost, c, h, e), null);
         SslTcpClient sslClient = new(client, sslStream);
@@ -125,8 +125,8 @@ internal sealed class SslTcpClient : IDisposable, IAsyncDisposable
     /// <returns>An authenticated <see cref="SslTcpClient"/> instance.</returns>
     public static async Task<SslTcpClient> AuthenticateAsClientAsync(TcpClient client, string targetHost, CancellationToken cancellationToken = default)
     {
-        _ = client ?? throw new ArgumentNullException(nameof(client));
-        _ = targetHost ?? throw new ArgumentNullException(nameof(targetHost));
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(targetHost);
 
         SslStream sslStream = new(client.GetStream(), false, (s, c, h, e) => ValidateRemoteCertificate(s, targetHost, c, h, e), null);
         SslTcpClient sslClient = new(client, sslStream);

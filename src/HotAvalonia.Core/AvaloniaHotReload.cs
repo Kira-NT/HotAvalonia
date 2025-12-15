@@ -28,8 +28,8 @@ public static class AvaloniaHotReload
     /// </param>
     public static void Enable(AppBuilder builder, Func<IHotReloadContext> contextFactory)
     {
-        _ = builder ?? throw new ArgumentNullException(nameof(builder));
-        _ = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(contextFactory);
 
         if (builder.Instance is not null)
         {
@@ -67,8 +67,8 @@ public static class AvaloniaHotReload
     /// </param>
     public static void Enable(Application app, Func<IHotReloadContext> contextFactory)
     {
-        _ = app ?? throw new ArgumentNullException(nameof(app));
-        _ = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
+        ArgumentNullException.ThrowIfNull(app);
+        ArgumentNullException.ThrowIfNull(contextFactory);
 
         if (s_contexts.TryGetValue(app, out IHotReloadContext? context))
         {
@@ -87,7 +87,7 @@ public static class AvaloniaHotReload
     /// <param name="app">The <see cref="Application"/> instance to disable hot reload for.</param>
     public static void Disable(Application app)
     {
-        _ = app ?? throw new ArgumentNullException(nameof(app));
+        ArgumentNullException.ThrowIfNull(app);
 
         if (s_contexts.TryGetValue(app, out IHotReloadContext? context))
             context.DisableHotReload();

@@ -43,8 +43,11 @@ internal class DynamicAssetLoader
     /// </param>
     protected DynamicAssetLoader(IAssetLoader fallbackAssetLoader, AvaloniaProjectLocator projectLocator)
     {
-        _assetLoader = fallbackAssetLoader ?? throw new ArgumentNullException(nameof(fallbackAssetLoader));
-        _projectLocator = projectLocator ?? throw new ArgumentNullException(nameof(projectLocator));
+        ArgumentNullException.ThrowIfNull(fallbackAssetLoader);
+        ArgumentNullException.ThrowIfNull(projectLocator);
+
+        _assetLoader = fallbackAssetLoader;
+        _projectLocator = projectLocator;
         _fileSystem = new CachingFileSystem(projectLocator.FileSystem);
     }
 

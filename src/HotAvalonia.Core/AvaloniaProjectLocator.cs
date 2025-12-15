@@ -44,7 +44,9 @@ public sealed class AvaloniaProjectLocator
     /// <param name="fileSystem">The file system provider used for locating projects.</param>
     public AvaloniaProjectLocator(IFileSystem fileSystem)
     {
-        _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        ArgumentNullException.ThrowIfNull(fileSystem);
+
+        _fileSystem = fileSystem;
         _cache = new();
         _hints = new();
     }
@@ -61,7 +63,7 @@ public sealed class AvaloniaProjectLocator
     /// <param name="hint">The hint-providing function to register.</param>
     public void AddHint(Func<Assembly, string?> hint)
     {
-        _ = hint ?? throw new ArgumentNullException(nameof(hint));
+        ArgumentNullException.ThrowIfNull(hint);
 
         _hints.Add(hint);
     }
@@ -73,8 +75,8 @@ public sealed class AvaloniaProjectLocator
     /// <param name="directoryName">The project path associated with the assembly.</param>
     public void AddHint(string assemblyName, string directoryName)
     {
-        _ = assemblyName ?? throw new ArgumentNullException(nameof(assemblyName));
-        _ = directoryName ?? throw new ArgumentNullException(nameof(directoryName));
+        ArgumentNullException.ThrowIfNull(assemblyName);
+        ArgumentNullException.ThrowIfNull(directoryName);
 
         AddHint(x => x.GetName().Name == assemblyName ? directoryName : null);
     }
@@ -86,7 +88,7 @@ public sealed class AvaloniaProjectLocator
     /// <param name="directoryName">The project path associated with the assembly.</param>
     public void AddHint(Assembly assembly, string directoryName)
     {
-        _ = assembly ?? throw new ArgumentNullException(nameof(assembly));
+        ArgumentNullException.ThrowIfNull(assembly);
 
 #if NETSTANDARD2_0
         // Technically, this is not thread-safe, but who cares.
@@ -105,8 +107,8 @@ public sealed class AvaloniaProjectLocator
     /// <param name="fileName">The file name of the type's associated XAML file.</param>
     public void AddHint(Type type, string fileName)
     {
-        _ = type ?? throw new ArgumentNullException(nameof(type));
-        _ = fileName ?? throw new ArgumentNullException(nameof(fileName));
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(fileName);
         if (!XamlScanner.TryExtractDocumentUri(type, out Uri? uri))
             return;
 

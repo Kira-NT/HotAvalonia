@@ -28,7 +28,7 @@ internal static class CallbackInjector
     /// <inheritdoc cref="Inject(MethodBase, MethodBase)"/>
     public static IInjection Inject(MethodBase target, Delegate callback)
     {
-        _ = callback ?? throw new ArgumentNullException(nameof(callback));
+        ArgumentNullException.ThrowIfNull(callback);
 
         return Inject(target, callback.Method, callback.Target);
     }
@@ -49,9 +49,10 @@ internal static class CallbackInjector
     /// <returns>An <see cref="IInjection"/> instance that represents the method injection.</returns>
     public static IInjection Inject(MethodBase target, MethodBase callback, object? thisArg)
     {
-        _ = target ?? throw new ArgumentNullException(nameof(target));
-        _ = callback ?? throw new ArgumentNullException(nameof(callback));
-        _ = thisArg ?? (callback.IsStatic ? thisArg : throw new ArgumentNullException(nameof(thisArg)));
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(callback);
+        if (!callback.IsStatic)
+            ArgumentNullException.ThrowIfNull(thisArg);
 
         ThrowIfNotSupported();
 
@@ -279,7 +280,7 @@ internal static class CallbackInjector
         while (true)
         {
             if (remainingArgs.IsEmpty)
-                throw new ArgumentException("No suitable argument found for the callback parameter.", parameter.Name);
+                ArgumentException.Throw(parameter.Name, "No suitable argument found for the callback parameter.");
 
             ParameterInfo arg = remainingArgs[0];
             remainingArgs = remainingArgs.Slice(1);

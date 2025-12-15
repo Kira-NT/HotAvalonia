@@ -43,10 +43,11 @@ internal sealed class AvaloniaAssetManager : IDisposable
     /// <param name="serviceProvider">The service provider for resolving dependencies.</param>
     public AvaloniaAssetManager(IServiceProvider serviceProvider)
     {
-        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        ArgumentNullException.ThrowIfNull(serviceProvider);
+
+        _serviceProvider = serviceProvider;
         IconTypeConverter = new();
         BitmapTypeConverter = new();
-
         if (!TryInjectAssetCallbacks(out _injections))
             LoggingHelper.LogWarning("Failed to subscribe to asset loading events. Icons and images won't be reloaded upon file changes.");
     }
@@ -59,10 +60,14 @@ internal sealed class AvaloniaAssetManager : IDisposable
         get => _serviceProvider.GetService(typeof(IAssetLoader)) as IAssetLoader;
         set
         {
-            if (_serviceProvider is not AvaloniaServiceProvider mutableServiceProvider)
-                throw new InvalidOperationException();
-
-            mutableServiceProvider.SetService(typeof(IAssetLoader), _ => value);
+            if (_serviceProvider is AvaloniaServiceProvider mutableServiceProvider)
+            {
+                mutableServiceProvider.SetService(typeof(IAssetLoader), _ => value);
+            }
+            else
+            {
+                InvalidOperationException.Throw();
+            }
         }
     }
 
@@ -72,7 +77,11 @@ internal sealed class AvaloniaAssetManager : IDisposable
     public IconTypeConverter IconTypeConverter
     {
         get => field;
-        set => field = value ?? throw new ArgumentNullException(nameof(value));
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            field = value;
+        }
     }
 
     /// <summary>
@@ -81,7 +90,11 @@ internal sealed class AvaloniaAssetManager : IDisposable
     public BitmapTypeConverter BitmapTypeConverter
     {
         get => field;
-        set => field = value ?? throw new ArgumentNullException(nameof(value));
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            field = value;
+        }
     }
 
     /// <summary>

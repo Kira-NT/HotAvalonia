@@ -27,9 +27,9 @@ internal sealed class FileObserver<T> : IObservable<T>, IObserver<FileSystemEven
     /// <param name="provider">The function that provides the observed data.</param>
     public FileObserver(IFileSystem fileSystem, string fileName, Func<T> provider)
     {
-        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
-        _ = fileName ?? throw new ArgumentNullException(nameof(fileName));
-        _ = provider ?? throw new ArgumentNullException(nameof(provider));
+        ArgumentNullException.ThrowIfNull(fileSystem);
+        ArgumentNullException.ThrowIfNull(fileName);
+        ArgumentNullException.ThrowIfNull(provider);
 
         _provider = provider;
         _entries = new();
@@ -231,9 +231,9 @@ file sealed class SharedFileObserver : IDisposable
     /// <param name="fileSystem">The file system where <paramref name="fileName"/> can be found.</param>
     public static void Subscribe(IObserver<FileSystemEventArgs> observer, string fileName, IFileSystem fileSystem)
     {
-        _ = observer ?? throw new ArgumentNullException(nameof(observer));
-        _ = fileName ?? throw new ArgumentNullException(nameof(fileName));
-        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        ArgumentNullException.ThrowIfNull(observer);
+        ArgumentNullException.ThrowIfNull(fileName);
+        ArgumentNullException.ThrowIfNull(fileSystem);
 
         fileName = fileSystem.GetFullPath(fileName);
         string volumeName = fileSystem.GetVolumeName(fileName);

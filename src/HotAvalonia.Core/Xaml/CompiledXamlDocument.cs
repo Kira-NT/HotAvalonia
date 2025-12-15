@@ -111,18 +111,18 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
         FieldInfo? populateOverride = null,
         Action<object>? refresh = null)
     {
-        _ = uri ?? throw new ArgumentNullException(nameof(uri));
-        _ = build ?? throw new ArgumentNullException(nameof(build));
-        _ = populate ?? throw new ArgumentNullException(nameof(populate));
+        ArgumentNullException.ThrowIfNull(uri);
+        ArgumentNullException.ThrowIfNull(build);
+        ArgumentNullException.ThrowIfNull(populate);
 
         if (!XamlScanner.IsBuildMethod(build))
-            throw new ArgumentException("The provided method does not meet the build method criteria.", nameof(build));
+            ArgumentException.Throw(nameof(build), "The provided method does not meet the build method criteria.");
 
         if (!XamlScanner.IsPopulateMethod(populate))
-            throw new ArgumentException("The provided method does not meet the populate method criteria.", nameof(populate));
+            ArgumentException.Throw(nameof(populate), "The provided method does not meet the populate method criteria.");
 
         if (populateOverride is not null && !XamlScanner.IsPopulateOverrideField(populateOverride))
-            throw new ArgumentException("The provided field does not meet the populate override criteria.", nameof(populateOverride));
+            ArgumentException.Throw(nameof(populateOverride), "The provided field does not meet the populate override criteria.");
 
         _uri = uri;
         _build = build;
@@ -178,7 +178,7 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     /// <param name="rootControl">The root control to be populated.</param>
     public void Populate(IServiceProvider? serviceProvider, object rootControl)
     {
-        _ = rootControl ?? throw new ArgumentNullException(nameof(rootControl));
+        ArgumentNullException.ThrowIfNull(rootControl);
 
         Reset(rootControl, out Action restore);
         _populate.Invoke(null, [serviceProvider ?? XamlIlRuntimeHelpers.CreateRootServiceProviderV2(), rootControl]);
@@ -198,7 +198,7 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     /// <returns><c>true</c> if the populate override was successfully injected; otherwise, <c>false</c>.</returns>
     internal bool TryOverridePopulate(Action<IServiceProvider?, object> populate, [NotNullWhen(true)] out IInjection? injection)
     {
-        _ = populate ?? throw new ArgumentNullException(nameof(populate));
+        ArgumentNullException.ThrowIfNull(populate);
 
         if (_populateOverride is null)
         {

@@ -21,7 +21,9 @@ internal sealed class AvaloniaServiceProvider : IServiceProvider
     /// </param>
     private AvaloniaServiceProvider(IDictionary<Type, Func<object?>> registry)
     {
-        _registry = registry ?? throw new ArgumentNullException(nameof(registry));
+        ArgumentNullException.ThrowIfNull(registry);
+
+        _registry = registry;
     }
 
     /// <summary>
@@ -50,7 +52,7 @@ internal sealed class AvaloniaServiceProvider : IServiceProvider
     /// </returns>
     private static AvaloniaServiceProvider FromAvaloniaLocator(AvaloniaLocator locator)
     {
-        _ = locator ?? throw new ArgumentNullException(nameof(locator));
+        ArgumentNullException.ThrowIfNull(locator);
 
         IDictionary<Type, Func<object?>> registry = locator.GetType()
             .GetInstanceFields()
@@ -64,7 +66,7 @@ internal sealed class AvaloniaServiceProvider : IServiceProvider
     /// <inheritdoc/>
     public object? GetService(Type serviceType)
     {
-        _ = serviceType ?? throw new ArgumentNullException(nameof(serviceType));
+        ArgumentNullException.ThrowIfNull(serviceType);
 
         if (_registry.TryGetValue(serviceType, out Func<object?>? factory))
             return factory();
@@ -79,8 +81,8 @@ internal sealed class AvaloniaServiceProvider : IServiceProvider
     /// <param name="factory">A factory function that produces the service instance.</param>
     public void SetService(Type serviceType, Func<IServiceProvider, object?> factory)
     {
-        _ = serviceType ?? throw new ArgumentNullException(nameof(serviceType));
-        _ = factory ?? throw new ArgumentNullException(nameof(factory));
+        ArgumentNullException.ThrowIfNull(serviceType);
+        ArgumentNullException.ThrowIfNull(factory);
 
         _registry[serviceType] = () => factory(this);
     }

@@ -36,7 +36,7 @@ internal static class UriHelper
         if (uri.IsAbsoluteUri)
             return uri;
 
-        _ = baseUri ?? throw new ArgumentNullException(nameof(baseUri));
+        ArgumentNullException.ThrowIfNull(baseUri);
         return new Uri(baseUri, uri);
     }
 

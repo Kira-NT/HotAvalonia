@@ -24,7 +24,9 @@ internal sealed class DynamicAssetTypeConverter<TAsset> : TypeConverter where TA
     /// <param name="projectLocator">The project locator used to find source directories of assets.</param>
     public DynamicAssetTypeConverter(AvaloniaProjectLocator projectLocator)
     {
-        _projectLocator = projectLocator ?? throw new ArgumentNullException(nameof(projectLocator));
+        ArgumentNullException.ThrowIfNull(projectLocator);
+
+        _projectLocator = projectLocator;
     }
 
     /// <inheritdoc/>
@@ -86,8 +88,8 @@ file static class DynamicAssetTypeConverterBuilder
     {
         const MethodAttributes MethodOverride = MethodAttributes.Public | MethodAttributes.Final | MethodAttributes.HideBySig | MethodAttributes.Virtual;
 
-        _ = assetType ?? throw new ArgumentNullException(nameof(assetType));
-        _ = assetConverterType ?? throw new ArgumentNullException(nameof(assetConverterType));
+        ArgumentNullException.ThrowIfNull(assetType);
+        ArgumentNullException.ThrowIfNull(assetConverterType);
 
         using IDisposable context = AssemblyHelper.GetDynamicAssembly(out AssemblyBuilder assemblyBuilder, out ModuleBuilder moduleBuilder);
         string fullName = $"{assetConverterType.FullName}$Dynamic";

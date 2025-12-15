@@ -43,8 +43,8 @@ internal sealed class FileWatcher : IDisposable
         // See: https://en.wikipedia.org/wiki/Mental_chronometry#Measurement_and_mathematical_descriptions
         const double MinWriteTimeDifference = 150;
 
-        _ = rootPath ?? throw new ArgumentNullException(nameof(rootPath));
-        _ = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        ArgumentNullException.ThrowIfNull(rootPath);
+        ArgumentNullException.ThrowIfNull(fileSystem);
         _ = fileSystem.DirectoryExists(rootPath) ? rootPath : throw new DirectoryNotFoundException(rootPath);
 
         DirectoryName = rootPath;
@@ -64,11 +64,11 @@ internal sealed class FileWatcher : IDisposable
     public FileWatcher(string rootPath, IFileSystem fileSystem, IEnumerable<string> fileNames)
         : this(rootPath, fileSystem)
     {
-        _ = fileNames ?? throw new ArgumentNullException(nameof(fileNames));
+        ArgumentNullException.ThrowIfNull(fileNames);
 
         foreach (string fileName in fileNames)
         {
-            _ = fileName ?? throw new ArgumentNullException(nameof(fileName));
+            ArgumentNullException.ThrowIfNull(fileName);
 
             string fullFileName = fileSystem.GetFullPath(fileName);
             _files.Add(fullFileName);
@@ -118,7 +118,7 @@ internal sealed class FileWatcher : IDisposable
     /// <param name="fileName">The name of the file to be watched.</param>
     public void Watch(string fileName)
     {
-        _ = fileName ?? throw new ArgumentNullException(nameof(fileName));
+        ArgumentNullException.ThrowIfNull(fileName);
 
         fileName = _fileSystem.GetFullPath(fileName);
 
@@ -132,7 +132,7 @@ internal sealed class FileWatcher : IDisposable
     /// <param name="fileName">The name of the file to stop watching.</param>
     public void Unwatch(string fileName)
     {
-        _ = fileName ?? throw new ArgumentNullException(nameof(fileName));
+        ArgumentNullException.ThrowIfNull(fileName);
 
         fileName = _fileSystem.GetFullPath(fileName);
 
