@@ -115,7 +115,7 @@ internal sealed partial class RemoteFileSystem : IFileSystem
     private static async Task<SslTcpClient> AuthenticateClientAsync(IPEndPoint endpoint, byte[] secret, CancellationToken cancellationToken = default)
     {
         TcpClient client = new();
-        await client.ConnectAsync(endpoint.Address, endpoint.Port).ConfigureAwait(false);
+        await client.ConnectAsync(endpoint.Address, endpoint.Port, cancellationToken).ConfigureAwait(false);
 
         SslTcpClient sslClient = await SslTcpClient.AuthenticateAsClientAsync(client, Name, cancellationToken).ConfigureAwait(false);
         SslStream sslStream = sslClient.GetStream();
