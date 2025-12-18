@@ -19,16 +19,6 @@ internal sealed class CecilMethod
     private readonly Func<TypeDefinition, MethodDefinition?> _selector;
 
     /// <summary>
-    /// The cached method definition, if any.
-    /// </summary>
-    private MethodDefinition? _definition;
-
-    /// <summary>
-    /// The cached method reference, if any.
-    /// </summary>
-    private MethodReference? _reference;
-
-    /// <summary>
     /// Initializes a new instance of the <see cref="CecilMethod"/> class.
     /// </summary>
     /// <param name="declaringType">The type that declares this method.</param>
@@ -68,12 +58,12 @@ internal sealed class CecilMethod
     /// <summary>
     /// Gets the method definition.
     /// </summary>
-    public MethodDefinition Definition => _definition ??= _selector(_declaringType.Definition) ?? throw new MissingMethodException();
+    public MethodDefinition Definition => field ??= _selector(_declaringType.Definition) ?? throw new MissingMethodException();
 
     /// <summary>
     /// Gets the imported method reference.
     /// </summary>
-    public MethodReference Reference => _reference ??= ImportMethodReference(_declaringType, Definition);
+    public MethodReference Reference => field ??= ImportMethodReference(_declaringType, Definition);
 
     /// <summary>
     /// Imports a method reference from using the declaring type's resolver.

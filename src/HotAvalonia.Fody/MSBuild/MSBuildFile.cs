@@ -11,18 +11,12 @@ public class MSBuildFile
     private readonly string _fullPath;
 
     /// <summary>
-    /// The cached content of the file, if any.
-    /// </summary>
-    private string? _content;
-
-    /// <summary>
     /// Initializes a new instance of the <see cref="MSBuildFile"/> class.
     /// </summary>
     /// <param name="path">The path to the file.</param>
     public MSBuildFile(string path)
     {
         _fullPath = string.IsNullOrEmpty(path) ? string.Empty : Path.GetFullPath(path);
-        _content = null;
     }
 
     /// <summary>
@@ -51,7 +45,7 @@ public class MSBuildFile
     /// <remarks>
     /// If the file does not exist, an empty string is returned.
     /// </remarks>
-    public string Content => _content ??= Exists ? File.ReadAllText(_fullPath) : string.Empty;
+    public string Content => field ??= Exists ? File.ReadAllText(_fullPath) : string.Empty;
 
     /// <inheritdoc/>
     public override bool Equals(object? obj) => obj is MSBuildFile file && file._fullPath == _fullPath;

@@ -19,16 +19,6 @@ internal sealed class CecilField
     private readonly Func<TypeDefinition, FieldDefinition?> _selector;
 
     /// <summary>
-    /// The cached field definition, if any.
-    /// </summary>
-    private FieldDefinition? _definition;
-
-    /// <summary>
-    /// The cached field reference, if any.
-    /// </summary>
-    private FieldReference? _reference;
-
-    /// <summary>
     /// Initializes a new instance of the <see cref="CecilField"/> class.
     /// </summary>
     /// <param name="declaringType">The type that declares this field.</param>
@@ -68,12 +58,12 @@ internal sealed class CecilField
     /// <summary>
     /// Gets the field definition.
     /// </summary>
-    public FieldDefinition Definition => _definition ??= _selector(_declaringType.Definition) ?? throw new MissingFieldException();
+    public FieldDefinition Definition => field ??= _selector(_declaringType.Definition) ?? throw new MissingFieldException();
 
     /// <summary>
     /// Gets the imported field reference.
     /// </summary>
-    public FieldReference Reference => _reference ??= ImportFieldReference(_declaringType, Definition);
+    public FieldReference Reference => field ??= ImportFieldReference(_declaringType, Definition);
 
     /// <summary>
     /// Imports a field reference using the declaring type's resolver.

@@ -19,21 +19,6 @@ internal sealed class CecilProperty
     private readonly Func<TypeDefinition, PropertyDefinition?> _selector;
 
     /// <summary>
-    /// The cached property definition, if any.
-    /// </summary>
-    private PropertyDefinition? _definition;
-
-    /// <summary>
-    /// The cached method representing the getter of the property, if any.
-    /// </summary>
-    private CecilMethod? _getMethod;
-
-    /// <summary>
-    /// The cached method representing the setter of the property, if any.
-    /// </summary>
-    private CecilMethod? _setMethod;
-
-    /// <summary>
     /// Initializes a new instance of the <see cref="CecilProperty"/> class.
     /// </summary>
     /// <param name="declaringType">The type that declares this property.</param>
@@ -73,17 +58,17 @@ internal sealed class CecilProperty
     /// <summary>
     /// Gets the method used to retrieve the property value, if available.
     /// </summary>
-    public CecilMethod? GetMethod => _getMethod ??= Definition.GetMethod is { } m ? new(_declaringType, _ => m) : null;
+    public CecilMethod? GetMethod => field ??= Definition.GetMethod is { } m ? new(_declaringType, _ => m) : null;
 
     /// <summary>
     /// Gets the method used to set the property value, if available.
     /// </summary>
-    public CecilMethod? SetMethod => _setMethod ??= Definition.SetMethod is { } m ? new(_declaringType, _ => m) : null;
+    public CecilMethod? SetMethod => field ??= Definition.SetMethod is { } m ? new(_declaringType, _ => m) : null;
 
     /// <summary>
     /// Gets the property definition.
     /// </summary>
-    public PropertyDefinition Definition => _definition ??= _selector(_declaringType.Definition) ?? throw new MissingMemberException();
+    public PropertyDefinition Definition => field ??= _selector(_declaringType.Definition) ?? throw new MissingMemberException();
 
     /// <summary>
     /// Gets the imported property reference.

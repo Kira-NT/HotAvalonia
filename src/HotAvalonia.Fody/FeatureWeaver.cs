@@ -23,11 +23,6 @@ internal abstract class FeatureWeaver
     private readonly string _name;
 
     /// <summary>
-    /// The config associated with this weaver.
-    /// </summary>
-    private XElement? _config;
-
-    /// <summary>
     /// Initializes a new instance of the <see cref="FeatureWeaver"/> class.
     /// </summary>
     /// <param name="root">The root module weaver providing context and shared functionality.</param>
@@ -35,7 +30,6 @@ internal abstract class FeatureWeaver
     {
         _root = root ?? throw new ArgumentNullException(nameof(root));
         _name = GetType().Name.Replace("Weaver", string.Empty);
-        _config = null;
     }
 
     /// <summary>
@@ -72,7 +66,7 @@ internal abstract class FeatureWeaver
     protected int this[string name, int defaultValue] => int.TryParse(Config.Attribute(name)?.Value, out int x) ? x : defaultValue;
 
     /// <inheritdoc cref="BaseModuleWeaver.Config"/>
-    public XElement Config => _config ??= _root.Config.Elements().FirstOrDefault(x => x.Name.LocalName == _name) ?? new(_name);
+    public XElement Config => field ??= _root.Config.Element(_name) ?? new(_name);
 
     /// <inheritdoc cref="BaseModuleWeaver.ModuleDefinition"/>
     public ModuleDefinition ModuleDefinition => _root.ModuleDefinition;
@@ -105,7 +99,7 @@ internal abstract class FeatureWeaver
     public string SolutionDirectoryPath => _root.SolutionDirectoryPath;
 
     /// <inheritdoc cref="ModuleWeaver.SolutionFilePath"/>
-    public string SolutionFilePath => _root.SolutionFilePath;
+    public string SolutionFilePath => _root.Solution.FullPath;
 
     /// <inheritdoc cref="ModuleWeaver.Solution"/>
     public MSBuildSolution Solution => _root.Solution;

@@ -11,11 +11,6 @@ namespace HotAvalonia.Reflection;
 public class DynamicAssembly
 {
     /// <summary>
-    /// The underlying assembly.
-    /// </summary>
-    private readonly Assembly _assembly;
-
-    /// <summary>
     /// Initializes a new instance of the <see cref="DynamicAssembly"/> class.
     /// </summary>
     /// <param name="assembly">The assembly to wrap.</param>
@@ -23,18 +18,18 @@ public class DynamicAssembly
     {
         ArgumentNullException.ThrowIfNull(assembly);
 
-        _assembly = assembly;
+        Assembly = assembly;
     }
 
     /// <summary>
     /// Gets the name of the assembly.
     /// </summary>
-    public string Name => _assembly.GetName()?.Name ?? string.Empty;
+    public string Name => Assembly.GetName()?.Name ?? string.Empty;
 
     /// <summary>
     /// Gets the underlying assembly.
     /// </summary>
-    public Assembly Assembly => _assembly;
+    public Assembly Assembly => field;
 
     /// <summary>
     /// Grants the dynamic assembly access to another assembly.
@@ -44,7 +39,7 @@ public class DynamicAssembly
     {
         ArgumentNullException.ThrowIfNull(assembly);
 
-        if (_assembly is AssemblyBuilder assemblyBuilder)
+        if (Assembly is AssemblyBuilder assemblyBuilder)
             assemblyBuilder.AllowAccessTo(assembly);
     }
 }

@@ -20,16 +20,6 @@ internal sealed class CecilType
     private readonly ITypeResolver _resolver;
 
     /// <summary>
-    /// The cached type definition, if any.
-    /// </summary>
-    private TypeDefinition? _definition;
-
-    /// <summary>
-    /// The cached type reference, if any.
-    /// </summary>
-    private TypeReference? _reference;
-
-    /// <summary>
     /// Initializes a new instance of the <see cref="CecilType"/> class.
     /// </summary>
     /// <param name="type">The weak type representation.</param>
@@ -82,12 +72,12 @@ internal sealed class CecilType
     /// <summary>
     /// Gets the type definition.
     /// </summary>
-    public TypeDefinition Definition => _definition ??= ResolveTypeDefinition(_type, _resolver);
+    public TypeDefinition Definition => field ??= ResolveTypeDefinition(_type, _resolver);
 
     /// <summary>
     /// Gets the imported type reference.
     /// </summary>
-    public TypeReference Reference => _reference ??= ImportTypeReference(_type, Definition, _resolver);
+    public TypeReference Reference => field ??= ImportTypeReference(_type, Definition, _resolver);
 
     /// <summary>
     /// Retrieves a method from the type using the specified selector.

@@ -9,23 +9,17 @@ namespace HotAvalonia.Fody.MSBuild;
 public sealed class MSBuildSolution : MSBuildFile
 {
     /// <summary>
-    /// The cached array of projects contained in the solution, if any.
-    /// </summary>
-    private MSBuildProject[]? _projects;
-
-    /// <summary>
     /// Initializes a new instance of the <see cref="MSBuildSolution"/> class.
     /// </summary>
     /// <param name="path">The path to the solution file.</param>
     public MSBuildSolution(string path) : base(path)
     {
-        _projects = null;
     }
 
     /// <summary>
     /// Gets the projects defined in the solution.
     /// </summary>
-    public IEnumerable<MSBuildProject> Projects => _projects ??= ReadProjects().ToArray();
+    public IEnumerable<MSBuildProject> Projects => field ??= ReadProjects().ToArray();
 
     /// <summary>
     /// Reads and parses the solution file content to retrieve the projects it contains.

@@ -58,16 +58,6 @@ internal sealed class DynamicAsset<TAsset> : IObservable<TAsset> where TAsset : 
 
 
     /// <summary>
-    /// The URI associated with the asset.
-    /// </summary>
-    private readonly Uri _uri;
-
-    /// <summary>
-    /// The asset instance.
-    /// </summary>
-    private readonly TAsset _asset;
-
-    /// <summary>
     /// The file observer that watches the file associated with the asset
     /// and triggers refresh operations on file changes.
     /// </summary>
@@ -80,8 +70,8 @@ internal sealed class DynamicAsset<TAsset> : IObservable<TAsset> where TAsset : 
     /// <param name="fileSystem">The file system where the asset can be found.</param>
     private DynamicAsset(Uri uri, IFileSystem fileSystem)
     {
-        _uri = uri;
-        _asset = s_create(this, null);
+        Uri = uri;
+        Asset = s_create(this, null);
         _fileObserver = new(fileSystem, uri.LocalPath, Refresh);
     }
 
@@ -94,20 +84,20 @@ internal sealed class DynamicAsset<TAsset> : IObservable<TAsset> where TAsset : 
     /// <param name="fileSystem">The file system where the asset can be found.</param>
     private DynamicAsset(Stream stream, Uri uri, string fileName, IFileSystem fileSystem)
     {
-        _uri = uri;
-        _asset = s_create(this, stream);
+        Uri = uri;
+        Asset = s_create(this, stream);
         _fileObserver = new(fileSystem, fileName, Refresh);
     }
 
     /// <summary>
     /// Gets the URI associated with the asset.
     /// </summary>
-    public Uri Uri => _uri;
+    public Uri Uri { get; }
 
     /// <summary>
     /// Gets the instance of the asset.
     /// </summary>
-    public TAsset Asset => _asset;
+    public TAsset Asset { get; }
 
     /// <summary>
     /// Creates a new asset instance from the specified URI.
@@ -143,10 +133,10 @@ internal sealed class DynamicAsset<TAsset> : IObservable<TAsset> where TAsset : 
     /// <returns>The refreshed asset.</returns>
     private TAsset Refresh()
     {
-        TAsset newAsset = s_fromFileName is not null && _uri.IsFile
-            ? s_fromFileName(_uri.LocalPath) : s_fromStream(AssetLoader.Open(_uri));
+        TAsset newAsset = s_fromFileName is not null && Uri.IsFile
+            ? s_fromFileName(Uri.LocalPath) : s_fromStream(AssetLoader.Open(Uri));
 
-        s_copy(newAsset, _asset);
+        s_copy(newAsset, Asset);
         return newAsset;
     }
 
