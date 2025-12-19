@@ -21,11 +21,15 @@ Like any other Fody weaver, `HotAvalonia.Fody` can be configured either via `Fod
 <PropertyGroup>
   <WeaverConfiguration>
     <Weavers>
-      <HotAvalonia SolutionPath="$(SolutionPath)">
+      <HotAvalonia>
+        <Solution Path="$(SolutionPath)">
+          <Project Path="/home/user/projects/MyApp/src/MyApp/MyApp.csproj" AssemblyName="MyApp" />
+          <Project Path="/home/user/projects/MyApp/src/MyApp.Desktop/MyApp.Desktop.csproj" AssemblyName="MyApp.Desktop" />
+        </Solution>
         <PopulateOverride Enable="true" />
         <UseHotReload Enable="true" GeneratePathResolver="true" />
         <FileSystemCredentials Enable="true" Address="127.0.0.1" Port="20158" Secret="TXkgU3VwZXIgU2VjcmV0IFZhbHVl" />
-        <References Enable="true" Exclude="HotAvalonia.Core;Avalonia.Markup.Xaml.Loader" />
+        <References Enable="false" Exclude="HotAvalonia.Core;Avalonia.Markup.Xaml.Loader" />
       </HotAvalonia>
     </Weavers>
   </WeaverConfiguration>
@@ -33,14 +37,6 @@ Like any other Fody weaver, `HotAvalonia.Fody` can be configured either via `Fod
 ```
 
 Here's a quick overview of the weaver-specific properties:
-
-### HotAvalonia
-
-The root configuration element represents the entry-point weaver that orchestrates and manages feature-specific weavers, while its child nodes represent the individual feature-specific weavers themselves.
-
-| Name | Description | Default | Examples |
-| :--- | :---------- | :------ | :------- |
-| `SolutionPath` | Sets the path to a solution file *(`.sln`)* related to this project. | If not set, the weaver will attempt to search for the first `*.sln` file from the current project directory upwards. | `$(SolutionPath)` |
 
 ### PopulateOverride
 
@@ -63,7 +59,7 @@ This feature weaver is responsible for automatically invoking `HotAvalonia.Avalo
 | Name | Description | Default | Examples |
 | :--- | :---------- | :------ | :------- |
 | `Enable` | Sets a value indicating whether this feature weaver is enabled. | `false` | `true` <br> `false` |
-| `GeneratePathResolver` | Sets a value indicating whether this feature weaver should automatically generate `HotAvalonia.AvaloniaHotReloadExtensions.ResolveProjectPath(Assembly)` from the solution file if this method does not already exist. | `false` | `true` <br> `false` |
+| `GeneratePathResolver` | Sets a value indicating whether this feature weaver should automatically generate `HotAvalonia.AvaloniaHotReloadExtensions.ResolveProjectPath(Assembly)` based on the `<Solution>` element, if this method does not already exist. | `false` | `true` <br> `false` |
 
 ### FileSystemCredentials
 

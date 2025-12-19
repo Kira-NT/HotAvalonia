@@ -189,8 +189,7 @@ internal sealed class UseHotReloadWeaver : FeatureWeaver
         if (!GeneratePathResolver)
             return null;
 
-        IEnumerable<MSBuildProject> projects = Solution.Projects.Concat([Project]).Distinct().Where(x => !string.IsNullOrEmpty(x.AssemblyName));
-        pathResolver = CreatePathResolver(ResolveProjectPathMethodName, projects);
+        pathResolver = CreatePathResolver(ResolveProjectPathMethodName, ReferencedProjects);
         declaringType.Methods.Add(pathResolver);
         return pathResolver;
     }
@@ -231,6 +230,9 @@ internal sealed class UseHotReloadWeaver : FeatureWeaver
         // projects does one need to have for this to become an issue?
         foreach (MSBuildProject project in projects)
         {
+            if (string.IsNullOrEmpty(project.AssemblyName))
+                continue;
+
             il.Emit(OpCodes.Ldstr, project.DirectoryName);
             il.Emit(OpCodes.Ldstr, project.AssemblyName);
             il.Emit(OpCodes.Ldloc_0);

@@ -1,83 +1,71 @@
 <Project>
 
-  <PropertyGroup>
-    <!-- Since we want to default to remote hot reload on non-desktop runtimes, we first need to determine whether we are dealing with one. -->
+  <PropertyGroup Label="HotAvalonia: Private Properties">
     <_HotAvaloniaIsAndroid>$(TargetFramework.EndsWith('-android'))</_HotAvaloniaIsAndroid>
     <_HotAvaloniaIsIOS>$(TargetFramework.EndsWith('-ios'))</_HotAvaloniaIsIOS>
     <_HotAvaloniaIsBrowser>$(TargetFramework.EndsWith('-browser'))</_HotAvaloniaIsBrowser>
-    <_HotAvaloniaIsNotDesktop Condition="'$(_HotAvaloniaIsNotDesktop)' == '' And ('$(_HotAvaloniaIsAndroid)' == 'true' Or '$(_HotAvaloniaIsIOS)' == 'true' Or '$(_HotAvaloniaIsBrowser)' == 'true')">true</_HotAvaloniaIsNotDesktop>
-    <_HotAvaloniaIsNotDesktop Condition="'$(_HotAvaloniaIsNotDesktop)' == ''">false</_HotAvaloniaIsNotDesktop>
+    <_HotAvaloniaIsNotDesktop Condition="'$(_HotAvaloniaIsNotDesktop)' == '' And ($(_HotAvaloniaIsAndroid) Or $(_HotAvaloniaIsIOS) Or $(_HotAvaloniaIsBrowser))">true</_HotAvaloniaIsNotDesktop>
+    <_HotAvaloniaIsNotDesktop Condition="'$(_HotAvaloniaIsNotDesktop)' != 'true'">false</_HotAvaloniaIsNotDesktop>
 
-    <!-- Some dependencies only make sense for startup projects that produce the actual executable. -->
-    <!-- Note that there's a "feature" that sets `OutputType` to `Library` for non-desktop runtimes, regardless of the actual setting. -->
-    <!-- Thus, this scenario needs to be handled separately. -->
-    <_HotAvaloniaIsExe Condition="'$(_HotAvaloniaIsExe)' == '' And '$(_HotAvaloniaIsNotDesktop)' == 'true'">true</_HotAvaloniaIsExe>
+    <_HotAvaloniaIsExe Condition="'$(_HotAvaloniaIsExe)' == '' And $(_HotAvaloniaIsNotDesktop)">true</_HotAvaloniaIsExe>
     <_HotAvaloniaIsExe Condition="'$(_HotAvaloniaIsExe)' == ''">$(OutputType.ToLowerInvariant().EndsWith('exe'))</_HotAvaloniaIsExe>
+    <_HotAvaloniaIsExe Condition="'$(_HotAvaloniaIsExe)' != 'true'">false</_HotAvaloniaIsExe>
 
-    <!-- `.vbproj` uses `,` to separate constants defined via `DefineConstants` instead of `;`. -->
-    <!-- The funny thing is, MSBuild will throw an error if you try to use `;` because it's a forbidden character. -->
-    <!-- So, this mf understands what you want, but instead of interpreting `;` as a separator, it still decides to crash. -->
-    <!-- Thanks for that, I guess. -->
     <_HotAvaloniaDefineConstantsSeparator Condition="'$(_HotAvaloniaDefineConstantsSeparator)' == '' And '$(MSBuildProjectExtension)' == '.vbproj'">,</_HotAvaloniaDefineConstantsSeparator>
     <_HotAvaloniaDefineConstantsSeparator Condition="'$(_HotAvaloniaDefineConstantsSeparator)' == ''">;</_HotAvaloniaDefineConstantsSeparator>
 
-    <!-- We primarily need these constants so we can redefine them locally for testing purposes. -->
     <_HotAvaloniaHarfsFile Condition="'$(_HotAvaloniaHarfsFile)' == ''">$(MSBuildThisFileDirectory)..\tools\HotAvalonia.Remote.dll</_HotAvaloniaHarfsFile>
     <_HotAvaloniaAssemblyFile Condition="'$(_HotAvaloniaAssemblyFile)' == ''">$(MSBuildThisFileDirectory)..\tasks\netstandard2.0\HotAvalonia.dll</_HotAvaloniaAssemblyFile>
   </PropertyGroup>
 
-  <!-- Import our tasks from the `HotAvalonia` assembly. -->
-  <UsingTask TaskName="HotAvalonia.GenerateFileSystemServerConfigTask" AssemblyFile="$(_HotAvaloniaAssemblyFile)" />
-  <UsingTask TaskName="HotAvalonia.GetFileSystemClientConfigTask" AssemblyFile="$(_HotAvaloniaAssemblyFile)" />
-  <UsingTask TaskName="HotAvalonia.StartFileSystemServerTask" AssemblyFile="$(_HotAvaloniaAssemblyFile)" />
-
-  <PropertyGroup>
-    <!-- Enable `HotAvalonia` for debug builds by default. -->
-    <HotAvalonia Condition="'$(HotAvalonia)' == 'enable'">true</HotAvalonia>
-    <HotAvalonia Condition="'$(HotAvalonia)' == '' And '$(Configuration)' == 'Debug'">true</HotAvalonia>
-    <HotAvalonia Condition="'$(HotAvalonia)' == ''">false</HotAvalonia>
+  <PropertyGroup Label="HotAvalonia: Public Properties">
+    <!-- Enable HotAvalonia for debug builds by default. -->
+    <HotAvalonia Condition="('$(HotAvalonia)' == '' And '$(Configuration)' == 'Debug') Or ('$(HotAvalonia)' == 'enable')">true</HotAvalonia>
+    <HotAvalonia Condition="'$(HotAvalonia)' != 'true'">false</HotAvalonia>
 
     <!-- Default to remote hot reload for non-desktop builds. -->
     <HotAvaloniaRemote Condition="'$(HotAvaloniaRemote)' == 'enable'">true</HotAvaloniaRemote>
     <HotAvaloniaRemote Condition="'$(HotAvaloniaRemote)' == ''">$(_HotAvaloniaIsNotDesktop)</HotAvaloniaRemote>
+    <HotAvaloniaRemote Condition="'$(HotAvaloniaRemote)' != 'true' Or !$(HotAvalonia)">false</HotAvaloniaRemote>
 
     <!-- Default to lite hot reload when remote hot reload is enabled. -->
     <HotAvaloniaLite Condition="'$(HotAvaloniaLite)' == 'enable'">true</HotAvaloniaLite>
     <HotAvaloniaLite Condition="'$(HotAvaloniaLite)' == ''">$(HotAvaloniaRemote)</HotAvaloniaLite>
+    <HotAvaloniaLite Condition="'$(HotAvaloniaLite)' != 'true' Or !$(HotAvalonia)">false</HotAvaloniaLite>
 
-    <!-- We want (need) to add `AvaloniaHotReloadExtensions` only to startup projects. -->
+    <!-- Only inject `AvaloniaHotReloadExtensions` into startup projects by default. -->
     <HotAvaloniaIncludeExtensions Condition="'$(HotAvaloniaIncludeExtensions)' == ''">$(_HotAvaloniaIsExe)</HotAvaloniaIncludeExtensions>
+    <HotAvaloniaIncludeExtensions Condition="'$(HotAvaloniaIncludeExtensions)' != 'true'">false</HotAvaloniaIncludeExtensions>
 
-    <!-- The auto-enable feature only works (and only makes sense) in the context of startup projects that produce an actual executable. -->
+    <!-- The auto-enable feature works only in the context of startup projects that produce an actual executable. -->
     <HotAvaloniaAutoEnable Condition="'$(HotAvaloniaAutoEnable)' == ''">$(_HotAvaloniaIsExe)</HotAvaloniaAutoEnable>
+    <HotAvaloniaAutoEnable Condition="'$(HotAvaloniaAutoEnable)' != 'true' Or !$(HotAvalonia)">false</HotAvaloniaAutoEnable>
 
-    <!-- We want this feature to always be enabled by default since there's no harm in it. -->
-    <!-- Worst case, it will just do nothing. -->
+    <!-- This feature should always be enabled by default. In the worst case, it simply does nothing. -->
     <HotAvaloniaRecompileResources Condition="'$(HotAvaloniaRecompileResources)' == ''">true</HotAvaloniaRecompileResources>
+    <HotAvaloniaRecompileResources Condition="'$(HotAvaloniaRecompileResources)' != 'true' Or !$(HotAvalonia)">false</HotAvaloniaRecompileResources>
 
-    <!-- This switch tweaks the behavior of the auto-enable feature, so there's no reason to enable it when the feature itself is disabled. -->
-    <!-- However, when enabled, we want it ON by default. -->
-    <HotAvaloniaGeneratePathResolver Condition="'$(HotAvaloniaGeneratePathResolver)' == ''">$(HotAvaloniaAutoEnable)</HotAvaloniaGeneratePathResolver>
+    <!-- This switch tweaks the behavior of the auto-enable feature, so there is no reason to enable it when the feature itself is disabled. -->
+    <HotAvaloniaGeneratePathResolver Condition="'$(HotAvaloniaGeneratePathResolver)' == ''">true</HotAvaloniaGeneratePathResolver>
+    <HotAvaloniaGeneratePathResolver Condition="'$(HotAvaloniaGeneratePathResolver)' != 'true' Or !$(HotAvaloniaAutoEnable)">false</HotAvaloniaGeneratePathResolver>
 
-    <!-- Since we cannot conditionally define dependencies here, HotAvalonia has been set to depend on all essential packages it might need. -->
-    <!-- Now, we can remove them as needed instead. -->
-    <!-- Technically, we only need to erase HotAvalonia.Core, but to be safe, let's enumerate all the other packages as well. -->
+    <!-- Since we cannot conditionally define dependencies here, HotAvalonia is configured to depend on all essential packages it might need. We can then remove them as necessary. -->
+    <!-- Technically, only `HotAvalonia.Core` really needs to be removed, but to be safe, let's enumerate other packages as well. -->
+    <!-- It is also not possible to determine whether `Avalonia.Markup.Xaml.Loader` should be removed, as users may have legitimate reasons to depend on it. Thus, exclude it only when explicitly requested. -->
+    <HotAvaloniaProcessReferences Condition="'$(HotAvaloniaProcessReferences)' == '' And $(HotAvalonia)">false</HotAvaloniaProcessReferences>
+    <HotAvaloniaProcessReferences Condition="'$(HotAvaloniaProcessReferences)' == ''">true</HotAvaloniaProcessReferences>
+    <HotAvaloniaProcessReferences Condition="'$(HotAvaloniaProcessReferences)' != 'true'">false</HotAvaloniaProcessReferences>
     <HotAvaloniaExcludeReferences>$(HotAvaloniaExcludeReferences);HotAvalonia;HotAvalonia.Core;HotAvalonia.Fody</HotAvaloniaExcludeReferences>
-
-    <!-- Unfortunately, we cannot reliably determine whether Avalonia.Markup.Xaml.Loader should be erased too, -->
-    <!-- as there are legitimate reasons why users might already depend on it, even without HotAvalonia being present. -->
-    <!-- So, let's supply them with an opt-out switch and call it a day. -->
     <HotAvaloniaExcludeReferences Condition="'$(HotAvaloniaIncludeXamlLoader)' == 'false'">$(HotAvaloniaExcludeReferences);Avalonia.Markup.Xaml.Loader</HotAvaloniaExcludeReferences>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <!-- Let the task to infer the local address of the machine. -->
+  <PropertyGroup Label="HARFS: Public Properties">
+    <!-- Let the task infer the local address of the current machine. -->
     <HarfsAddress Condition="'$(HarfsAddress)' == ''"></HarfsAddress>
 
     <!-- If no network interface is available, default to `127.0.0.1`. -->
-    <!-- However, if our target is an Android emulator, use `10.0.2.2` instead, -->
-    <!-- as this address is directly mapped to the host machine's localhost. -->
-    <HarfsFallbackAddress Condition="'$(HarfsFallbackAddress)' == '' And '$(_HotAvaloniaIsAndroid)' == 'true'">10.0.2.2</HarfsFallbackAddress>
+    <!-- However, if our target is an Android emulator, use `10.0.2.2` instead, as this address is directly mapped to the host machine's localhost. -->
+    <HarfsFallbackAddress Condition="'$(HarfsFallbackAddress)' == '' And $(_HotAvaloniaIsAndroid)">10.0.2.2</HarfsFallbackAddress>
     <HarfsFallbackAddress Condition="'$(HarfsFallbackAddress)' == ''">127.0.0.1</HarfsFallbackAddress>
 
     <!-- Default to listening on all available network interfaces. -->
@@ -106,75 +94,52 @@
     <HarfsConfigOutputPath Condition="'$(HarfsConfigOutputPath)' == ''">Avalonia\HotAvalonia.Remote.xml</HarfsConfigOutputPath>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <!-- This is pretty self-explanatory: -->
-    <!-- Define the constants used by `AvaloniaHotReloadExtensions.(cs|vb|fs)` based on the current settings. -->
-    <DefineConstants Condition="'$(HotAvalonia)' == 'true'">$(DefineConstants)$(_HotAvaloniaDefineConstantsSeparator)HOTAVALONIA_ENABLE</DefineConstants>
-    <DefineConstants Condition="'$(HotAvaloniaRemote)' == 'true'">$(DefineConstants)$(_HotAvaloniaDefineConstantsSeparator)HOTAVALONIA_USE_REMOTE_FILE_SYSTEM</DefineConstants>
-    <DefineConstants Condition="'$(HotAvaloniaLite)' == 'true'">$(DefineConstants)$(_HotAvaloniaDefineConstantsSeparator)HOTAVALONIA_ENABLE_LITE</DefineConstants>
-    <DefineConstants Condition="'$(HotAvaloniaIncludeExtensions)' != 'true'">$(DefineConstants)$(_HotAvaloniaDefineConstantsSeparator)HOTAVALONIA_EXCLUDE_EXTENSIONS</DefineConstants>
+  <PropertyGroup Label="HotAvalonia: Compiler Constants">
+    <DefineConstants Condition="$(HotAvalonia)">$(DefineConstants)$(_HotAvaloniaDefineConstantsSeparator)HOTAVALONIA_ENABLE</DefineConstants>
+    <DefineConstants Condition="$(HotAvaloniaRemote)">$(DefineConstants)$(_HotAvaloniaDefineConstantsSeparator)HOTAVALONIA_USE_REMOTE_FILE_SYSTEM</DefineConstants>
+    <DefineConstants Condition="$(HotAvaloniaLite)">$(DefineConstants)$(_HotAvaloniaDefineConstantsSeparator)HOTAVALONIA_ENABLE_LITE</DefineConstants>
+    <DefineConstants Condition="!$(HotAvaloniaIncludeExtensions)">$(DefineConstants)$(_HotAvaloniaDefineConstantsSeparator)HOTAVALONIA_EXCLUDE_EXTENSIONS</DefineConstants>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(HotAvalonia)' == 'true' And '$(_HotAvaloniaIsIOS)' == 'true'">
+  <PropertyGroup Label="HotAvalonia: iOS Properties" Condition="$(HotAvalonia) And $(_HotAvaloniaIsIOS)">
     <!-- Force-enable Mono Interpreter on iOS to accommodate the platform's fundamental design flaws. -->
     <MtouchInterpreter>all</MtouchInterpreter>
     <UseInterpreter>true</UseInterpreter>
     <PublishAot>false</PublishAot>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <!-- For MSBuild `>= 17.0.0`, we want to use `TargetsTriggeredByCompilation` instead of `AfterTargets`, -->
-    <!-- because the latter and the older one basically doesn't work with incremental builds. -->
+  <PropertyGroup Label="HotAvalonia: MSBuild Properties">
+    <!-- For MSBuild >= 17.0.0, we want to use `TargetsTriggeredByCompilation` instead of `AfterTargets`, because the latter one doesn't work with incremental builds. -->
     <MSBuildMajorVersion Condition="'$(MSBuildMajorVersion)' == '' And '$(MSBuildVersion)' != ''">$([System.Version]::Parse($(MSBuildVersion)).Major)</MSBuildMajorVersion>
     <MSBuildMajorVersion Condition="'$(MSBuildMajorVersion)' == ''">15</MSBuildMajorVersion>
-    <HotAvaloniaAfterTargets Condition="($(MSBuildMajorVersion) &lt; 17) AND '$(HotAvaloniaAfterTargets)' == ''">AfterCompile</HotAvaloniaAfterTargets>
-    <TargetsTriggeredByCompilation Condition="'$(HotAvaloniaAfterTargets)' == ''">$(TargetsTriggeredByCompilation);HotAvaloniaGenerateFileSystemServerConfig</TargetsTriggeredByCompilation>
-
-    <!-- Ensure our target runs only when `CompileAvaloniaXaml` has completed. -->
-    <HotAvaloniaDependsOnTargets Condition="'$(HotAvalonia)' == 'true'">$(HotAvaloniaDependsOnTargets);CompileAvaloniaXaml</HotAvaloniaDependsOnTargets>
-
-    <!-- If remote hot reload is enabled, Fody must run after our target generates a proper config for it. -->
-    <FodyDependsOnTargets Condition="'$(HotAvalonia)' == 'true' And '$(HotAvaloniaRemote)' == 'true'">$(FodyDependsOnTargets);HotAvaloniaGenerateFileSystemServerConfig</FodyDependsOnTargets>
-
-    <!-- Otherwise, ensure that Fody runs only after Avalonia has finished compiling XAML. -->
-    <FodyDependsOnTargets Condition="'$(HotAvalonia)' == 'true' And '$(HotAvaloniaRemote)' != 'true'">$(FodyDependsOnTargets);CompileAvaloniaXaml</FodyDependsOnTargets>
+    <HotAvaloniaAfterTargets Condition="($(MSBuildMajorVersion) &lt; 17) And '$(HotAvaloniaAfterTargets)' == ''">AfterCompile</HotAvaloniaAfterTargets>
+    <TargetsTriggeredByCompilation Condition="'$(HotAvaloniaAfterTargets)' == ''">$(TargetsTriggeredByCompilation);HotAvaloniaGenerateFodyConfig</TargetsTriggeredByCompilation>
+    <FodyDependsOnTargets>$(FodyDependsOnTargets);HotAvaloniaGenerateFodyConfig</FodyDependsOnTargets>
+    <HotAvaloniaDependsOnTargets Condition="$(HotAvalonia)">$(HotAvaloniaDependsOnTargets);CompileAvaloniaXaml</HotAvaloniaDependsOnTargets>
   </PropertyGroup>
 
-  <!-- When HotAvalonia is disabled, we want to erase all its references from the user's project. -->
-  <PropertyGroup Condition="'$(HotAvalonia)' != 'true'">
-    <WeaverConfiguration>
-      <Weavers>
-        <HotAvalonia>
-          <References Enable="true" Exclude="$(HotAvaloniaExcludeReferences)" />
-        </HotAvalonia>
-      </Weavers>
-    </WeaverConfiguration>
-  </PropertyGroup>
-
-  <!-- This is the default Fody config for scenarios where remote hot reload is disabled. -->
-  <PropertyGroup Condition="'$(HotAvalonia)' == 'true' And '$(HotAvaloniaRemote)' != 'true'">
-    <WeaverConfiguration>
-      <Weavers>
-        <HotAvalonia SolutionPath="$(SolutionPath)">
-          <PopulateOverride Enable="$(HotAvaloniaRecompileResources)" />
-          <UseHotReload Enable="$(HotAvaloniaAutoEnable)" GeneratePathResolver="$(HotAvaloniaGeneratePathResolver)" />
-        </HotAvalonia>
-      </Weavers>
-    </WeaverConfiguration>
-  </PropertyGroup>
-
-  <!-- If remote hot reload is enabled, we need to generate a HARFS config, -->
-  <!-- and then pass the connection information to the app via a weaver. -->
+  <!-- Generate a weaver config for `HotAvalonia.Fody`. -->
+  <UsingTask TaskName="HotAvalonia.GenerateFileSystemServerConfigTask" AssemblyFile="$(_HotAvaloniaAssemblyFile)" />
+  <UsingTask TaskName="HotAvalonia.GetFileSystemClientConfigTask" AssemblyFile="$(_HotAvaloniaAssemblyFile)" />
   <Target
-    Name="HotAvaloniaGenerateFileSystemServerConfig"
-    Condition="'$(HotAvalonia)' == 'true' And '$(HotAvaloniaRemote)' == 'true'"
+    Name="HotAvaloniaGenerateFodyConfig"
     AfterTargets="$(HotAvaloniaAfterTargets)"
     DependsOnTargets="$(HotAvaloniaDependsOnTargets)"
     Inputs="@(IntermediateAssembly);$(ProjectWeaverXml)"
     Outputs="$(IntermediateOutputPath)$(HarfsConfigOutputPath)"
   >
-    <!-- Generate a config. -->
+    <!-- Collect information about referenced projects. -->
+    <ItemGroup>
+      <_HotAvaloniaProject Include="$(MSBuildProjectFullPath)" MSBuildSourceProjectFile="$(MSBuildProjectFullPath)" FusionName="$(AssemblyName)" />
+      <_HotAvaloniaProject Include="@(ReferenceCopyLocalPaths->HasMetadata('MSBuildSourceProjectFile')->HasMetadata('FusionName'))" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_HotAvaloniaProjects>@(_HotAvaloniaProject->'&lt;Project Path="%(MSBuildSourceProjectFile)" AssemblyName="%(FusionName)" /&gt;', '')</_HotAvaloniaProjects>
+    </PropertyGroup>
+
+    <!-- Generate a HARFS config and hydrate properties with its values. -->
     <HotAvalonia.GenerateFileSystemServerConfigTask
+      Condition="$(HotAvaloniaRemote)"
       Root="$(SolutionDir)"
       FallbackRoot="$(MSBuildProjectDirectory)"
       Secret="$(HarfsSecretBase64)"
@@ -187,9 +152,8 @@
       AllowShutDownRequests="$(HarfsExitOnDisconnect)"
       OutputPath="$(IntermediateOutputPath)$(HarfsConfigOutputPath)"
     />
-
-    <!-- Read the config and save its values into properties. -->
     <HotAvalonia.GetFileSystemClientConfigTask
+      Condition="$(HotAvaloniaRemote)"
       FileSystemServerConfigPath="$(IntermediateOutputPath)$(HarfsConfigOutputPath)"
       Address="$(HarfsAddress)"
       FallbackAddress="$(HarfsFallbackAddress)"
@@ -199,23 +163,31 @@
       <Output TaskParameter="Secret" PropertyName="HarfsSecretBase64" />
     </HotAvalonia.GetFileSystemClientConfigTask>
 
-    <!-- Pass those values to the app. -->
+    <!-- Prepare the weaver config and pass it down to Fody's `WeaverConfiguration`. -->
     <PropertyGroup>
-      <WeaverConfiguration>
-        <Weavers>
-          <HotAvalonia SolutionPath="$(SolutionPath)">
-            <PopulateOverride Enable="$(HotAvaloniaRecompileResources)" />
-            <UseHotReload Enable="$(HotAvaloniaAutoEnable)" GeneratePathResolver="$(HotAvaloniaGeneratePathResolver)" />
-            <FileSystemCredentials Enable="true" Address="$(HarfsAddress)" Port="$(HarfsPort)" Secret="$(HarfsSecretBase64)" />
-          </HotAvalonia>
-        </Weavers>
+      <_HotAvaloniaWeaverConfiguration>
+        <HotAvalonia>
+          <Solution Path="$(SolutionPath)">$(_HotAvaloniaProjects)</Solution>
+          <References Enable="$(HotAvaloniaProcessReferences)" Exclude="$(HotAvaloniaExcludeReferences)" />
+          <PopulateOverride Enable="$(HotAvaloniaRecompileResources)" />
+          <UseHotReload Enable="$(HotAvaloniaAutoEnable)" GeneratePathResolver="$(HotAvaloniaGeneratePathResolver)" />
+          <FileSystemCredentials Enable="$(HotAvaloniaRemote)" Address="$(HarfsAddress)" Port="$(HarfsPort)" Secret="$(HarfsSecretBase64)" />
+        </HotAvalonia>
+      </_HotAvaloniaWeaverConfiguration>
+
+      <WeaverConfiguration Condition="$(WeaverConfiguration.Contains('&lt;/Weavers&gt;'))">
+        $(WeaverConfiguration.Replace('&lt;/Weavers&gt;', '$(_HotAvaloniaWeaverConfiguration)&lt;/Weavers&gt;'))
+      </WeaverConfiguration>
+      <WeaverConfiguration Condition="!$(WeaverConfiguration.Contains('&lt;/Weavers&gt;'))">
+        <Weavers>$(_HotAvaloniaWeaverConfiguration)</Weavers>
       </WeaverConfiguration>
     </PropertyGroup>
   </Target>
 
   <!-- If remote hot reload is enabled, start HARFS when the build completes. -->
+  <UsingTask TaskName="HotAvalonia.StartFileSystemServerTask" AssemblyFile="$(_HotAvaloniaAssemblyFile)" />
   <Target Name="HotAvaloniaStartFileSystemServer"
-    Condition="'$(HotAvalonia)' == 'true' And '$(HotAvaloniaRemote)' == 'true'"
+    Condition="$(HotAvaloniaRemote)"
     AfterTargets="AfterBuild"
   >
     <HotAvalonia.StartFileSystemServerTask

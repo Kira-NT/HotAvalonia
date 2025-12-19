@@ -9,44 +9,16 @@ public sealed class MSBuildProject : MSBuildFile
     /// Initializes a new instance of the <see cref="MSBuildProject"/> class.
     /// </summary>
     /// <param name="path">The path to the project file.</param>
-    public MSBuildProject(string path) : base(path)
+    /// <param name="assemblyName">The assembly name associated with the project.</param>
+    public MSBuildProject(string path, string? assemblyName = null) : base(path)
     {
-        AssemblyName = null;
+        // If the assembly name is provided in its fully qualified form (e.g., "AssemblyName, Version=1.0.0.0, ..."),
+        // strip everything beyond the actual name.
+        AssemblyName = assemblyName?.Split(',')[0].Trim();
     }
 
     /// <summary>
-    /// Gets the assembly name associated with the project.
+    /// Gets the assembly name associated with the project, if any.
     /// </summary>
-    public string AssemblyName
-    {
-        get
-        {
-            if (field is not null)
-                return field;
-
-            // 99% of projects out there default to using
-            // the project file name as the assembly name.
-            //
-            // Also, there are a few strange folks who like
-            // to specify the assembly name explicitly, as in:
-            // <AssemblyName>ProjectFileNameWithoutExtension</AssemblyName>
-            //
-            // However, if neither of the above applies, we can't determine
-            // what the assembly name is supposed to be without actually
-            // running MSBuild, which, obviously, isn't an option.
-            //
-            // Honestly, there's also an edge case where <AssemblyName>
-            // might be specified outside of the project file
-            // (e.g., in a .props or .targets file),
-            // but if your setup is THAT weird - my man, that's on you!
-            field = Path.GetFileNameWithoutExtension(FullPath);
-            if (!Content.Contains("<AssemblyName>"))
-                return field;
-
-            if (Content.Contains($"<AssemblyName>{field}</AssemblyName>"))
-                return field;
-
-            return field = string.Empty;
-        }
-    }
+    public string? AssemblyName { get; }
 }

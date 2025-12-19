@@ -36,6 +36,7 @@ public sealed class ModuleWeaver : BaseModuleWeaver, ITypeResolver
                 return field;
 
             string? solutionFilePath = Config?.Attribute("SolutionPath")?.Value;
+            solutionFilePath ??= Config?.Element("Solution")?.Attribute("Path")?.Value;
             if (solutionFilePath is { Length: > 0 } && File.Exists(solutionFilePath))
                 return field = new(solutionFilePath);
 
@@ -52,7 +53,30 @@ public sealed class ModuleWeaver : BaseModuleWeaver, ITypeResolver
     /// <summary>
     /// Gets the target project.
     /// </summary>
-    public MSBuildProject Project => field ??= new(ProjectFilePath);
+    public MSBuildProject Project => field ??= new(ProjectFilePath, ModuleDefinition.Assembly.Name.Name);
+
+    /// <summary>
+    /// Gets all projects referenced by the current build, including the project that initiated it.
+    /// </summary>
+    public IEnumerable<MSBuildProject> ReferencedProjects
+    {
+        get
+        {
+            if (field is not null)
+                return field;
+
+            field = Config?.Element("Solution").Elements("Project")
+                .Select(x => (Path: x.Attribute("Path")?.Value, AssemblyName: x.Attribute("AssemblyName")?.Value))
+                .Where(x => !string.IsNullOrEmpty(x.Path))
+                .Select(x => new MSBuildProject(x.Path!, x.AssemblyName))
+                .ToArray();
+
+            if (field is null || !field.Any())
+                field = [Project, .. Solution.Projects];
+
+            return field;
+        }
+    }
 
     /// <inheritdoc/>
     public override IEnumerable<string> GetAssembliesForScanning()

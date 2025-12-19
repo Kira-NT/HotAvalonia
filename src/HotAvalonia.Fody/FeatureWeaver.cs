@@ -89,6 +89,9 @@ internal abstract class FeatureWeaver
     /// <inheritdoc cref="ModuleWeaver.Project"/>
     public MSBuildProject Project => _root.Project;
 
+    /// <inheritdoc cref="ModuleWeaver.ReferencedProjects"/>
+    public IEnumerable<MSBuildProject> ReferencedProjects => _root.ReferencedProjects;
+
     /// <inheritdoc cref="BaseModuleWeaver.DocumentationFilePath"/>
     public string? DocumentationFilePath => _root.DocumentationFilePath;
 
