@@ -1,6 +1,5 @@
-using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text;
+using HotAvalonia.Diagnostics;
 using Microsoft.Build.Framework;
 
 namespace HotAvalonia;
@@ -31,49 +30,22 @@ public sealed class StartFileSystemServerTask : MSBuildTask
     /// <inheritdoc/>
     protected override void ExecuteCore()
     {
-        const string SecretEnvironmentVariableName = "HARFS_SECRET";
-
         string serverFullPath = Path.GetFullPath(FileSystemServerPath);
         FileSystemServerConfig config = FileSystemServerConfig.Load(FileSystemServerConfigPath);
+        ProcessStartContext processContext = new() { DotnetPath = DotnetPath, Timeout = 5000 };
 
-        string runnerPath;
-        StringBuilder arguments = new();
-        if (serverFullPath.EndsWith(".dll"))
+        (int exitCode, string serverVersionOutput, string serverError) = processContext.Run(serverFullPath, ["--version"]);
+        Version serverVersion = Version.TryParse(serverVersionOutput.Trim(), out serverVersion) ? serverVersion : new(0, 0, 0);
+        Version taskVersion = GetType().Assembly.GetName()?.Version ?? new(0, 0, 0);
+        if (serverVersion.ToString(3) != taskVersion.ToString(3))
         {
-            runnerPath = DotnetPath ?? GetDotnetFileName();
-            arguments.Append("exec \"").Append(serverFullPath).Append("\" ");
+            ExternalException? innerException = exitCode == 0 ? null : new(serverError.Trim(), exitCode);
+            throw new InvalidOperationException($"Incompatible server version. Expected '{taskVersion}', got '{serverVersion}'. ('{serverFullPath}')", innerException);
         }
-        else
-        {
-            runnerPath = serverFullPath;
-        }
-        arguments.Append(config.ToArguments(SecretEnvironmentVariableName));
 
-        ProcessStartInfo processInfo = new(runnerPath)
-        {
-            Arguments = arguments.ToString(),
-            Environment = { { SecretEnvironmentVariableName, config.Secret } },
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-        Process.Start(processInfo);
-    }
-
-    /// <summary>
-    /// Gets the file name of the dotnet executable.
-    /// </summary>
-    /// <returns>The file name of the dotnet executable.</returns>
-    private static string GetDotnetFileName()
-    {
-        string fileName = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH");
-        if (!string.IsNullOrEmpty(fileName))
-            return fileName;
-
-        fileName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "dotnet.exe" : "dotnet";
-        string directoryName = Environment.GetEnvironmentVariable("DOTNET_ROOT");
-        if (string.IsNullOrEmpty(directoryName))
-            directoryName = Environment.GetEnvironmentVariable("DOTNET_ROOT(x86)");
-
-        return string.IsNullOrEmpty(directoryName) ? fileName : Path.Combine(directoryName, fileName);
+        string secretEnvironmentVariableName = "HARFS_SECRET";
+        List<string> args = config.ToArguments(secretEnvironmentVariableName);
+        Dictionary<string, string?> vars = new() { { secretEnvironmentVariableName, config.Secret } };
+        processContext.StartDaemon(serverFullPath, args, vars);
     }
 }

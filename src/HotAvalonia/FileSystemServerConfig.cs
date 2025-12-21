@@ -1,4 +1,3 @@
-using System.Text;
 using System.Xml.Serialization;
 
 namespace HotAvalonia;
@@ -50,54 +49,64 @@ public sealed class FileSystemServerConfig
     public bool AllowShutDownRequests { get; set; }
 
     /// <summary>
-    /// Converts the configuration settings into a command-line arguments string.
+    /// Converts the configuration into a list of command-line arguments.
     /// </summary>
     /// <param name="secretName">
     /// An optional secret name used to reference the secret via an environment variable.
     /// If not provided, the secret is included inline using the prefix <c>text:</c>;
     /// otherwise, it is referenced using the given name and prefix <c>env:</c>.
     /// </param>
-    /// <returns>A string containing the command-line arguments representing the current configuration.</returns>
-    public string ToArguments(string? secretName = null)
+    /// <returns>A list containing the command-line arguments representing the current configuration.</returns>
+    public List<string> ToArguments(string? secretName = null)
     {
-        StringBuilder arguments = new();
+        List<string> arguments = new();
 
-        if (!string.IsNullOrEmpty(Root))
-            arguments.Append("--root \"").Append(Path.GetFullPath(Root)).Append("\" ");
-
-        if (!string.IsNullOrEmpty(Secret))
+        if (Root is { Length: > 0 })
         {
-            arguments.Append("--secret \"");
-            if (string.IsNullOrEmpty(secretName))
-            {
-                arguments.Append("text:base64:").Append(Secret);
-            }
-            else
-            {
-                arguments.Append("env:base64:").Append(secretName);
-            }
-            arguments.Append("\" ");
+            arguments.Add("--root");
+            arguments.Add(Path.GetFullPath(Root));
         }
 
-        if (!string.IsNullOrEmpty(Address))
-            arguments.Append("--address \"").Append(Address).Append("\" ");
+        if (Secret is { Length: > 0 })
+        {
+            arguments.Add("--secret");
+            arguments.Add(secretName is { Length: > 0 } ? $"env:base64:{secretName}" : $"text:base64:{Secret}");
+        }
+
+        if (Address is { Length: > 0 })
+        {
+            arguments.Add("--address");
+            arguments.Add(Address);
+        }
 
         if (Port > 0)
-            arguments.Append("--port ").Append(Port).Append(' ');
+        {
+            arguments.Add("--port");
+            arguments.Add($"{Port}");
+        }
 
-        if (!string.IsNullOrEmpty(Certificate))
-            arguments.Append("--certificate \"").Append(Path.GetFullPath(Certificate)).Append("\" ");
+        if (Certificate is { Length: > 0 })
+        {
+            arguments.Add("--certificate");
+            arguments.Add(Path.GetFullPath(Certificate));
+        }
 
         if (MaxSearchDepth > 0)
-            arguments.Append("--max-search-depth ").Append(MaxSearchDepth).Append(' ');
+        {
+            arguments.Add("--max-search-depth");
+            arguments.Add($"{MaxSearchDepth}");
+        }
 
         if (Timeout > 0)
-            arguments.Append("--timeout ").Append(Timeout).Append(' ');
+        {
+            arguments.Add("--timeout");
+            arguments.Add($"{Timeout}");
+        }
 
         if (AllowShutDownRequests)
-            arguments.Append("--allow-shutdown-requests");
+            arguments.Add("--allow-shutdown-requests");
 
-        return arguments.ToString();
+        return arguments;
     }
 
     /// <summary>
