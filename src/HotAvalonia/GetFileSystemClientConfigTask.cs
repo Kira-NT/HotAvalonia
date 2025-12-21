@@ -1,5 +1,5 @@
 using System.Net;
-using HotAvalonia.Helpers;
+using HotAvalonia.Net;
 using Microsoft.Build.Framework;
 
 namespace HotAvalonia;
@@ -45,7 +45,7 @@ public sealed class GetFileSystemClientConfigTask : MSBuildTask
         FileSystemServerConfig config = FileSystemServerConfig.Load(FileSystemServerConfigPath);
         if (!IPAddress.TryParse(Address, out IPAddress? ip))
         {
-            ip = NetworkHelper.GetLocalAddress();
+            ip = InterNetwork.GetLocalAddress();
             if (ip is null && !IPAddress.TryParse(FallbackAddress, out ip))
                 ip = IPAddress.Loopback;
         }

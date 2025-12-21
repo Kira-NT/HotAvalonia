@@ -2,12 +2,12 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 
-namespace HotAvalonia.Helpers;
+namespace HotAvalonia.Net;
 
 /// <summary>
-/// Provides helper methods for network-related operations.
+/// Provides configuration and statistical information for the inter network.
 /// </summary>
-internal static class NetworkHelper
+internal static class InterNetwork
 {
     /// <summary>
     /// Attempts to retrieve the local IP address of the current machine.

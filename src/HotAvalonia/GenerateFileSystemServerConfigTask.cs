@@ -1,7 +1,7 @@
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
-using HotAvalonia.Helpers;
+using HotAvalonia.Net;
 using Microsoft.Build.Framework;
 
 namespace HotAvalonia;
@@ -79,7 +79,7 @@ public sealed class GenerateFileSystemServerConfigTask : MSBuildTask
             Root = !string.IsNullOrEmpty(Root) && Directory.Exists(Root) ? Path.GetFullPath(Root) : FindRoot(FallbackRoot),
             Secret = string.IsNullOrEmpty(Secret) ? Convert.ToBase64String(string.IsNullOrEmpty(SecretUtf8) ? GenerateSecret() : Encoding.UTF8.GetBytes(SecretUtf8)) : Secret,
             Address = Address,
-            Port = int.TryParse(Port, out int port) && port is > 0 and <= ushort.MaxValue ? port : NetworkHelper.GetAvailablePort(ProtocolType.Tcp),
+            Port = int.TryParse(Port, out int port) && port is > 0 and <= ushort.MaxValue ? port : InterNetwork.GetAvailablePort(ProtocolType.Tcp),
             Certificate = !string.IsNullOrEmpty(Certificate) && File.Exists(Certificate) ? Path.GetFullPath(Certificate) : null,
             MaxSearchDepth = int.TryParse(MaxSearchDepth, out int maxSearchDepth) ? maxSearchDepth : 0,
             Timeout = int.TryParse(Timeout, out int timeout) ? timeout : 0,
