@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 
 namespace HotAvalonia.Fody.MSBuild;
 
@@ -19,26 +20,45 @@ public sealed class MSBuildSolution : MSBuildFile
     /// <summary>
     /// Gets the projects defined in the solution.
     /// </summary>
-    public IEnumerable<MSBuildProject> Projects => field ??= ReadProjects().ToArray();
+    public IEnumerable<MSBuildProject> Projects => field ??= Path.GetExtension(FullPath) switch
+    {
+        ".sln" => ParseSlnProjects(Content, DirectoryName).ToArray(),
+        ".slnx" => ParseXmlProjects(Content, DirectoryName).ToArray(),
+        _ => []
+    };
 
     /// <summary>
-    /// Reads and parses the solution file content to retrieve the projects it contains.
+    /// Parses the .sln file content to retrieve the projects it contains.
     /// </summary>
+    /// <param name="slnContent">The contents of the solution file.</param>
+    /// <param name="baseDirectory">The base directory used to resolve relative project paths.</param>
     /// <returns>
     /// A collection of <see cref="MSBuildProject"/> instances representing the projects in the solution.
     /// </returns>
-    private IEnumerable<MSBuildProject> ReadProjects()
-    {
-        // If you're thinking, "Oh, parsing files with regex is baaaaaad",
-        // please first take a look at the monstrosity that is the .sln spec.
-        // Then, try saying that to my face while staring deep into my sleep-deprived eyes.
-        string directoryName = DirectoryName;
-        return Regex.Matches(Content, "\\\"([^\"]+\\.[^\"]*proj)\\\"")
+    private static IEnumerable<MSBuildProject> ParseSlnProjects(string slnContent, string baseDirectory)
+        => Regex.Matches(slnContent, "\\\"([^\"]+\\.[^\"]*proj)\\\"")
             .Cast<Match>()
             .Select(x => x.Groups[1].Value)
             .Where(x => !string.IsNullOrEmpty(x))
             .Select(x => Uri.UnescapeDataString(x.Replace('\\', Path.DirectorySeparatorChar)))
-            .Select(x => new MSBuildProject(Path.Combine(directoryName, x)));
+            .Select(x => new MSBuildProject(Path.Combine(baseDirectory, x)));
+
+    /// <summary>
+    /// Parses the .slnx file content to retrieve the projects it contains.
+    /// </summary>
+    /// <param name="xmlContent">The contents of the solution file.</param>
+    /// <param name="baseDirectory">The base directory used to resolve relative project paths.</param>
+    /// <returns>
+    /// A collection of <see cref="MSBuildProject"/> instances representing the projects in the solution.
+    /// </returns>
+    private static IEnumerable<MSBuildProject> ParseXmlProjects(string xmlContent, string baseDirectory)
+    {
+        XDocument document = XDocument.Parse(xmlContent);
+        return document.Root?.Elements("Project")
+            .Concat(document.Root.Elements("Folder").SelectMany(x => x.Elements("Project")))
+            .Select(x => x.Attribute("Path")?.Value?.Replace('\\', Path.DirectorySeparatorChar))
+            .Where(x => !string.IsNullOrEmpty(x))
+            .Select(x => new MSBuildProject(Path.Combine(baseDirectory, x))) ?? [];
     }
 
     /// <summary>
@@ -55,10 +75,14 @@ public sealed class MSBuildSolution : MSBuildFile
     public static bool TryGetFromDirectory(string? path, [NotNullWhen(true)] out MSBuildSolution? solution)
     {
         solution = null;
+        if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
+            return false;
+
         try
         {
-            if (path is { Length: > 0 } && Directory.Exists(path))
-                solution = Directory.EnumerateFiles(path, "*.sln", SearchOption.TopDirectoryOnly).Select(x => new MSBuildSolution(x)).FirstOrDefault();
+            solution = Directory.EnumerateFiles(path, "*.sln*")
+                .Where(x => x.EndsWith(".slnx") || x.EndsWith(".sln"))
+                .Select(x => new MSBuildSolution(x)).FirstOrDefault();
         }
         catch { }
 
