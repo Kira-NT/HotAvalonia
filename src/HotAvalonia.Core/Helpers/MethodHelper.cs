@@ -172,41 +172,31 @@ internal static class MethodHelper
     /// </summary>
     /// <param name="method">The method to get the file path for.</param>
     /// <param name="fileSystem">The file system where the method's assembly resides.</param>
-    /// <returns>
-    /// The file path of the source code file where the specified method is defined,
-    /// or <c>null</c> if the path cannot be determined.
-    /// </returns>
-    public static string? GetFilePath(this MethodBase method, IFileSystem fileSystem)
+    /// <returns>The file path of the source code file where the specified method is defined.</returns>
+    public static string GetFilePath(this MethodBase method, IFileSystem fileSystem)
     {
-        if (method is not { DeclaringType: { FullName.Length: > 0, Assembly.IsDynamic: false } })
-            return null;
+        ArgumentNullException.ThrowIfNull(method);
+        if (method is DynamicMethod or not { Module.Assembly.Location.Length: > 0 })
+            ArgumentException.Throw(nameof(method), "The method's assembly was not loaded from disk.");
 
-        string? location = method.DeclaringType.Assembly.Location;
-        string? pdbLocation = fileSystem.ChangeExtension(location, ".pdb");
-        if (!fileSystem.FileExists(pdbLocation))
-            return null;
+        string pdbLocation = fileSystem.ChangeExtension(method.Module.Assembly.Location, ".pdb");
+        using Stream pdbStream = fileSystem.OpenRead(pdbLocation);
+        using MetadataReaderProvider pdbReaderProvider = MetadataReaderProvider.FromPortablePdbStream(pdbStream);
+        MetadataReader pdbReader = pdbReaderProvider.GetMetadataReader();
 
-        try
+        int rowId = method.MetadataToken & 0x00FFFFFF;
+        MethodDebugInformationHandle debugHandle = MemoryMarshal.Cast<int, MethodDebugInformationHandle>([rowId])[0];
+        MethodDebugInformation debugInfo = pdbReader.GetMethodDebugInformation(debugHandle);
+        foreach (SequencePoint sequencePoint in debugInfo.GetSequencePoints())
         {
-            using Stream pdbStream = fileSystem.OpenRead(pdbLocation);
-            using MetadataReaderProvider pdbReaderProvider = MetadataReaderProvider.FromPortablePdbStream(pdbStream);
-            MetadataReader pdbReader = pdbReaderProvider.GetMetadataReader();
+            if (sequencePoint.IsHidden || sequencePoint.Document.IsNil)
+                continue;
 
-            Span<int> rowId = stackalloc int[1] { method.MetadataToken & 0x00FFFFFF };
-            MethodDebugInformationHandle debugHandle = MemoryMarshal.Cast<int, MethodDebugInformationHandle>(rowId)[0];
-            MethodDebugInformation debugInfo = pdbReader.GetMethodDebugInformation(debugHandle);
-
-            foreach (SequencePoint sequencePoint in debugInfo.GetSequencePoints())
-            {
-                if (sequencePoint.IsHidden || sequencePoint.Document.IsNil)
-                    continue;
-
-                Document document = pdbReader.GetDocument(sequencePoint.Document);
-                return pdbReader.GetString(document.Name);
-            }
+            Document document = pdbReader.GetDocument(sequencePoint.Document);
+            return pdbReader.GetString(document.Name);
         }
-        catch { }
 
+        ArgumentException.Throw(nameof(method), "The method's sequence points are not contained in an identifiable document.");
         return null;
     }
 }

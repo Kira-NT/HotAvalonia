@@ -9,7 +9,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using HotAvalonia.DependencyInjection;
-using HotAvalonia.Helpers;
+using HotAvalonia.Logging;
 using HotAvalonia.Reflection.Inject;
 
 namespace HotAvalonia;
@@ -49,7 +49,7 @@ internal sealed class AvaloniaAssetManager : IDisposable
         IconTypeConverter = new();
         BitmapTypeConverter = new();
         if (!TryInjectAssetCallbacks(out _injections))
-            LoggingHelper.LogWarning("Failed to subscribe to asset loading events. Icons and images won't be reloaded upon file changes.");
+            Logger.LogWarning("Failed to subscribe to asset loading events. Icons and images won't be reloaded upon file changes.");
     }
 
     /// <summary>

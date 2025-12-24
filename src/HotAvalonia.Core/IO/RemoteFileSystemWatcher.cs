@@ -1,6 +1,6 @@
 using System.Net.Security;
 using System.Text;
-using HotAvalonia.Helpers;
+using HotAvalonia.Logging;
 using HotAvalonia.Net;
 
 namespace HotAvalonia.IO;
@@ -253,7 +253,7 @@ internal sealed partial class RemoteFileSystemWatcher : IFileSystemWatcher
             }
             catch (Exception e)
             {
-                LoggingHelper.LogError(this, "Could not execute {Action}: {Exception}", action, e);
+                Logger.LogError(this, "Could not execute '{Action}': {Exception}", action, e);
                 continue;
             }
         }

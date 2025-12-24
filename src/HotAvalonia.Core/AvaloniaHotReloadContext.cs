@@ -8,6 +8,7 @@ using HotAvalonia.Assets;
 using HotAvalonia.DependencyInjection;
 using HotAvalonia.Helpers;
 using HotAvalonia.IO;
+using HotAvalonia.Logging;
 using HotAvalonia.Xaml;
 
 namespace HotAvalonia;
@@ -112,38 +113,54 @@ public static class AvaloniaHotReloadContext
         ArgumentNullException.ThrowIfNull(appDomain);
         ArgumentNullException.ThrowIfNull(projectLocator);
 
-        return HotReloadContext.FromAppDomain(appDomain, (_, asm) => FromUnverifiedAssembly(asm, projectLocator));
+        return HotReloadContext.FromAppDomain(appDomain, (ctx, _, asm) => FromUnverifiedAssembly(ctx, asm, projectLocator));
     }
 
     /// <summary>
     /// Creates a hot reload context from the specified assembly, if it contains Avalonia controls;
     /// otherwise, returns <c>null</c>.
     /// </summary>
+    /// <param name="context">The parent hot reload context, if any.</param>
     /// <param name="assembly">The assembly to create the hot reload context from.</param>
     /// <param name="projectLocator">The project locator used to find the source directory of the assembly.</param>
     /// <returns>
     /// A hot reload context for the specified assembly, or <c>null</c> if the assembly
     /// does not contain Avalonia controls or if its source project cannot be located.
     /// </returns>
-    private static IHotReloadContext? FromUnverifiedAssembly(Assembly assembly, AvaloniaProjectLocator projectLocator)
+    private static IHotReloadContext? FromUnverifiedAssembly(IHotReloadContext? context, Assembly assembly, AvaloniaProjectLocator projectLocator)
     {
         CompiledXamlDocument[] documents = XamlScanner.GetDocuments(assembly).ToArray();
         if (documents.Length == 0)
             return null;
 
+        string? assemblyName = assembly.GetName().Name;
         if (!projectLocator.TryGetDirectoryName(assembly, documents, out string? rootPath))
         {
-            LoggingHelper.LogInfo("Found an assembly containing Avalonia controls ({AssemblyName}). However, its source project location could not be determined. Skipping.", assembly.GetName().Name);
+            // At runtime, there is no reliable way to determine whether a given library comes from
+            // a NuGet package or a referenced project. This means we cannot simply emit a warning,
+            // as that could spam users' logs with information about libraries they do not own.
+            //
+            // On the other hand, emitting a potential warning as a mere informational message is
+            // also problematic, because it can obscure debugging when something actually goes wrong.
+            //
+            // So here's a compromise: if the inspected assembly shares a prefix with the entry assembly
+            // (e.g., "Foo.Core" and "Foo.Desktop"), emit a warning, as this most likely indicates
+            // a referenced project. Otherwise, emit an informational event. This simple heuristic
+            // should cover the most common cases and is good enough for a log message.
+            LogLevel logLevel = assemblyName?.Split('.')[0] == Assembly.GetEntryAssembly()?.GetName().Name?.Split('.')[0] ? LogLevel.Error : LogLevel.Information;
+            Logger.Log(logLevel, context, "Failed to create a hot reload context for '{Assembly}': sources not found.", assemblyName);
             return null;
         }
 
         if (!projectLocator.FileSystem.DirectoryExists(rootPath))
         {
-            LoggingHelper.LogInfo("Found an assembly containing Avalonia controls ({AssemblyName}) with its source project located at {ProjectLocation}. However, the project could not be found on the local system. Skipping.", assembly.GetName().Name, rootPath);
+            // Same as above.
+            LogLevel logLevel = assemblyName?.Split('.')[0] == Assembly.GetEntryAssembly()?.GetName().Name?.Split('.')[0] ? LogLevel.Error : LogLevel.Information;
+            Logger.Log(logLevel, context, "Failed to create a hot reload context for '{Assembly}': '{Location}' not found.", assemblyName, rootPath);
             return null;
         }
 
-        LoggingHelper.LogInfo("Found an assembly containing Avalonia controls ({AssemblyName}) with its source project located at {ProjectLocation}.", assembly.GetName().Name, rootPath);
+        Logger.LogInfo(context, "Loading new hot reload context for '{Assembly}' from '{Location}'...", assemblyName, rootPath);
         return new AvaloniaProjectHotReloadContext(rootPath, projectLocator.FileSystem, documents);
     }
 
@@ -317,21 +334,21 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupportI
         }
         catch (Exception e)
         {
-            LoggingHelper.LogError("Failed to pre-patch all available documents: {Exception}", e);
+            Logger.LogError(this, "Failed to pre-patch all available documents: {Exception}", e);
         }
     }
 
     /// <inheritdoc/>
     public void EnableHotReload()
     {
-        LoggingHelper.LogInfo("Enabling hot reload for the project located at {ProjectLocation}...", _watcher.DirectoryName);
+        Logger.LogInfo(this, "Enabling hot reload for '{Location}'...", _watcher.DirectoryName);
         _enabled = true;
     }
 
     /// <inheritdoc/>
     public void DisableHotReload()
     {
-        LoggingHelper.LogInfo("Disabling hot reload for the project located at {ProjectLocation}...", _watcher.DirectoryName);
+        Logger.LogInfo(this, "Disabling hot reload for '{Location}'...", _watcher.DirectoryName);
         _enabled = false;
     }
 
@@ -374,14 +391,14 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupportI
             if (!await fileSystem.FileExistsAsync(path, cancellationToken).ConfigureAwait(false))
                 return;
 
-            LoggingHelper.LogInfo("Reloading {ControlUri}...", controlManager.Document.Uri);
+            Logger.LogInfo(this, "Reloading '{Uri}'...", controlManager.Document.Uri);
             string xaml = await fileSystem.ReadAllTextAsync(path, TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
             string patchedXaml = _xamlPatcher.Patch(xaml);
             await controlManager.ReloadAsync(patchedXaml, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception e)
         {
-            LoggingHelper.LogError("Failed to reload {ControlUri}: {Exception}", controlManager.Document.Uri, e);
+            Logger.LogError(this, "Failed to reload '{Uri}': {Exception}", controlManager.Document.Uri, e);
         }
     }
 
@@ -397,7 +414,7 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupportI
         if (!_controls.TryGetValue(oldFullPath, out AvaloniaControlManager? controlManager))
             return;
 
-        LoggingHelper.LogInfo("{ControlUri} has been moved from {OldControlLocation} to {ControlLocation}.", controlManager.Document.Uri, oldFullPath, newFullPath);
+        Logger.LogInfo(this, "'{Uri}' has been moved from '{OldLocation}' to '{Location}'.", controlManager.Document.Uri, oldFullPath, newFullPath);
         _controls.Remove(oldFullPath);
         _controls[newFullPath] = controlManager;
     }
@@ -408,7 +425,7 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupportI
     /// <param name="sender">The source of the event.</param>
     /// <param name="args">The event arguments containing the error details.</param>
     private void OnError(object sender, ErrorEventArgs args)
-        => LoggingHelper.LogError(sender, "An unexpected error occurred while monitoring file changes: {Exception}", args.GetException());
+        => Logger.LogError(sender, "An unexpected error occurred while monitoring file changes: {Exception}", args.GetException());
 
     /// <summary>
     /// Applies patches asynchronously to all registered controls.
@@ -437,13 +454,13 @@ file sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupportI
             if (!_xamlPatcher.RequiresPatching(xaml))
                 return;
 
-            LoggingHelper.LogInfo("Patching {ControlUri}...", controlManager.Document.Uri);
+            Logger.LogInfo(this, "Patching '{Uri}'...", controlManager.Document.Uri);
             string patchedXaml = _xamlPatcher.Patch(xaml);
             await controlManager.ReloadAsync(patchedXaml, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception e)
         {
-            LoggingHelper.LogError("Failed to patch {ControlUri}: {Exception}", controlManager.Document.Uri, e);
+            Logger.LogError(this, "Failed to patch '{Uri}': {Exception}", controlManager.Document.Uri, e);
         }
     }
 }
@@ -484,7 +501,7 @@ file sealed class AvaloniaAssetsHotReloadContext : IHotReloadContext
     /// <inheritdoc/>
     public void EnableHotReload()
     {
-        LoggingHelper.LogInfo("Enabling hot reload for assets...");
+        Logger.LogInfo(this, "Enabling hot reload for assets...");
         IAssetLoader? currentAssetLoader = _assetManager.AssetLoader;
         if (currentAssetLoader is null or DynamicAssetLoader)
             return;
@@ -497,7 +514,7 @@ file sealed class AvaloniaAssetsHotReloadContext : IHotReloadContext
     /// <inheritdoc/>
     public void DisableHotReload()
     {
-        LoggingHelper.LogInfo("Disabling hot reload for assets...");
+        Logger.LogInfo(this, "Disabling hot reload for assets...");
         IAssetLoader? currentAssetLoader = _assetManager.AssetLoader;
         if (currentAssetLoader is not DynamicAssetLoader dynamicAssetLoader)
             return;

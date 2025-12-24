@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using HotAvalonia.Helpers;
 using HotAvalonia.IO;
+using HotAvalonia.Logging;
 using HotAvalonia.Xaml;
 using FileSystemProvider = HotAvalonia.IO.FileSystem;
 
@@ -186,15 +187,46 @@ public sealed class AvaloniaProjectLocator
         if (document is null)
             return false;
 
-        // We expect the assembly that contains the control to be accessible locally.
-        string? documentPath = document.PopulateMethod.GetFilePath(FileSystemProvider.Current);
-        documentPath ??= document.PopulateMethod.GetFilePath(_fileSystem);
+        string? documentPath = GetDocumentPath(document);
         if (!_fileSystem.FileExists(documentPath))
             return false;
 
         directoryName = UriHelper.ResolveHostPath(document.Uri, _fileSystem.GetFullPath(documentPath));
         AddHint(assembly, directoryName);
         return true;
+    }
+
+    /// <inheritdoc cref="GetDocumentPath(CompiledXamlDocument, IFileSystem)"/>
+    private string? GetDocumentPath(CompiledXamlDocument document)
+    {
+        // We expect the assembly that contains the control to be accessible locally.
+        string? documentPath = GetDocumentPath(document, FileSystemProvider.Current);
+        if (string.IsNullOrEmpty(documentPath) && _fileSystem != FileSystemProvider.Current)
+            documentPath = GetDocumentPath(document, _fileSystem);
+
+        return documentPath;
+    }
+
+    /// <summary>
+    /// Gets the file path of the source code file from which the specified document was compiled.
+    /// </summary>
+    /// <param name="document">The document for which to get the source file path.</param>
+    /// <param name="fileSystem">The file system where the source code is expected to reside.</param>
+    /// <returns>
+    /// The file path of the source code file from which the specified document was compiled,
+    /// or <c>null</c> if it could not be found.
+    /// </returns>
+    private string? GetDocumentPath(CompiledXamlDocument document, IFileSystem fileSystem)
+    {
+        try
+        {
+            return document.PopulateMethod.GetFilePath(fileSystem);
+        }
+        catch (Exception e)
+        {
+            Logger.LogDebug(this, "Failed to locate the source code for '{Uri}': {Exception}", document.Uri, e);
+            return null;
+        }
     }
 
     /// <inheritdoc cref="GetDirectoryName(Assembly, CompiledXamlDocument?)"/>

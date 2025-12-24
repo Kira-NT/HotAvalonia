@@ -4,6 +4,7 @@ using System.Net;
 using System.Reflection;
 using System.Reflection.Emit;
 using HotAvalonia.Helpers;
+using HotAvalonia.Logging;
 
 namespace HotAvalonia.IO;
 
@@ -81,7 +82,7 @@ public static class FileSystem
     [return: NotNullIfNotNull(nameof(fallbackFileSystem))]
     public static IFileSystem? Connect(IFileSystem? fallbackFileSystem)
     {
-        LoggingHelper.LogError("Unable to determine configuration options for connecting to the remote file system.");
+        Logger.LogError("Unable to determine configuration options for connecting to the remote file system.");
         return fallbackFileSystem;
     }
 
@@ -135,7 +136,7 @@ public static class FileSystem
         }
         catch (Exception e)
         {
-            LoggingHelper.LogError("Failed to connect to the remote file system at {Endpoint}: {Exception}", endpoint, e);
+            Logger.LogError("Failed to connect to the remote file system at '{Endpoint}': {Exception}", endpoint, e);
             return fallbackFileSystem;
         }
     }

@@ -43,12 +43,34 @@ public static class HotReloadContext
     /// <returns>A new <see cref="IHotReloadContext"/> for the specified <see cref="AppDomain"/>.</returns>
     public static IHotReloadContext FromAppDomain(
         AppDomain appDomain,
-        Func<AppDomain, Assembly, IHotReloadContext?> contextFactory)
+        Func<IHotReloadContext, AppDomain, Assembly, IHotReloadContext?> contextFactory)
     {
         ArgumentNullException.ThrowIfNull(appDomain);
         ArgumentNullException.ThrowIfNull(contextFactory);
 
         return new AppDomainHotReloadContext(appDomain, contextFactory);
+    }
+
+    /// <inheritdoc cref="FromAppDomain(AppDomain, Func{IHotReloadContext, AppDomain, Assembly, IHotReloadContext?})"/>
+    public static IHotReloadContext FromAppDomain(
+        AppDomain appDomain,
+        Func<AppDomain, Assembly, IHotReloadContext?> contextFactory)
+    {
+        ArgumentNullException.ThrowIfNull(appDomain);
+        ArgumentNullException.ThrowIfNull(contextFactory);
+
+        return new AppDomainHotReloadContext(appDomain, (_, dom, asm) => contextFactory(dom, asm));
+    }
+
+    /// <inheritdoc cref="FromAppDomain(AppDomain, Func{IHotReloadContext, AppDomain, Assembly, IHotReloadContext?})"/>
+    public static IHotReloadContext FromAppDomain(
+        AppDomain appDomain,
+        Func<Assembly, IHotReloadContext?> contextFactory)
+    {
+        ArgumentNullException.ThrowIfNull(appDomain);
+        ArgumentNullException.ThrowIfNull(contextFactory);
+
+        return new AppDomainHotReloadContext(appDomain, (_, _, asm) => contextFactory(asm));
     }
 
     /// <inheritdoc cref="Combine(IHotReloadContext, IEnumerable&lt;IHotReloadContext&gt;)"/>
@@ -170,7 +192,7 @@ file sealed class AppDomainHotReloadContext : IHotReloadContext, ISupportInitial
     /// The factory function for creating <see cref="IHotReloadContext"/> instances
     /// for dynamically loaded assemblies.
     /// </summary>
-    private readonly Func<AppDomain, Assembly, IHotReloadContext?> _contextFactory;
+    private readonly Func<IHotReloadContext, AppDomain, Assembly, IHotReloadContext?> _contextFactory;
 
     /// <summary>
     /// The hot reload context responsible for managing dynamically loaded assemblies.
@@ -200,7 +222,7 @@ file sealed class AppDomainHotReloadContext : IHotReloadContext, ISupportInitial
     /// The factory function to create <see cref="IHotReloadContext"/> instances for
     /// dynamically loaded assemblies.
     /// </param>
-    public AppDomainHotReloadContext(AppDomain appDomain, Func<AppDomain, Assembly, IHotReloadContext?> contextFactory)
+    public AppDomainHotReloadContext(AppDomain appDomain, Func<IHotReloadContext, AppDomain, Assembly, IHotReloadContext?> contextFactory)
     {
         _appDomain = appDomain;
         _contextFactory = contextFactory;
@@ -282,7 +304,7 @@ file sealed class AppDomainHotReloadContext : IHotReloadContext, ISupportInitial
         if (assembly is null)
             return;
 
-        IHotReloadContext? assemblyContext = _contextFactory(appDomain, assembly);
+        IHotReloadContext? assemblyContext = _contextFactory(this, appDomain, assembly);
         if (assemblyContext is null)
             return;
 

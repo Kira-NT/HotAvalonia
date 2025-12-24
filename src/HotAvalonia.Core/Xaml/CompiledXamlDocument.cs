@@ -219,10 +219,7 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     /// </remarks>
     /// <param name="rootControl">The root control to refresh.</param>
     public void Refresh(object rootControl)
-    {
-        LoggingHelper.LogDebug(rootControl, "Refreshing...");
-        _refresh?.Invoke(rootControl);
-    }
+        => _refresh?.Invoke(rootControl);
 
     /// <inheritdoc/>
     public override string ToString()

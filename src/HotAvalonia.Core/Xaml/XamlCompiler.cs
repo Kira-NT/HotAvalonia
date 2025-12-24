@@ -3,6 +3,7 @@ using System.Reflection.Emit;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
 using HotAvalonia.Helpers;
+using HotAvalonia.Logging;
 using HotAvalonia.Reflection;
 
 namespace HotAvalonia.Xaml;
@@ -211,7 +212,7 @@ public static class XamlCompiler
         }
         catch (Exception e)
         {
-            LoggingHelper.LogError("Failed to recompile XamlIl compiler: {Exception}", e);
+            Logger.LogError("Failed to recompile XamlIl compiler: {Exception}", e);
         }
 
         // Welp, at least we have a fallback.

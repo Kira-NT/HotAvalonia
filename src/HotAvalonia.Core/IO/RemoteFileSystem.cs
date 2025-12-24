@@ -5,7 +5,7 @@ using System.Net.Security;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Text;
-using HotAvalonia.Helpers;
+using HotAvalonia.Logging;
 using HotAvalonia.Net;
 
 namespace HotAvalonia.IO;
@@ -394,7 +394,7 @@ internal sealed partial class RemoteFileSystem : IFileSystem
             }
             catch (Exception e)
             {
-                LoggingHelper.LogError(this, "Failed to process a packet: {Exception}", e);
+                Logger.LogError(this, "Failed to process a packet: {Exception}", e);
                 continue;
             }
         }

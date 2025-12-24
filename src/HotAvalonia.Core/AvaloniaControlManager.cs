@@ -1,6 +1,6 @@
 using Avalonia.Threading;
 using HotAvalonia.Collections;
-using HotAvalonia.Helpers;
+using HotAvalonia.Logging;
 using HotAvalonia.Reflection.Inject;
 using HotAvalonia.Xaml;
 
@@ -44,7 +44,7 @@ internal sealed class AvaloniaControlManager : IDisposable
         _document = document;
         _controls = new();
         if (!TryInjectPopulateCallback(document, OnPopulate, out _populateInjection))
-            LoggingHelper.LogWarning("Failed to subscribe to the 'Populate' event of {ControlUri}. The control won't be reloaded upon file changes.", document.Uri);
+            Logger.LogWarning("Failed to subscribe to the 'Populate' event of '{ControlUri}'. The control won't be reloaded upon file changes.", document.Uri);
     }
 
     /// <summary>
