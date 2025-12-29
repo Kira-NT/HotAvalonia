@@ -59,9 +59,18 @@ internal static class AssemblyHelper
             $"TryGet{nameof(AssemblyName)}"
         );
 
-        // Allow the dynamic assembly to access HotAvalonia's internals.
-        assemblyBuilder.AllowAccessTo(typeof(AssemblyHelper));
+        // Allow the dynamic assembly to access the executing assembly's internals.
+        Assembly executingAssembly = typeof(AssemblyHelper).Assembly;
+        assemblyBuilder.ForceAllowAccessTo(executingAssembly);
+        foreach (AssemblyName referencedAssembly in executingAssembly.GetReferencedAssemblies())
+            assemblyBuilder.ForceAllowAccessTo(referencedAssembly);
     }
+
+    /// <summary>
+    /// Gets the <see cref="Type"/> representing the <c>IgnoresAccessChecksToAttribute</c>
+    /// used to bypass access checks between assemblies.
+    /// </summary>
+    internal static Type IgnoresAccessChecksFromAttribute => s_ignoresAccessChecksToAttributeCtor.DeclaringType!;
 
     /// <summary>
     /// Attempts to load an assembly with the specified name.
@@ -108,53 +117,98 @@ internal static class AssemblyHelper
     }
 
     /// <summary>
+    /// Formats an assembly name and public key into the provided character buffer.
+    /// </summary>
+    /// <param name="buffer">The destination buffer that receives the formatted assembly name.</param>
+    /// <param name="assemblyName">A tuple containing the simple assembly name and its public key.</param>
+    private static void FormatAssemblyName(Span<char> buffer, (string Name, byte[] PublicKey) assemblyName)
+    {
+        const int prefixLength = 12; // ", PublicKey=".Length
+        ReadOnlySpan<char> hexAlphabet = "0123456789ABCDEF";
+
+        (string name, byte[] publicKey) = assemblyName;
+        if (buffer.Length < name.Length + prefixLength + publicKey.Length * 2)
+            ArgumentOutOfRangeException.Throw();
+
+        Span<char> keyBuffer = buffer.Slice(name.Length + prefixLength);
+        for (int i = publicKey.Length - 1; i >= 0; i--)
+        {
+            byte b = publicKey[i];
+            keyBuffer[i << 1] = hexAlphabet[b >>> 4];
+            keyBuffer[(i << 1) + 1] = hexAlphabet[b & 0x0F];
+        }
+        ((ReadOnlySpan<char>)", PublicKey=").CopyTo(buffer.Slice(name.Length));
+        ((ReadOnlySpan<char>)name).CopyTo(buffer);
+    }
+
+    /// <summary>
+    /// Formats an <see cref="AssemblyName"/> as a string.
+    /// </summary>
+    /// <param name="assemblyName">The assembly name to format.</param>
+    /// <returns>A formatted assembly name string.</returns>
+    [SkipLocalsInit]
+    private static string FormatAssemblyName(AssemblyName assemblyName)
+    {
+        (string? name, byte[]? key) = assemblyName is { } x ? (x.Name, x.GetPublicKey()) : (null, null);
+        if (name is { Length: not 0 })
+        {
+            if (key is { Length: not 0 and int l })
+                return string.Create(name.Length + 12 + l * 2, (name, key), FormatAssemblyName);
+
+            return name;
+        }
+        return string.Empty;
+    }
+
+    /// <inheritdoc cref="AllowAccessTo(AssemblyBuilder, AssemblyName)"/>
+    private static void AllowAccessTo(this AssemblyBuilder sourceAssembly, string targetAssemblyName)
+    {
+        if (string.IsNullOrEmpty(targetAssemblyName))
+            return;
+
+        Func<Attribute, string?> getAssemblyName = s_getAssemblyName;
+        IEnumerable<Attribute> definedAttributes = sourceAssembly.GetCustomAttributes(s_ignoresAccessChecksToAttributeCtor.DeclaringType);
+        foreach (Attribute definedAttribute in definedAttributes)
+        {
+            if (string.Equals(getAssemblyName(definedAttribute), targetAssemblyName))
+                return;
+        }
+
+        sourceAssembly.ForceAllowAccessTo(targetAssemblyName);
+    }
+
+    /// <inheritdoc cref="ForceAllowAccessTo(AssemblyBuilder, AssemblyName)"/>
+    private static void ForceAllowAccessTo(this AssemblyBuilder sourceAssembly, string targetAssemblyName)
+        => sourceAssembly.SetCustomAttribute(new(s_ignoresAccessChecksToAttributeCtor, [targetAssemblyName]));
+
+    /// <summary>
     /// Adds the <c>IgnoresAccessChecksToAttribute</c> to the source assembly to allow access
     /// to the specified target assembly.
     /// </summary>
     /// <param name="sourceAssembly">The source assembly to which the attribute is added.</param>
     /// <param name="targetAssemblyName">The name of the target assembly.</param>
-    private static void AllowAccessTo(this AssemblyBuilder sourceAssembly, string targetAssemblyName)
-    {
-        if (string.IsNullOrWhiteSpace(targetAssemblyName))
-            return;
-
-        ConstructorInfo attributeCtor = s_ignoresAccessChecksToAttributeCtor;
-        Func<Attribute, string?> getAssemblyName = s_getAssemblyName;
-        IEnumerable<Attribute> definedAttributes = sourceAssembly.GetCustomAttributes(attributeCtor.DeclaringType);
-        foreach (Attribute definedAttribute in definedAttributes)
-        {
-            if (StringComparer.Ordinal.Equals(getAssemblyName(definedAttribute), targetAssemblyName))
-                return;
-        }
-
-        CustomAttributeBuilder ignoresAccessCheckAttribute = new(attributeCtor, [targetAssemblyName]);
-        sourceAssembly.SetCustomAttribute(ignoresAccessCheckAttribute);
-    }
-
-    /// <summary>
-    /// Adds the <c>IgnoresAccessChecksToAttribute</c> to the source assembly to allow access
-    /// to the specified target assembly.
-    /// </summary>
-    /// <param name="sourceAssembly">The source assembly to which the attribute is added.</param>
-    /// <param name="targetAssemblyName">The <see cref="AssemblyName"/> of the target assembly.</param>
     public static void AllowAccessTo(this AssemblyBuilder sourceAssembly, AssemblyName targetAssemblyName)
-    {
-        string name = targetAssemblyName.Name;
-        byte[] key = targetAssemblyName.GetPublicKey();
-        if (!string.IsNullOrWhiteSpace(name) && key is { Length: > 0 })
-            name = $"{name}, PublicKey={BitConverter.ToString(key).Replace("-", string.Empty).ToUpperInvariant()}";
-
-        sourceAssembly.AllowAccessTo(name);
-    }
+        => sourceAssembly.AllowAccessTo(FormatAssemblyName(targetAssemblyName));
 
     /// <summary>
-    /// Adds the <c>IgnoresAccessChecksToAttribute</c> to the source assembly to allow access
-    /// to the specified target assembly.
+    /// Unconditionally adds the <c>IgnoresAccessChecksToAttribute</c> to the source assembly
+    /// to allow access to the specified target assembly, even if a similarly formatted attribute
+    /// is already present on the assembly, which may result in metadata bloat.
     /// </summary>
     /// <param name="sourceAssembly">The source assembly to which the attribute is added.</param>
+    /// <param name="targetAssemblyName">The name of the target assembly.</param>
+    internal static void ForceAllowAccessTo(this AssemblyBuilder sourceAssembly, AssemblyName targetAssemblyName)
+        => sourceAssembly.ForceAllowAccessTo(FormatAssemblyName(targetAssemblyName));
+
+    /// <inheritdoc cref="AllowAccessTo(AssemblyBuilder, AssemblyName)"/>
     /// <param name="targetAssembly">The target assembly.</param>
     public static void AllowAccessTo(this AssemblyBuilder sourceAssembly, Assembly targetAssembly)
-        => sourceAssembly.AllowAccessTo(targetAssembly.GetName());
+        => sourceAssembly.AllowAccessTo(FormatAssemblyName(targetAssembly.GetName()));
+
+    /// <inheritdoc cref="ForceAllowAccessTo(AssemblyBuilder, AssemblyName)"/>
+    /// <param name="targetAssembly">The target assembly.</param>
+    internal static void ForceAllowAccessTo(this AssemblyBuilder sourceAssembly, Assembly targetAssembly)
+        => sourceAssembly.ForceAllowAccessTo(FormatAssemblyName(targetAssembly.GetName()));
 
     /// <summary>
     /// Adds the <c>IgnoresAccessChecksToAttribute</c> to the source assembly to allow access
@@ -163,7 +217,7 @@ internal static class AssemblyHelper
     /// <param name="sourceAssembly">The source assembly to which the attribute is added.</param>
     /// <param name="targetType">The target type whose assembly access is needed.</param>
     public static void AllowAccessTo(this AssemblyBuilder sourceAssembly, Type targetType)
-        => sourceAssembly.AllowAccessTo(targetType.Assembly.GetName());
+        => sourceAssembly.AllowAccessTo(FormatAssemblyName(targetType.Assembly.GetName()));
 
     /// <summary>
     /// Adds the <c>IgnoresAccessChecksToAttribute</c> to the source assembly to allow access
@@ -181,7 +235,7 @@ internal static class AssemblyHelper
             .Distinct();
 
         foreach (Assembly assembly in referencedAssemblies)
-            sourceAssembly.AllowAccessTo(assembly.GetName());
+            sourceAssembly.AllowAccessTo(FormatAssemblyName(assembly.GetName()));
     }
 
     /// <summary>
@@ -218,6 +272,7 @@ internal static class AssemblyHelper
     /// <returns>
     /// A delegate that can be invoked to allow dynamic code generation.
     /// </returns>
+    [MethodImpl(MethodImplOptions.NoOptimization)]
     private static Func<IDisposable> CreateForceAllowDynamicCodeDelegate()
     {
         MethodInfo? forceAllowDynamicCode = typeof(AssemblyBuilder).GetStaticMethod(nameof(ForceAllowDynamicCode), Type.EmptyTypes);
@@ -242,6 +297,7 @@ internal static class AssemblyHelper
     /// to access our internals, the other assembly can happily help itself and freely get to our internal members.
     /// </remarks>
     /// <returns>The dynamically created type that represents <c>IgnoresAccessChecksToAttribute</c>.</returns>
+    [MethodImpl(MethodImplOptions.NoOptimization)]
     private static Type CreateIgnoresAccessChecksToAttributeType(ModuleBuilder moduleBuilder)
     {
         string attributeName = "System.Runtime.CompilerServices.IgnoresAccessChecksToAttribute";
