@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
 using HotAvalonia.Helpers;
@@ -29,28 +30,14 @@ public static class XamlCompiler
     private const string BuildMethodName = "__AvaloniaXamlIlBuild";
 
     /// <summary>
-    /// The assembly containing XamlX type definitions.
-    /// </summary>
-    //
-    // Please **DO NOT** delete this field!
-    // This is a small hack to force `DynamicSreAssembly` to generate its backing type.
-    // Currently, there is an issue where it happens slightly too late on Mono,
-    // causing the `IgnoresAccessChecksToAttribute("Avalonia.Markup.Xaml.Loader")` to be
-    // ignored by the runtime (ironic), because something from that assembly has already
-    // seeped into our dynamic one by that point.
-    // Since we CANNOT create `DynamicXamlAssembly`, which is what we actually need, earlier,
-    // we use this trick to initialize `DynamicSreAssembly` as soon as this class is accessed.
-    private static readonly Assembly s_xamlLoaderAssembly = DynamicSreAssembly.Create(typeof(AvaloniaRuntimeXamlLoader).Assembly, null!).Assembly;
-
-    /// <summary>
     /// The delegate used to compile XAML documents.
     /// </summary>
-    private static readonly CompileXamlFunc s_compile = CreateXamlCompiler(s_xamlLoaderAssembly);
+    private static readonly CompileXamlFunc s_compile = CreateXamlCompiler();
 
     /// <summary>
-    /// Gets the dynamic assembly that houses compiled XAML types
+    /// Gets the dynamic assembly that houses compiled XAML types.
     /// </summary>
-    public static DynamicAssembly? DynamicXamlAssembly => field ??= GetDynamicXamlAssembly(s_xamlLoaderAssembly);
+    public static AssemblyBuilder? DynamicXamlAssembly { get; } = GetDynamicXamlAssembly();
 
     /// <inheritdoc cref="Compile(string, Uri, Assembly?)"/>
     public static CompiledXamlDocument Compile(string xaml, string uri, Assembly? assembly = null)
@@ -95,9 +82,6 @@ public static class XamlCompiler
         ArgumentNullException.ThrowIfNull(config);
 
         using IDisposable context = AssemblyHelper.ForceAllowDynamicCode();
-        if (config.LocalAssembly is not null)
-            DynamicXamlAssembly?.AllowAccessTo(config.LocalAssembly);
-
         Type compiledXamlType = s_compile([new(document.Uri, document.Stream)], config).First();
         return CreateCompiledXamlDocument(document.Uri, compiledXamlType);
     }
@@ -129,9 +113,6 @@ public static class XamlCompiler
         ArgumentNullException.ThrowIfNull(config);
 
         using IDisposable context = AssemblyHelper.ForceAllowDynamicCode();
-        if (config.LocalAssembly is not null)
-            DynamicXamlAssembly?.AllowAccessTo(config.LocalAssembly);
-
         RuntimeXamlLoaderDocument[] xamlLoaderDocuments = documents.Select(static x => new RuntimeXamlLoaderDocument(x.Uri, x.Stream)).ToArray();
         return s_compile(xamlLoaderDocuments, config).Zip(xamlLoaderDocuments, static (type, doc) => CreateCompiledXamlDocument(doc.BaseUri!, type));
     }
@@ -168,44 +149,37 @@ public static class XamlCompiler
     }
 
     /// <summary>
-    /// Retrieves the dynamic assembly that houses compiled XAML types.
+    /// Attempts to retrieve the assembly builder that houses runtime-compiled XAML types.
     /// </summary>
-    /// <param name="xamlLoaderAssembly">The assembly containing the XAML loader.</param>
-    /// <returns>A <see cref="DynamicAssembly"/> instance if found; otherwise, <c>null</c>.</returns>
-    private static DynamicAssembly? GetDynamicXamlAssembly(Assembly xamlLoaderAssembly)
+    /// <returns>The assembly builder containing runtime-compiled XAML types, if found; otherwise, <c>null</c>.</returns>
+    [MethodImpl(MethodImplOptions.NoOptimization)]
+    private static AssemblyBuilder? GetDynamicXamlAssembly()
     {
-        // Avalonia creates a dynamic assembly during AvaloniaXamlIlRuntimeCompiler's initialization.
-        using IDisposable context = AssemblyHelper.ForceAllowDynamicCode();
-
-        Type xamlAssembly = xamlLoaderAssembly.GetType("XamlX.TypeSystem.IXamlAssembly") ?? typeof(object);
-        Type? xamlIlRuntimeCompiler = xamlLoaderAssembly.GetType("Avalonia.Markup.Xaml.XamlIl.AvaloniaXamlIlRuntimeCompiler");
-
-        MethodInfo? initializeSre = xamlIlRuntimeCompiler?.GetStaticMethod("InitializeSre", Type.EmptyTypes);
-        initializeSre?.Invoke(null, null);
-
-        object? sreAsm = xamlIlRuntimeCompiler?.GetStaticField("_sreAsm")?.GetValue(null);
-        object? sreTypeSystem = xamlIlRuntimeCompiler?.GetStaticField("_sreTypeSystem")?.GetValue(null);
-        if (sreAsm is not Assembly asm || sreTypeSystem is null)
+        using IDisposable context = AssemblyHelper.GetDynamicAssembly(out AssemblyBuilder assembly, out ModuleBuilder module);
+        Assembly xamlLoaderAssembly = typeof(AvaloniaRuntimeXamlLoader).Assembly;
+        Type? compiler = xamlLoaderAssembly.GetType("Avalonia.Markup.Xaml.XamlIl.AvaloniaXamlIlRuntimeCompiler");
+        FieldInfo? sreAsm = compiler?.GetField("_sreAsm", (BindingFlags)(-1));
+        if (compiler is null || sreAsm is null)
             return null;
 
-        DynamicAssembly dynamicAssembly = DynamicSreAssembly.Create(asm, sreTypeSystem);
-        object? sreTypeSystemAssemblies = sreTypeSystem.GetType().GetInstanceField("_assemblies")?.GetValue(sreTypeSystem);
-        MethodInfo? addAssembly = sreTypeSystemAssemblies?.GetType().GetMethod(nameof(List<string>.Add), [xamlAssembly]);
-        if (xamlAssembly.IsAssignableFrom(dynamicAssembly.GetType()))
-            addAssembly?.Invoke(sreTypeSystemAssemblies, [dynamicAssembly]);
-
-        return dynamicAssembly;
+        sreAsm.SetValue(null, assembly);
+        compiler.GetField("_sreBuilder", (BindingFlags)(-1))?.SetValue(null, module);
+        compiler.GetField("_sreCanSave", (BindingFlags)(-1))?.SetValue(null, false);
+        compiler.GetField("_ignoresAccessChecksFromAttribute", (BindingFlags)(-1))?.SetValue(null, AssemblyHelper.IgnoresAccessChecksFromAttribute);
+        compiler.GetField("_sreTypeSystem", (BindingFlags)(-1))?.SetValue(null, DynamicSreTypeSystem.Create(AppDomain.CurrentDomain, assembly));
+        return assembly;
     }
 
     /// <summary>
     /// Creates a XAML compiler delegate.
     /// </summary>
-    /// <param name="xamlLoaderAssembly">The assembly containing the XAML loader.</param>
     /// <returns>A <see cref="CompileXamlFunc"/> delegate used to compile XAML documents.</returns>
-    private static CompileXamlFunc CreateXamlCompiler(Assembly xamlLoaderAssembly)
+    [MethodImpl(MethodImplOptions.NoOptimization)]
+    private static CompileXamlFunc CreateXamlCompiler()
     {
         try
         {
+            Assembly xamlLoaderAssembly = typeof(AvaloniaRuntimeXamlLoader).Assembly;
             Type? originalCompiler = xamlLoaderAssembly.GetType("Avalonia.Markup.Xaml.XamlIl.AvaloniaXamlIlRuntimeCompiler");
             MethodInfo? loadGroupSreCore = originalCompiler?.GetStaticMethod("LoadGroupSreCore", [typeof(IReadOnlyCollection<RuntimeXamlLoaderDocument>), typeof(RuntimeXamlLoaderConfiguration)]);
             return RecompileXamlCompiler(loadGroupSreCore);
@@ -242,7 +216,7 @@ public static class XamlCompiler
     /// <returns>An enumerable collection of types whose names match the specified URI.</returns>
     private static IEnumerable<Type> FindCompiledXamlTypes(string uri)
     {
-        Assembly? dynamicXamlAssembly = DynamicXamlAssembly?.Assembly;
+        Assembly? dynamicXamlAssembly = DynamicXamlAssembly;
         if (dynamicXamlAssembly is null)
             yield break;
 
@@ -267,6 +241,7 @@ public static class XamlCompiler
     /// </summary>
     /// <param name="compile">The original compile method to recompile.</param>
     /// <returns>A <see cref="CompileXamlFunc"/> delegate that can be used to compile XAML documents.</returns>
+    [MethodImpl(MethodImplOptions.NoOptimization)]
     private static CompileXamlFunc RecompileXamlCompiler(MethodInfo? compile)
     {
         if (compile?.GetMethodBody() is not MethodBody body || body.GetILAsByteArray() is not byte[] bodyIl)

@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Logging;
 using Avalonia.Markup.Xaml;
+using HotAvalonia.Xaml;
 using AvaloniaLogger = Avalonia.Logging.Logger;
 
 namespace HotAvalonia.Logging;
@@ -34,6 +35,14 @@ public static class Logger
         LogDebug("HotAvalonia: {HotAvaloniaVersion}", typeof(Logger).Assembly.GetName().Version);
         LogDebug("Avalonia: {AvaloniaVersion}", typeof(AppBuilder).Assembly.GetName().Version);
         LogDebug("Avalonia.Markup.Xaml.Loader: {XamlLoaderVersion}", typeof(AvaloniaRuntimeXamlLoader).Assembly.GetName().Version);
+        if (XamlCompiler.DynamicXamlAssembly is { } dynamicXamlAssembly)
+        {
+            LogDebug("Dynamic XAML assembly: '{Assembly}'", dynamicXamlAssembly.GetName().Name);
+        }
+        else
+        {
+            LogWarning("Failed to identify a dynamic assembly used for runtime-compiled XAML.");
+        }
     }
 
     /// <inheritdoc cref="LogDebug(object?, string, ReadOnlySpan{object?})"/>
