@@ -345,27 +345,57 @@ public static class XamlCompiler
                     il.Emit(reader.OpCode, reader.GetByte());
                     break;
 
-                case OperandType.InlineMethod when reader.ResolveMethod(module) is ConstructorInfo ctor:
-                    il.Emit(reader.OpCode, ctor);
-                    break;
-
-                case OperandType.InlineMethod when reader.ResolveMethod(module) is MethodInfo method:
-                    if (method is not { DeclaringType.Name: nameof(Enumerable), Name: nameof(Enumerable.Zip) })
+                case OperandType.InlineMethod:
+                    switch (reader.ResolveMethod(module))
                     {
-                        il.Emit(reader.OpCode, method);
-                        break;
-                    }
+                        case ConstructorInfo ctor:
+                            il.Emit(reader.OpCode, ctor);
+                            continue;
 
-                    // `LoadGroupSreCore` uses `types.Zip(documents, (x, y) => (x, y)).Select(...).ToArray()`
-                    // to instantiate generated types. So, if we want to get those as-is, this is the best
-                    // place to intercept the method's flow. When execution reaches the `.Zip(...)` call,
-                    // there are three objects on the stack: a collection of generated types, the documents
-                    // they were created from, and a no-op selector. If we simply pop the last two, we get
-                    // exactly what we need. Slap a `ret` after that, and we're done.
-                    il.Emit(OpCodes.Pop);
-                    il.Emit(OpCodes.Pop);
-                    il.Emit(OpCodes.Ret);
-                    return recompiled.CreateDelegate<CompileXamlFunc>();
+                        // Avalonia automatically emits an IgnoresAccessCheckToAttribute for the local assembly.
+                        // First of all, we don't need to waste time on this, because our patched version of
+                        // SreTypeSystem should already have emitted one for every loaded assembly.
+                        // In addition, Avalonia doesn't even check whether it has already emitted a similar
+                        // attribute, so it ends up doing it again and again, bloating the assembly builder's
+                        // metadata and leaking memory faster than we absolutely need to.
+                        // So, to fix this, we simply replace the call to the offending method with a no-op stub.
+                        case { Name: "EmitIgnoresAccessCheckToAttribute" }:
+                            static void EmitIgnoresAccessCheckToAttribute(AssemblyName assemblyName) => _ = assemblyName;
+                            il.Emit(reader.OpCode, new Action<AssemblyName>(EmitIgnoresAccessCheckToAttribute).Method);
+                            continue;
+
+                        // Recently (?), Avalonia has also begun emitting an IgnoresAccessCheckToAttribute for
+                        // every assembly that specifies an InternalsVisibleToAttribute referencing the local
+                        // assembly. For the same reasons as above, we don't need this either. And while
+                        // EmitIgnoresAccessCheckToAttribute was patched out primarily due to metadata bloat
+                        // concerns, this one has to go because every time it is called, it performs a full
+                        // scan of all currently loaded assemblies - no caching, no nothing!
+                        // This takes a noticeable amount of time that would be better spent on XAML compilation.
+                        // For the sake of simplicity, we replace it with a stub that always returns an empty set
+                        // (unfortunately, it must be allocated anew each and every time, but given that we are
+                        // working with dynamic code generation, it honestly doesn't matter).
+                        case { Name: "FindAssembliesGrantingInternalAccess" }:
+                            static HashSet<Assembly> FindAssembliesGrantingInternalAccess(Assembly assembly) => [];
+                            il.Emit(reader.OpCode, new Func<Assembly, HashSet<Assembly>>(FindAssembliesGrantingInternalAccess).Method);
+                            continue;
+
+                        // `LoadGroupSreCore` uses `types.Zip(documents, (x, y) => (x, y)).Select(...).ToArray()`
+                        // to instantiate generated types. So, if we want to get those as-is, this is the best
+                        // place to intercept the method's flow. When execution reaches the `.Zip(...)` call,
+                        // there are three objects on the stack: a collection of generated types, the documents
+                        // they were created from, and a no-op selector. If we simply pop the last two, we get
+                        // exactly what we need. Slap a `ret` after that, and we're done.
+                        case { DeclaringType.Name: nameof(Enumerable), Name: nameof(Enumerable.Zip) }:
+                            il.Emit(OpCodes.Pop);
+                            il.Emit(OpCodes.Pop);
+                            il.Emit(OpCodes.Ret);
+                            return recompiled.CreateDelegate<CompileXamlFunc>();
+
+                        case MethodInfo method:
+                            il.Emit(reader.OpCode, method);
+                            continue;
+                    }
+                    goto default;
 
                 default:
                     throw new NotSupportedException($"Provided method contains unsupported instruction: {reader.OpCode}");
