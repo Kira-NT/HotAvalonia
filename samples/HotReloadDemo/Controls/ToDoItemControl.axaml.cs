@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using HotAvalonia;
 
 namespace HotReloadDemo.Controls;
 
@@ -10,20 +9,12 @@ internal sealed partial class ToDoItemControl : UserControl
     public ToDoItemControl()
     {
         InitializeComponent();
-        Initialize();
+        InitializeComponentState();
     }
 
-    [AvaloniaHotReload]
-    private void Initialize()
-    {
-        // Let's pretend that we did something very important here.
-        int hashCode = GetHashCode();
-        Debug.WriteLine("Initializing {0}#{1}...", this, hashCode);
-    }
+    private void InitializeComponentState()
+        => Debug.WriteLine("Initializing {0}#{1}...", this, GetHashCode());
 
     private void CheckBox_Click(object? sender, RoutedEventArgs e)
-    {
-        int hashCode = GetHashCode();
-        Debug.WriteLine("Clicked {0}#{1}", this, hashCode);
-    }
+        => Debug.WriteLine("Clicked {0}#{1}", this, GetHashCode());
 }

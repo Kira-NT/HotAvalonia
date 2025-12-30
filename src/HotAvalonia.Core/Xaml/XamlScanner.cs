@@ -351,7 +351,7 @@ public static class XamlScanner
         return declaringType
             .GetInstanceMethods()
             .Where(static x => x.GetParameters().Length == 0)
-            .Where(static x => x.GetCustomAttributes(inherit: true)
+            .Where(static x => x.Name == "InitializeComponentState" || x.GetCustomAttributes(inherit: true)
                 .Any(static y => "HotAvalonia.AvaloniaHotReloadAttribute".Equals(y?.GetType().FullName, StringComparison.Ordinal)));
     }
 
