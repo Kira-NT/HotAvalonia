@@ -56,13 +56,17 @@ internal sealed class AvaloniaControlManager : IDisposable
     public void Dispose()
         => _populateInjection?.Dispose();
 
+    /// <inheritdoc cref="ReloadAsync(string, CancellationToken)"/>
+    public Task ReloadAsync(CancellationToken cancellationToken = default)
+        => Dispatcher.UIThread.InvokeAsync(() => UnsafeReload(cancellationToken), DispatcherPriority.Render, cancellationToken).GetTask();
+
     /// <summary>
-    /// Reloads the controls associated with this manager asynchronously.
+    /// Asynchronously reloads the controls associated with this manager.
     /// </summary>
     /// <param name="xaml">The XAML markup to reload the control from.</param>
     /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
     public Task ReloadAsync(string xaml, CancellationToken cancellationToken = default)
-        => Dispatcher.UIThread.InvokeAsync(() => UnsafeReloadAsync(xaml, cancellationToken), DispatcherPriority.Render);
+        => Dispatcher.UIThread.InvokeAsync(() => UnsafeReloadAsync(xaml, cancellationToken), DispatcherPriority.Render, cancellationToken).GetTask().Unwrap();
 
     /// <inheritdoc cref="ReloadAsync(string, CancellationToken)"/>
     private async Task UnsafeReloadAsync(string xaml, CancellationToken cancellationToken)
@@ -73,10 +77,20 @@ internal sealed class AvaloniaControlManager : IDisposable
         CompiledXamlDocument compiledXaml = XamlCompiler.Compile(xaml, _document.Uri, _document.RootType.Assembly);
         _recompiledDocument = new(compiledXaml.Uri, compiledXaml.BuildMethod, compiledXaml.PopulateMethod, _document);
 
+        UnsafeReload(cancellationToken);
+    }
+
+    /// <summary>
+    /// Reloads the controls associated with this manager.
+    /// </summary>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    private void UnsafeReload(CancellationToken cancellationToken)
+    {
+        CompiledXamlDocument document = _recompiledDocument ?? _document;
         foreach (object control in _controls)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _recompiledDocument.Populate(serviceProvider: null, control);
+            document.Reload(serviceProvider: null, control);
         }
     }
 

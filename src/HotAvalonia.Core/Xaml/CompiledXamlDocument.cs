@@ -180,6 +180,21 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     {
         ArgumentNullException.ThrowIfNull(rootControl);
 
+        _populate.Invoke(null, [serviceProvider ?? XamlIlRuntimeHelpers.CreateRootServiceProviderV2(), rootControl]);
+    }
+
+    /// <inheritdoc cref="Reload(IServiceProvider?, object)"/>
+    public void Reload(object rootControl)
+        => Reload(serviceProvider: null, rootControl);
+
+    /// <summary>
+    /// Reloads an already populated control.
+    /// </summary>
+    /// <inheritdoc cref="Populate(IServiceProvider?, object)"/>
+    public void Reload(IServiceProvider? serviceProvider, object rootControl)
+    {
+        ArgumentNullException.ThrowIfNull(rootControl);
+
         Reset(rootControl, out Action restore);
         _populate.Invoke(null, [serviceProvider ?? XamlIlRuntimeHelpers.CreateRootServiceProviderV2(), rootControl]);
         restore();
