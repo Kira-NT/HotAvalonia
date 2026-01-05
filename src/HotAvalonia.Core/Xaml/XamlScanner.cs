@@ -13,11 +13,6 @@ namespace HotAvalonia.Xaml;
 public static class XamlScanner
 {
     /// <summary>
-    /// The expected parameter types for a valid build method.
-    /// </summary>
-    private static readonly Type[] s_buildSignature = [typeof(IServiceProvider)];
-
-    /// <summary>
     /// The expected parameter types for a valid populate method.
     /// </summary>
     private static readonly Type[] s_populateSignature = [typeof(IServiceProvider), typeof(object)];
@@ -52,12 +47,7 @@ public static class XamlScanner
     /// <param name="method">The method to check.</param>
     /// <returns><c>true</c> if the method is a valid build method; otherwise, <c>false</c>.</returns>
     public static bool IsBuildMethod([NotNullWhen(true)] MethodBase? method)
-    {
-        if (method is null)
-            return false;
-
-        return method.IsConstructor && method.GetParameters().Length is 0 || MethodHelper.IsSignatureAssignableFrom(s_buildSignature, method);
-    }
+        => method is { IsConstructor: true } || method is MethodInfo { ReturnType: Type t } && t != typeof(void);
 
     /// <summary>
     /// Determines whether a method qualifies as a populate method.
@@ -264,6 +254,8 @@ public static class XamlScanner
                 continue;
 
             MethodBase? buildMethod = type.GetInstanceConstructor();
+            buildMethod ??= type.GetInstanceConstructor([typeof(IServiceProvider)]);
+            buildMethod ??= type.GetInstanceConstructors().OrderBy(x => x.GetParameters().Length).FirstOrDefault();
             if (buildMethod is null)
                 continue;
 

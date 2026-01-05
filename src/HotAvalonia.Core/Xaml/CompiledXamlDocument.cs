@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
@@ -159,9 +160,52 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     /// An optional service provider used to resolve dependencies during the creation process.
     /// </param>
     /// <returns>A newly created instance of the root control.</returns>
+    [OverloadResolutionPriority(-1)]
     public object Build(IServiceProvider? serviceProvider = null)
+        => Build([serviceProvider]);
+
+    /// <inheritdoc cref="Build(IServiceProvider?)"/>
+    /// <param name="services">A list of services required to construct the control.</param>
+    public object Build(params ReadOnlySpan<object?> services)
     {
-        object[]? args = _build.IsConstructor ? null : [serviceProvider ?? XamlIlRuntimeHelpers.CreateRootServiceProviderV2()];
+        IServiceProvider? serviceProvider = null;
+        LinkedList<object?>? serviceList = null;
+        foreach (object? service in services)
+        {
+            if (serviceProvider is null && service is IServiceProvider parentServiceProvider)
+            {
+                serviceProvider = XamlIlRuntimeHelpers.CreateRootServiceProviderV3(parentServiceProvider);
+            }
+            else
+            {
+                (serviceList ??= new()).AddLast(service);
+            }
+        }
+
+        ParameterInfo[] parameters = _build.GetParameters();
+        object?[] args = parameters.Length == 0 ? null! : new object?[parameters.Length];
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            Type argType = parameters[i].ParameterType;
+            bool serviceFound = false;
+            LinkedListNode<object?>? serviceNode = serviceList?.First;
+            while (serviceNode is not null)
+            {
+                object? service = serviceNode.Value;
+                if (service is null ? !argType.IsValueType : argType.IsAssignableFrom(service.GetType()))
+                {
+                    args[i] = service;
+                    serviceList!.Remove(serviceNode);
+                    serviceFound = true;
+                    break;
+                }
+            }
+            if (serviceFound)
+                continue;
+
+            serviceProvider ??= XamlIlRuntimeHelpers.CreateRootServiceProviderV2();
+            args[i] = argType.IsAssignableFrom(serviceProvider.GetType()) ? serviceProvider : serviceProvider.GetService(argType);
+        }
         return _build.Invoke(null, args) ?? throw new InvalidOperationException();
     }
 
