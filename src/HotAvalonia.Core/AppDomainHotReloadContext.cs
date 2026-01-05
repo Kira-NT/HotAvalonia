@@ -97,6 +97,13 @@ internal sealed class AppDomainHotReloadContext : IHotReloadContext, ISupportIni
     }
 
     /// <inheritdoc/>
+    public void TriggerHotReload()
+    {
+        lock (_lock)
+            _context.TriggerHotReload();
+    }
+
+    /// <inheritdoc/>
     public void EnableHotReload()
     {
         lock (_lock)

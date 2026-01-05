@@ -41,6 +41,9 @@ internal sealed class AvaloniaAssetsHotReloadContext : IHotReloadContext
     public bool IsHotReloadEnabled => _assetManager.AssetLoader is DynamicAssetLoader;
 
     /// <inheritdoc/>
+    void IHotReloadContext.TriggerHotReload() { }
+
+    /// <inheritdoc/>
     public void EnableHotReload()
     {
         Logger.LogInfo(this, "Enabling hot reload for assets...");

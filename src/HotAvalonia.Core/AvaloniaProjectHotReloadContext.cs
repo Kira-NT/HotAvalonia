@@ -67,23 +67,17 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
     public void BeginInit() { }
 
     /// <inheritdoc/>
-    public async void EndInit()
+    public void EndInit()
     {
         if (HotReloadFeatures.SkipInitialPatching)
             return;
 
-        try
-        {
-            // Since this is an `async void` method, ensure that it does not hang indefinitely.
-            using CancellationTokenSource cancellationTokenSource = new(TimeSpan.FromSeconds(10));
-            CancellationToken cancellationToken = cancellationTokenSource.Token;
-            await Task.Run(() => PatchAllAsync(cancellationToken)).ConfigureAwait(false);
-        }
-        catch (Exception e)
-        {
-            Logger.LogError(this, "Failed to pre-patch all available documents: {Exception}", e);
-        }
+        _ = RunWithDefaultTimeoutAsync(ct => Task.WhenAll(_controls.Select(x => PatchAsync(x.Value, x.Key, ct))));
     }
+
+    /// <inheritdoc/>
+    public void TriggerHotReload()
+        => _ = RunWithDefaultTimeoutAsync(ReloadAsync);
 
     /// <inheritdoc/>
     public void EnableHotReload()
@@ -120,33 +114,12 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
     /// </summary>
     /// <param name="sender">The source of the event.</param>
     /// <param name="args">The event arguments containing details of the changed file.</param>
-    private async void OnChanged(object sender, FileSystemEventArgs args)
+    private void OnChanged(object sender, FileSystemEventArgs args)
     {
         if (!_enabled)
             return;
 
-        IFileSystem fileSystem = _watcher.FileSystem;
-        string path = fileSystem.GetFullPath(args.FullPath);
-        if (!_controls.TryGetValue(path, out AvaloniaControlManager? controlManager))
-            return;
-
-        try
-        {
-            // Since this is an `async void` method, ensure that it does not hang indefinitely.
-            using CancellationTokenSource cancellationTokenSource = new(TimeSpan.FromSeconds(10));
-            CancellationToken cancellationToken = cancellationTokenSource.Token;
-            if (!await fileSystem.FileExistsAsync(path, cancellationToken).ConfigureAwait(false))
-                return;
-
-            Logger.LogInfo(this, "Reloading '{Uri}'...", controlManager.Document.Uri);
-            string xaml = await fileSystem.ReadAllTextAsync(path, TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
-            string patchedXaml = _xamlPatcher.Patch(xaml);
-            await controlManager.ReloadAsync(patchedXaml, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception e)
-        {
-            Logger.LogError(this, "Failed to reload '{Uri}': {Exception}", controlManager.Document.Uri, e);
-        }
+        _ = RunWithDefaultTimeoutAsync(cancellationToken => ReloadAsync(args.FullPath, cancellationToken));
     }
 
     /// <summary>
@@ -175,12 +148,59 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
         => Logger.LogError(sender, "An unexpected error occurred while monitoring file changes: {Exception}", args.GetException());
 
     /// <summary>
-    /// Applies patches asynchronously to all registered controls.
+    /// Asynchronously reloads all registered controls.
     /// </summary>
     /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    private Task PatchAllAsync(CancellationToken cancellationToken)
-        => Task.WhenAll(_controls.Select(x => PatchAsync(x.Value, x.Key, cancellationToken)));
+    private async Task ReloadAsync(CancellationToken cancellationToken)
+    {
+        foreach ((_, AvaloniaControlManager control) in _controls)
+        {
+            // The simplest and most effective way to reload all controls within the current
+            // context is to reload the top-level `Application` instance that contains them.
+            if (!typeof(Application).IsAssignableFrom(control.Document.RootType))
+                continue;
+
+            try
+            {
+                Logger.LogInfo(this, "Reloading '{Uri}'...", control.Document.Uri);
+                await control.ReloadAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                Logger.LogError(this, "Failed to reload '{Uri}': {Exception}", control.Document.Uri, e);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Asynchronously reloads a control associated with the provided file path.
+    /// </summary>
+    /// <param name="path">The file path associated with the control that needs to be reloaded.</param>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    private async Task ReloadAsync(string path, CancellationToken cancellationToken)
+    {
+        IFileSystem fileSystem = _watcher.FileSystem;
+        string fullPath = fileSystem.GetFullPath(path);
+        if (!_controls.TryGetValue(fullPath, out AvaloniaControlManager? control))
+            return;
+
+        try
+        {
+            if (!await fileSystem.FileExistsAsync(fullPath, cancellationToken).ConfigureAwait(false))
+                return;
+
+            Logger.LogInfo(this, "Reloading '{Uri}'...", control.Document.Uri);
+            string xaml = await fileSystem.ReadAllTextAsync(fullPath, TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
+            string patchedXaml = _xamlPatcher.Patch(xaml);
+            await control.ReloadAsync(patchedXaml, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            Logger.LogError(this, "Failed to reload '{Uri}': {Exception}", control.Document.Uri, e);
+        }
+    }
 
     /// <summary>
     /// Asynchronously applies a patch to a specified control if required.
@@ -209,5 +229,17 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
         {
             Logger.LogError(this, "Failed to patch '{Uri}': {Exception}", controlManager.Document.Uri, e);
         }
+    }
+
+    /// <summary>
+    /// Executes the specified asynchronous operation using a cancellation token
+    /// that is automatically canceled after the configured default timeout.
+    /// </summary>
+    /// <param name="function">The function to execute.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    private async Task RunWithDefaultTimeoutAsync(Func<CancellationToken, Task> function)
+    {
+        using CancellationTokenSource cancellationTokenSource = new(TimeSpan.FromSeconds(10));
+        await function(cancellationTokenSource.Token).ConfigureAwait(false);
     }
 }

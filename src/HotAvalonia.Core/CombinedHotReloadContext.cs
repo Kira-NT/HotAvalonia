@@ -41,6 +41,13 @@ internal sealed class CombinedHotReloadContext : IHotReloadContext, ISupportInit
     }
 
     /// <inheritdoc/>
+    public void TriggerHotReload()
+    {
+        foreach (IHotReloadContext context in _contexts)
+            context.TriggerHotReload();
+    }
+
+    /// <inheritdoc/>
     public void EnableHotReload()
     {
         foreach (IHotReloadContext context in _contexts)
