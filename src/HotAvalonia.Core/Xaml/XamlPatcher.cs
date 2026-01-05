@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Xml.Linq;
 
 namespace HotAvalonia.Xaml;
@@ -9,20 +8,28 @@ namespace HotAvalonia.Xaml;
 public abstract class XamlPatcher
 {
     /// <summary>
-    /// Gets an instance of a patcher that performs no operations.
+    /// A collection of all available XAML patchers.
     /// </summary>
-    [field: MaybeNull]
-    public static XamlPatcher Empty => field ??= new CombinedXamlPatcher([]);
+    private static readonly XamlPatcher[] s_patchers =
+    [
+        new StaticResourcePatcher(),
+        new MergeResourceIncludePatcher(),
+    ];
 
     /// <summary>
-    /// Gets the default instance of a XAML patcher.
+    /// Gets an instance of a patcher that performs no operations.
     /// </summary>
-    [field: MaybeNull]
-    public static XamlPatcher Default => field ??= OptionalXamlPatcher.CombineEnabled
-    (
-        new StaticResourcePatcher(),
-        new MergeResourceIncludePatcher()
-    );
+    public static XamlPatcher Empty => new CombinedXamlPatcher([]);
+
+    /// <summary>
+    /// Gets the default XAML patcher for the current environment.
+    /// </summary>
+    public static XamlPatcher Default => OptionalXamlPatcher.CombineEnabled(s_patchers);
+
+    /// <summary>
+    /// Gets a patcher that applies all available XAML patching operations.
+    /// </summary>
+    public static XamlPatcher Advanced { get; } = new CombinedXamlPatcher(s_patchers);
 
     /// <summary>
     /// Applies patching operations to the specified XAML content.
@@ -30,7 +37,6 @@ public abstract class XamlPatcher
     /// <param name="xaml">The original XAML string.</param>
     /// <returns>The patched XAML string.</returns>
     public abstract string Patch(string xaml);
-
 
     /// <summary>
     /// Determines whether the specified XAML content requires patching.
@@ -89,13 +95,13 @@ file abstract class OptionalXamlPatcher : XamlPatcher
     }
 
     /// <summary>
-    /// Combines all enabled <see cref="OptionalXamlPatcher"/> instances
+    /// Combines all enabled <see cref="XamlPatcher"/> instances
     /// from the given collection into a single patcher.
     /// </summary>
-    /// <param name="patchers">An enumerable collection of optional patchers.</param>
+    /// <param name="patchers">An enumerable collection of xaml patchers.</param>
     /// <returns>A <see cref="XamlPatcher"/> that represents the combination of all enabled patchers.</returns>
-    public static XamlPatcher CombineEnabled(params IEnumerable<OptionalXamlPatcher> patchers)
-        => new CombinedXamlPatcher(patchers.Where(x => x.Enabled).ToArray());
+    public static XamlPatcher CombineEnabled(params IEnumerable<XamlPatcher> patchers)
+        => new CombinedXamlPatcher(patchers.Where(x => (x as OptionalXamlPatcher)?.Enabled != false).ToArray());
 }
 
 /// <summary>
