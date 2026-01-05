@@ -86,4 +86,24 @@ public static class HotReloadContext
 
         return new CombinedHotReloadContext(contextArray);
     }
+
+    /// <summary>
+    /// Creates an <see cref="IHotReloadContext"/> that is initialized lazily using the specified factory function.
+    /// </summary>
+    /// <param name="contextFactory">A delegate that produces the underlying <see cref="IHotReloadContext"/>.</param>
+    /// <returns>An <see cref="IHotReloadContext"/> that defers creation of the underlying context until it is needed.</returns>
+    public static IHotReloadContext Lazy(Func<IHotReloadContext> contextFactory)
+        => new LazyHotReloadContext(new(contextFactory));
+
+    /// <summary>
+    /// Creates an <see cref="IHotReloadContext"/> that is initialized lazily using the specified <see cref="Lazy{T}"/> instance.
+    /// </summary>
+    /// <param name="lazyContext">A <see cref="Lazy{T}"/> that provides the underlying <see cref="IHotReloadContext"/>.</param>
+    /// <returns>An <see cref="IHotReloadContext"/> that defers creation of the underlying context until it is needed.</returns>
+    public static IHotReloadContext Lazy(Lazy<IHotReloadContext> lazyContext)
+    {
+        ArgumentNullException.ThrowIfNull(lazyContext);
+
+        return new LazyHotReloadContext(lazyContext);
+    }
 }
