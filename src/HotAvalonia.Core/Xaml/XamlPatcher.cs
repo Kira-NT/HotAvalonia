@@ -89,7 +89,7 @@ file abstract class OptionalXamlPatcher : XamlPatcher
         get
         {
             string typeName = GetType().Name;
-            string humanReadableTypeName = typeName.Substring(typeName.LastIndexOf('_') + 1);
+            ReadOnlyMemory<char> humanReadableTypeName = typeName.AsMemory(typeName.LastIndexOf('_') + 1);
             return HotReloadFeatures.GetBoolean(humanReadableTypeName, defaultValue: true);
         }
     }

@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Avalonia.Logging;
 
 namespace HotAvalonia;
@@ -12,17 +13,17 @@ internal static class HotReloadFeatures
     /// <summary>
     /// Gets a value that indicates whether injections should be disabled.
     /// </summary>
-    public static bool DisableInjections => GetBoolean("DISABLE_INJECTIONS");
+    public static bool DisableInjections => GetBoolean(nameof(DisableInjections));
 
     /// <summary>
     /// Gets a value that indicates whether the initial patching should be skipped.
     /// </summary>
-    public static bool SkipInitialPatching => GetBoolean("SKIP_INITIAL_PATCHING");
+    public static bool SkipInitialPatching => GetBoolean(nameof(SkipInitialPatching));
 
     /// <summary>
     /// Gets the log level override for hot reload-related events.
     /// </summary>
-    public static LogEventLevel LogLevelOverride => GetEnum<LogEventLevel>("LOG_LEVEL_OVERRIDE");
+    public static LogEventLevel LogLevelOverride => GetEnum<LogEventLevel>(nameof(LogLevelOverride));
 
     /// <summary>
     /// Retrieves the environment variable value associated with the specified feature name.
@@ -34,12 +35,17 @@ internal static class HotReloadFeatures
     /// if the variable is not set.
     /// </returns>
     [return: NotNullIfNotNull(nameof(defaultValue))]
-    internal static string? GetString(string featureName, string? defaultValue = null)
+    internal static string? GetString(ReadOnlyMemory<char> featureName, string? defaultValue = null)
     {
-        string variableName = $"{nameof(HotAvalonia)}_{featureName}".ToUpperInvariant();
+        string variableName = GetEnvironmentVariableName(featureName);
         string? variableValue = Environment.GetEnvironmentVariable(variableName);
         return string.IsNullOrEmpty(variableValue) ? defaultValue : variableValue;
     }
+
+    /// <inheritdoc cref="GetString(ReadOnlyMemory{char}, string?)"/>
+    [return: NotNullIfNotNull(nameof(defaultValue))]
+    internal static string? GetString(string featureName, string? defaultValue = null)
+        => GetString(featureName.AsMemory(), defaultValue);
 
     /// <summary>
     /// Retrieves the environment variable value associated with the specified feature name
@@ -51,7 +57,7 @@ internal static class HotReloadFeatures
     /// The boolean representation of the environment variable, or <paramref name="defaultValue"/>
     /// if the conversion fails.
     /// </returns>
-    internal static bool GetBoolean(string featureName, bool defaultValue = false)
+    internal static bool GetBoolean(ReadOnlyMemory<char> featureName, bool defaultValue = false)
     {
         string? stringValue = GetString(featureName);
         if (bool.TryParse(stringValue, out bool boolValue))
@@ -63,6 +69,10 @@ internal static class HotReloadFeatures
         return defaultValue;
     }
 
+    /// <inheritdoc cref="GetBoolean(ReadOnlyMemory{char}, bool)"/>
+    internal static bool GetBoolean(string featureName, bool defaultValue = false)
+        => GetBoolean(featureName.AsMemory(), defaultValue);
+
     /// <summary>
     /// Retrieves the environment variable value associated with the specified feature name
     /// and converts it to a 32-bit integer.
@@ -73,8 +83,12 @@ internal static class HotReloadFeatures
     /// The 32-bit integer representation of the environment variable, or <paramref name="defaultValue"/>
     /// if the conversion fails.
     /// </returns>
-    internal static int GetInt32(string featureName, int defaultValue = 0)
+    internal static int GetInt32(ReadOnlyMemory<char> featureName, int defaultValue = 0)
         => int.TryParse(GetString(featureName), out int value) ? value : defaultValue;
+
+    /// <inheritdoc cref="GetInt32(ReadOnlyMemory{char}, int)"/>
+    internal static int GetInt32(string featureName, int defaultValue = 0)
+        => GetInt32(featureName.AsMemory(), defaultValue);
 
     /// <summary>
     /// Retrieves the environment variable value associated with the specified feature name
@@ -87,6 +101,50 @@ internal static class HotReloadFeatures
     /// The enumeration value corresponding to the environment variable, or <paramref name="defaultValue"/>
     /// if the conversion fails.
     /// </returns>
-    internal static TEnum GetEnum<TEnum>(string featureName, TEnum defaultValue = default) where TEnum : struct, Enum
+    internal static TEnum GetEnum<TEnum>(ReadOnlyMemory<char> featureName, TEnum defaultValue = default) where TEnum : struct, Enum
         => Enum.TryParse(GetString(featureName), ignoreCase: true, out TEnum value) ? value : defaultValue;
+
+    /// <inheritdoc cref="GetEnum{TEnum}(ReadOnlyMemory{char}, TEnum)"/>
+    internal static TEnum GetEnum<TEnum>(string featureName, TEnum defaultValue = default) where TEnum : struct, Enum
+        => GetEnum(featureName.AsMemory(), defaultValue);
+
+    /// <summary>
+    /// Formats a feature name written in PascalCase or camelCase into a SCREAMING_SNAKE_CASE
+    /// environment variable name prefixed with "HOTAVALONIA_".
+    /// </summary>
+    /// <param name="featureName">The feature name to format.</param>
+    /// <returns>The feature name formatted as an environment variable name corresponding to the said feature.</returns>
+    private static string GetEnvironmentVariableName(ReadOnlyMemory<char> featureName)
+    {
+        const string prefix = "HOTAVALONIA_";
+        ReadOnlySpan<char> name = featureName.Span;
+        if (name.Length == 0)
+            return prefix;
+
+        int borderCount = 0;
+        for (int i = name.Length - 2, s = name[name.Length - 1] & 0x20, ns; i >= 0; s = ns, i--)
+        {
+            if ((ns = name[i] & 0x20) - s == 0x20)
+                borderCount++;
+        }
+
+        return string.Create(prefix.Length + featureName.Length + borderCount, featureName, static (buffer, memory) =>
+        {
+            ReadOnlySpan<char> nameBuffer = memory.Span;
+            ref char name = ref Unsafe.AsRef(in nameBuffer[0]);
+            ref char envName = ref buffer[prefix.Length];
+            ((ReadOnlySpan<char>)prefix).CopyTo(buffer);
+
+            nint i = nameBuffer.Length - 1;
+            nint j = buffer.Length - prefix.Length;
+            for (int s = Unsafe.Add(ref name, i) & 0x20, ns; i >= 0; s = ns, i--)
+            {
+                int c = Unsafe.Add(ref name, i);
+                if ((ns = c & 0x20) - s == 0x20)
+                    Unsafe.Add(ref envName, --j) = '_';
+
+                Unsafe.Add(ref envName, --j) = (char)(c & ~(((uint)(c - 'a') <= 'z' - 'a' ? 1 : 0) << 5));
+            }
+        });
+    }
 }
