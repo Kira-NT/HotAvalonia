@@ -26,6 +26,11 @@ internal static class HotReloadFeatures
     public static LogEventLevel LogLevelOverride => GetEnum<LogEventLevel>(nameof(LogLevelOverride));
 
     /// <summary>
+    /// Gets the default timeout applied to hot reload–related operations.
+    /// </summary>
+    public static TimeSpan Timeout => TimeSpan.FromMilliseconds(GetInt32(nameof(Timeout), 10000));
+
+    /// <summary>
     /// Retrieves the environment variable value associated with the specified feature name.
     /// </summary>
     /// <param name="featureName">The feature name.</param>

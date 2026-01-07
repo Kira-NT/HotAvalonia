@@ -18,23 +18,18 @@ internal sealed class AvaloniaAssetsHotReloadContext : IHotReloadContext
     private readonly AvaloniaAssetManager _assetManager;
 
     /// <summary>
-    /// The project locator used to find source directories of assets.
+    /// The hot reload configuration.
     /// </summary>
-    private readonly AvaloniaProjectLocator _projectLocator;
+    private readonly AvaloniaHotReloadConfig _config;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AvaloniaAssetsHotReloadContext"/> class.
     /// </summary>
-    /// <param name="serviceProvider">
-    /// The service provider for resolving dependencies required by the asset manager.
-    /// </param>
-    /// <param name="projectLocator">
-    /// The project locator used to find source directories of assets.
-    /// </param>
-    public AvaloniaAssetsHotReloadContext(IServiceProvider serviceProvider, AvaloniaProjectLocator projectLocator)
+    /// <param name="config">The hot reload configuration to use.</param>
+    public AvaloniaAssetsHotReloadContext(AvaloniaHotReloadConfig config)
     {
-        _assetManager = new AvaloniaAssetManager(serviceProvider);
-        _projectLocator = projectLocator;
+        _assetManager = new AvaloniaAssetManager(config.ServiceProvider);
+        _config = config;
     }
 
     /// <inheritdoc/>
@@ -51,9 +46,10 @@ internal sealed class AvaloniaAssetsHotReloadContext : IHotReloadContext
         if (currentAssetLoader is null or DynamicAssetLoader)
             return;
 
-        _assetManager.AssetLoader = DynamicAssetLoader.Create(currentAssetLoader, _projectLocator);
-        _assetManager.IconTypeConverter = DynamicAssetTypeConverter<WindowIcon, IconTypeConverter>.Create(_projectLocator);
-        _assetManager.BitmapTypeConverter = DynamicAssetTypeConverter<Bitmap, BitmapTypeConverter>.Create(_projectLocator);
+        AvaloniaProjectLocator projectLocator = _config.ProjectLocator;
+        _assetManager.AssetLoader = DynamicAssetLoader.Create(currentAssetLoader, projectLocator);
+        _assetManager.IconTypeConverter = DynamicAssetTypeConverter<WindowIcon, IconTypeConverter>.Create(projectLocator);
+        _assetManager.BitmapTypeConverter = DynamicAssetTypeConverter<Bitmap, BitmapTypeConverter>.Create(projectLocator);
     }
 
     /// <inheritdoc/>

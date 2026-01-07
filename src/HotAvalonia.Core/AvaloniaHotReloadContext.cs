@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using System.Reflection;
-using HotAvalonia.DependencyInjection;
 using HotAvalonia.Helpers;
 using HotAvalonia.IO;
 using HotAvalonia.Logging;
@@ -15,8 +14,16 @@ public static class AvaloniaHotReloadContext
 {
     /// <inheritdoc cref="Create(AvaloniaProjectLocator)"/>
     [EditorBrowsable(EditorBrowsableState.Never)]
+    [Obsolete("Use 'Create(AvaloniaHotReloadConfig)' instead.")]
     public static IHotReloadContext Create()
-        => Create(new AvaloniaProjectLocator());
+        => Create(AvaloniaHotReloadConfig.Default);
+
+    /// <inheritdoc cref="Create(AvaloniaHotReloadConfig)"/>
+    /// <param name="projectLocator">The project locator used to find source directories of assemblies.</param>
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    [Obsolete("Use 'Create(AvaloniaHotReloadConfig)' instead.")]
+    public static IHotReloadContext Create(AvaloniaProjectLocator projectLocator)
+        => Create(AvaloniaHotReloadConfig.Default with { ProjectLocator = projectLocator });
 
     /// <summary>
     /// Creates a hot reload context for the current environment.
@@ -26,20 +33,28 @@ public static class AvaloniaHotReloadContext
     /// a hot reload context for the current environment.
     /// However, the specific details of what constitutes "best" are subject to change.
     /// </remarks>
-    /// <param name="projectLocator">The project locator used to find source directories of assemblies.</param>
+    /// <param name="config">The hot reload configuration to use.</param>
     /// <returns>A hot reload context for the current environment.</returns>
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public static IHotReloadContext Create(AvaloniaProjectLocator projectLocator)
+    public static IHotReloadContext Create(AvaloniaHotReloadConfig config) => CreateRooted(config, static config =>
     {
-        IHotReloadContext appDomainContext = FromAppDomain(AppDomain.CurrentDomain, projectLocator);
-        IHotReloadContext assetContext = ForAssets(AvaloniaServiceProvider.Current, projectLocator);
+        IHotReloadContext appDomainContext = FromAppDomain(config);
+        IHotReloadContext assetContext = ForAssets(config);
         return HotReloadContext.Combine([appDomainContext, assetContext]);
-    }
+    });
 
     /// <inheritdoc cref="CreateLite(AvaloniaProjectLocator)"/>
     [EditorBrowsable(EditorBrowsableState.Never)]
+    [Obsolete("Use 'CreateLite(AvaloniaHotReloadConfig)' instead.")]
     public static IHotReloadContext CreateLite()
-        => CreateLite(new AvaloniaProjectLocator());
+        => CreateLite(AvaloniaHotReloadConfig.Default);
+
+    /// <inheritdoc cref="CreateLite(AvaloniaHotReloadConfig)"/>
+    /// <param name="projectLocator">The project locator used to find source directories of assemblies.</param>
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    [Obsolete("Use 'CreateLite(AvaloniaHotReloadConfig)' instead.")]
+    public static IHotReloadContext CreateLite(AvaloniaProjectLocator projectLocator)
+        => CreateLite(AvaloniaHotReloadConfig.Default with { ProjectLocator = projectLocator });
 
     /// <summary>
     /// Creates a lightweight hot reload context for the current environment.
@@ -49,67 +64,70 @@ public static class AvaloniaHotReloadContext
     /// a hot reload context for the current environment. However, the specific details
     /// of what constitutes "best" are subject to change.
     /// </remarks>
-    /// <param name="projectLocator">The project locator used to find source directories of assemblies.</param>
+    /// <param name="config">The hot reload configuration to use.</param>
     /// <returns>A lightweight hot reload context for the current environment.</returns>
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public static IHotReloadContext CreateLite(AvaloniaProjectLocator projectLocator)
-    {
-        IHotReloadContext appDomainContext = FromAppDomain(AppDomain.CurrentDomain, projectLocator);
-        return appDomainContext;
-    }
+    public static IHotReloadContext CreateLite(AvaloniaHotReloadConfig config)
+        => FromAppDomain(config);
 
     /// <inheritdoc cref="ForAssets(IServiceProvider)"/>
+    [Obsolete("Use 'ForAssets(AvaloniaHotReloadConfig)' instead.")]
     public static IHotReloadContext ForAssets()
-        => ForAssets(AvaloniaServiceProvider.Current);
+        => ForAssets(AvaloniaHotReloadConfig.Default);
 
     /// <inheritdoc cref="ForAssets(IServiceProvider, AvaloniaProjectLocator)"/>
+    [Obsolete("Use 'ForAssets(AvaloniaHotReloadConfig)' instead.")]
     public static IHotReloadContext ForAssets(IServiceProvider serviceProvider)
-        => ForAssets(serviceProvider, new AvaloniaProjectLocator());
+        => ForAssets(AvaloniaHotReloadConfig.Default with { ServiceProvider = serviceProvider });
+
+    /// <inheritdoc cref="ForAssets(AvaloniaHotReloadConfig)"/>
+    /// <param name="serviceProvider">The service provider defining <c>IAssetLoader</c>.</param>
+    /// <param name="projectLocator">The project locator used to find source directories of assets.</param>
+    [Obsolete("Use 'ForAssets(AvaloniaHotReloadConfig)' instead.")]
+    public static IHotReloadContext ForAssets(IServiceProvider serviceProvider, AvaloniaProjectLocator projectLocator)
+        => ForAssets(AvaloniaHotReloadConfig.Default with { ServiceProvider = serviceProvider, ProjectLocator = projectLocator });
 
     /// <summary>
     /// Creates a hot reload context for Avalonia assets.
     /// </summary>
-    /// <param name="serviceProvider">The service provider defining <c>IAssetLoader</c>.</param>
-    /// <param name="projectLocator">The project locator used to find source directories of assets.</param>
+    /// <param name="config">The hot reload configuration to use.</param>
     /// <returns>A hot reload context for Avalonia assets.</returns>
-    public static IHotReloadContext ForAssets(IServiceProvider serviceProvider, AvaloniaProjectLocator projectLocator)
-    {
-        ArgumentNullException.ThrowIfNull(serviceProvider);
-        ArgumentNullException.ThrowIfNull(projectLocator);
-
-        return new AvaloniaAssetsHotReloadContext(serviceProvider, projectLocator);
-    }
+    public static IHotReloadContext ForAssets(AvaloniaHotReloadConfig config)
+        => CreateRooted(config, static config => new AvaloniaAssetsHotReloadContext(config));
 
     /// <summary>
     /// Creates a hot reload context for all assemblies within the current <see cref="AppDomain"/>.
     /// </summary>
     /// <returns>A hot reload context for the current application domain.</returns>
     /// <inheritdoc cref="FromAppDomain(AppDomain)"/>
+    [Obsolete("Use 'FromAppDomain(AvaloniaHotReloadConfig)' instead.")]
     public static IHotReloadContext FromAppDomain()
-        => FromAppDomain(AppDomain.CurrentDomain);
+        => FromAppDomain(AvaloniaHotReloadConfig.Default);
 
     /// <inheritdoc cref="FromAppDomain(AppDomain, AvaloniaProjectLocator)"/>
+    [Obsolete("Use 'FromAppDomain(AvaloniaHotReloadConfig)' instead.")]
     public static IHotReloadContext FromAppDomain(AppDomain appDomain)
-        => FromAppDomain(appDomain, new AvaloniaProjectLocator());
+        => FromAppDomain(AvaloniaHotReloadConfig.Default with { AppDomain = appDomain });
+
+    /// <inheritdoc cref="FromAppDomain(AvaloniaHotReloadConfig)"/>
+    /// <param name="appDomain">The <see cref="AppDomain"/> to create the hot reload context from.</param>
+    /// <param name="projectLocator">The project locator used to find source directories of assemblies.</param>
+    [Obsolete("Use 'FromAppDomain(AvaloniaHotReloadConfig)' instead.")]
+    public static IHotReloadContext FromAppDomain(AppDomain appDomain, AvaloniaProjectLocator projectLocator)
+        => FromAppDomain(AvaloniaHotReloadConfig.Default with { AppDomain = appDomain, ProjectLocator = projectLocator });
 
     /// <summary>
-    /// Creates a hot reload context for all assemblies within the specified <see cref="AppDomain"/>.
+    /// Creates a hot reload context for all assemblies within the <see cref="AvaloniaHotReloadConfig.AppDomain"/>.
     /// </summary>
     /// <remarks>
     /// This context will include all currently loaded assemblies and any of those that are loaded
     /// in the future, automatically determining if they contain Avalonia controls and if their
     /// source project directories can be located.
     /// </remarks>
-    /// <param name="appDomain">The <see cref="AppDomain"/> to create the hot reload context from.</param>
-    /// <param name="projectLocator">The project locator used to find source directories of assemblies.</param>
+    /// <param name="config">The hot reload configuration to use.</param>
     /// <returns>A hot reload context for the specified application domain.</returns>
-    public static IHotReloadContext FromAppDomain(AppDomain appDomain, AvaloniaProjectLocator projectLocator)
-    {
-        ArgumentNullException.ThrowIfNull(appDomain);
-        ArgumentNullException.ThrowIfNull(projectLocator);
-
-        return HotReloadContext.FromAppDomain(appDomain, (ctx, _, asm) => FromUnverifiedAssembly(ctx, asm, projectLocator));
-    }
+    public static IHotReloadContext FromAppDomain(AvaloniaHotReloadConfig config)
+        => CreateRooted(config, static config => HotReloadContext.FromAppDomain(config.AppDomain, (ctx, _, asm) => FromUnverifiedAssembly(ctx, asm, config)));
 
     /// <summary>
     /// Creates a hot reload context from the specified assembly, if it contains Avalonia controls;
@@ -117,17 +135,18 @@ public static class AvaloniaHotReloadContext
     /// </summary>
     /// <param name="context">The parent hot reload context, if any.</param>
     /// <param name="assembly">The assembly to create the hot reload context from.</param>
-    /// <param name="projectLocator">The project locator used to find the source directory of the assembly.</param>
+    /// <param name="config">The hot reload configuration to use.</param>
     /// <returns>
     /// A hot reload context for the specified assembly, or <c>null</c> if the assembly
     /// does not contain Avalonia controls or if its source project cannot be located.
     /// </returns>
-    private static IHotReloadContext? FromUnverifiedAssembly(IHotReloadContext? context, Assembly assembly, AvaloniaProjectLocator projectLocator)
+    private static IHotReloadContext? FromUnverifiedAssembly(IHotReloadContext context, Assembly assembly, AvaloniaHotReloadConfig config)
     {
         CompiledXamlDocument[] documents = XamlScanner.GetDocuments(assembly).ToArray();
         if (documents.Length == 0)
             return null;
 
+        AvaloniaProjectLocator projectLocator = config.ProjectLocator;
         string? assemblyName = assembly.GetName().Name;
         if (!projectLocator.TryGetDirectoryName(assembly, documents, out string? rootPath))
         {
@@ -156,28 +175,40 @@ public static class AvaloniaHotReloadContext
         }
 
         Logger.LogInfo(context, "Loading new hot reload context for '{Assembly}' from '{Location}'...", assemblyName, rootPath);
-        return new AvaloniaProjectHotReloadContext(rootPath, projectLocator.FileSystem, documents);
+        return new AvaloniaProjectHotReloadContext(rootPath, documents, config);
     }
 
     /// <inheritdoc cref="FromAssembly(Assembly, string)"/>
+    [Obsolete("Use 'FromAssembly(Assembly, AvaloniaHotReloadConfig)' instead.")]
     public static IHotReloadContext FromAssembly(Assembly assembly)
-        => FromAssembly(assembly, new AvaloniaProjectLocator());
+        => FromAssembly(assembly, AvaloniaHotReloadConfig.Default);
 
     /// <inheritdoc cref="FromAssembly(Assembly, string, IFileSystem)"/>
+    [Obsolete("Use 'FromAssembly(Assembly, string, AvaloniaHotReloadConfig)' instead.")]
     public static IHotReloadContext FromAssembly(Assembly assembly, string rootPath)
-        => FromAssembly(assembly, rootPath, FileSystem.Current);
+        => FromAssembly(assembly, rootPath, AvaloniaHotReloadConfig.Default);
 
     /// <param name="projectLocator">The project locator used to find source directories of assemblies.</param>
     /// <inheritdoc cref="FromAssembly(Assembly, string)"/>
+    [Obsolete("Use 'FromAssembly(Assembly, AvaloniaHotReloadConfig)' instead.")]
     public static IHotReloadContext FromAssembly(Assembly assembly, AvaloniaProjectLocator projectLocator)
+        => FromAssembly(assembly, AvaloniaHotReloadConfig.Default with { ProjectLocator = projectLocator });
+
+    /// <inheritdoc cref="FromAssembly(Assembly, string, AvaloniaHotReloadConfig)"/>
+    public static IHotReloadContext FromAssembly(Assembly assembly, AvaloniaHotReloadConfig config) => CreateRooted(config, config =>
     {
         ArgumentNullException.ThrowIfNull(assembly);
-        ArgumentNullException.ThrowIfNull(projectLocator);
 
         CompiledXamlDocument[] documents = XamlScanner.GetDocuments(assembly).ToArray();
-        string rootPath = projectLocator.GetDirectoryName(assembly, documents);
-        return new AvaloniaProjectHotReloadContext(rootPath, projectLocator.FileSystem, documents);
-    }
+        string rootPath = config.ProjectLocator.GetDirectoryName(assembly, documents);
+        return new AvaloniaProjectHotReloadContext(rootPath, documents, config);
+    });
+
+    /// <inheritdoc cref="FromAssembly(Assembly, string, AvaloniaHotReloadConfig)"/>
+    /// <param name="fileSystem">The file system where <paramref name="assembly"/> resides.</param>
+    [Obsolete("Use 'FromAssembly(Assembly, string, AvaloniaHotReloadConfig)' instead.")]
+    public static IHotReloadContext FromAssembly(Assembly assembly, string rootPath, IFileSystem fileSystem)
+        => FromAssembly(assembly, rootPath, AvaloniaHotReloadConfig.Default with { FileSystem = fileSystem });
 
     /// <summary>
     /// Creates a hot reload context from the specified assembly, representing a single Avalonia project.
@@ -187,18 +218,18 @@ public static class AvaloniaHotReloadContext
     /// The root path associated with the specified assembly,
     /// which is the directory containing its source code.
     /// </param>
-    /// <param name="fileSystem">The file system where <paramref name="assembly"/> resides.</param>
+    /// <param name="config">The hot reload configuration to use.</param>
     /// <returns>A hot reload context for the specified assembly.</returns>
-    public static IHotReloadContext FromAssembly(Assembly assembly, string rootPath, IFileSystem fileSystem)
+    public static IHotReloadContext FromAssembly(Assembly assembly, string rootPath, AvaloniaHotReloadConfig config) => CreateRooted(config, config =>
     {
         ArgumentNullException.ThrowIfNull(assembly);
-        ArgumentNullException.ThrowIfNull(fileSystem);
 
         IEnumerable<CompiledXamlDocument> documents = XamlScanner.GetDocuments(assembly);
-        return new AvaloniaProjectHotReloadContext(rootPath, fileSystem, documents);
-    }
+        return new AvaloniaProjectHotReloadContext(rootPath, documents, config);
+    });
 
     /// <inheritdoc cref="FromControl(object, string)"/>
+    [Obsolete("Use 'FromAssembly(Assembly, AvaloniaHotReloadConfig)' instead.")]
     public static IHotReloadContext FromControl(object control)
     {
         ArgumentNullException.ThrowIfNull(control);
@@ -207,6 +238,7 @@ public static class AvaloniaHotReloadContext
     }
 
     /// <inheritdoc cref="FromControl(Type, string)"/>
+    [Obsolete("Use 'FromAssembly(Assembly, AvaloniaHotReloadConfig)' instead.")]
     public static IHotReloadContext FromControl(Type controlType)
     {
         ArgumentNullException.ThrowIfNull(controlType);
@@ -220,6 +252,7 @@ public static class AvaloniaHotReloadContext
     /// <param name="control">The control to create the hot reload context from.</param>
     /// <param name="controlPath">The path to the control's XAML file.</param>
     /// <returns>A hot reload context for the specified control.</returns>
+    [Obsolete("Use 'FromControl(Type, string, AvaloniaHotReloadConfig)' instead.")]
     public static IHotReloadContext FromControl(object control, string controlPath)
     {
         ArgumentNullException.ThrowIfNull(control);
@@ -228,28 +261,55 @@ public static class AvaloniaHotReloadContext
     }
 
     /// <inheritdoc cref="FromControl(Type, string, IFileSystem)"/>
+    [Obsolete("Use 'FromControl(Type, string, AvaloniaHotReloadConfig)' instead.")]
     public static IHotReloadContext FromControl(Type controlType, string controlPath)
-        => FromControl(controlType, controlPath, FileSystem.Current);
+        => FromControl(controlType, controlPath, AvaloniaHotReloadConfig.Default);
+
+    /// <inheritdoc cref="FromControl(Type, string, AvaloniaHotReloadConfig)"/>
+    /// <param name="fileSystem">The file system where <paramref name="controlPath"/> can be found.</param>
+    [Obsolete("Use 'FromControl(Type, string, AvaloniaHotReloadConfig)' instead.")]
+    public static IHotReloadContext FromControl(Type controlType, string controlPath, IFileSystem fileSystem)
+        => FromControl(controlType, controlPath, AvaloniaHotReloadConfig.Default with { FileSystem = fileSystem });
 
     /// <summary>
     /// Creates a hot reload context for the assembly containing the specified control.
     /// </summary>
     /// <param name="controlType">The type of the control to create the hot reload context from.</param>
     /// <param name="controlPath">The path to the control's XAML file.</param>
-    /// <param name="fileSystem">The file system where <paramref name="controlPath"/> can be found.</param>
+    /// <param name="config">The hot reload configuration to use.</param>
     /// <returns>A hot reload context for the specified control type.</returns>
-    public static IHotReloadContext FromControl(Type controlType, string controlPath, IFileSystem fileSystem)
+    public static IHotReloadContext FromControl(Type controlType, string controlPath, AvaloniaHotReloadConfig config)
     {
         ArgumentNullException.ThrowIfNull(controlType);
         ArgumentNullException.ThrowIfNull(controlPath);
-        ArgumentNullException.ThrowIfNull(fileSystem);
-        _ = fileSystem.FileExists(controlPath) ? controlPath : throw new FileNotFoundException(controlPath);
+        ArgumentNullException.ThrowIfNull(config);
+
+        IFileSystem fileSystem = config.FileSystem;
+        if (!fileSystem.FileExists(controlPath))
+            throw new FileNotFoundException(null, controlPath);
 
         controlPath = fileSystem.GetFullPath(controlPath);
         if (!XamlScanner.TryExtractDocumentUri(controlType, out string? controlUri))
             ArgumentException.Throw(nameof(controlType), "The provided control is not a valid user-defined Avalonia control. Could not determine its URI.");
 
         string rootPath = UriHelper.ResolveHostPath(controlUri, controlPath);
-        return FromAssembly(controlType.Assembly, rootPath, fileSystem);
+        return FromAssembly(controlType.Assembly, rootPath, config);
+    }
+
+    /// <summary>
+    /// Creates a new hot reload context and assigns it as the root context if it has not been configured yet.
+    /// </summary>
+    /// <param name="config">The hot reload configuration that stores the root context.</param>
+    /// <param name="factory">The factory function used to create a new hot reload context.</param>
+    /// <returns>A newly created hot reload context.</returns>
+    private static IHotReloadContext CreateRooted(AvaloniaHotReloadConfig config, Func<AvaloniaHotReloadConfig, IHotReloadContext> factory)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+
+        if (config.Root is not null)
+            return factory(config);
+
+        config = config with { Root = HotReloadContext.Lazy(() => factory(config)) };
+        return config.Root;
     }
 }

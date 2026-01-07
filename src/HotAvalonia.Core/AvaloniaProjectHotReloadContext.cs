@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Avalonia;
 using HotAvalonia.Helpers;
 using HotAvalonia.IO;
 using HotAvalonia.Logging;
@@ -22,9 +23,9 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
     private readonly FileWatcher _watcher;
 
     /// <summary>
-    /// The XAML patcher to be applied to the contents of updated files.
+    /// The hot reload configuration.
     /// </summary>
-    private readonly XamlPatcher _xamlPatcher;
+    private readonly AvaloniaHotReloadConfig _config;
 
     /// <summary>
     /// Indicates whether hot reload is currently enabled.
@@ -35,15 +36,11 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
     /// Initializes a new instance of the <see cref="AvaloniaProjectHotReloadContext"/> class.
     /// </summary>
     /// <param name="rootPath">The root directory of the Avalonia project to watch.</param>
-    /// <param name="fileSystem">The file system where <paramref name="rootPath"/> can be found.</param>
     /// <param name="documents">The list of XAML documents to manage.</param>
-    /// <param name="xamlPatcher">An optional XAML patcher to be applied to the contents of updated files.</param>
-    public AvaloniaProjectHotReloadContext(string rootPath, IFileSystem fileSystem, IEnumerable<CompiledXamlDocument> documents, XamlPatcher? xamlPatcher = null)
+    /// <param name="config">The hot reload configuration to use.</param>
+    public AvaloniaProjectHotReloadContext(string rootPath, IEnumerable<CompiledXamlDocument> documents, AvaloniaHotReloadConfig config)
     {
-        ArgumentNullException.ThrowIfNull(rootPath);
-        ArgumentNullException.ThrowIfNull(fileSystem);
-        _ = fileSystem.DirectoryExists(rootPath) ? rootPath : throw new DirectoryNotFoundException(rootPath);
-
+        IFileSystem fileSystem = config.FileSystem;
         rootPath = fileSystem.GetFullPath(rootPath);
         _controls = documents.ToDictionary
         (
@@ -52,12 +49,11 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
             fileSystem.PathComparer
         );
 
+        _config = config;
         _watcher = new(rootPath, fileSystem, _controls.Keys);
         _watcher.Changed += OnChanged;
         _watcher.Renamed += OnRenamed;
         _watcher.Error += OnError;
-
-        _xamlPatcher = xamlPatcher ?? XamlPatcher.Default;
     }
 
     /// <inheritdoc/>
@@ -69,7 +65,7 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
     /// <inheritdoc/>
     public void EndInit()
     {
-        if (HotReloadFeatures.SkipInitialPatching)
+        if (_config.SkipInitialPatching)
             return;
 
         _ = RunWithDefaultTimeoutAsync(ct => Task.WhenAll(_controls.Select(x => PatchAsync(x.Value, x.Key, ct))));
@@ -181,7 +177,7 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
     /// <returns>A task that represents the asynchronous operation.</returns>
     private async Task ReloadAsync(string path, CancellationToken cancellationToken)
     {
-        IFileSystem fileSystem = _watcher.FileSystem;
+        IFileSystem fileSystem = _config.FileSystem;
         string fullPath = fileSystem.GetFullPath(path);
         if (!_controls.TryGetValue(fullPath, out AvaloniaControlManager? control))
             return;
@@ -193,7 +189,7 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
 
             Logger.LogInfo(this, "Reloading '{Uri}'...", control.Document.Uri);
             string xaml = await fileSystem.ReadAllTextAsync(fullPath, TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
-            string patchedXaml = _xamlPatcher.Patch(xaml);
+            string patchedXaml = _config.XamlPatcher.Patch(xaml);
             await control.ReloadAsync(patchedXaml, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception e)
@@ -213,16 +209,17 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
     {
         try
         {
-            IFileSystem fileSystem = _watcher.FileSystem;
+            IFileSystem fileSystem = _config.FileSystem;
             if (!await fileSystem.FileExistsAsync(path, cancellationToken).ConfigureAwait(false))
                 return;
 
+            XamlPatcher xamlPatcher = _config.XamlPatcher;
             string xaml = await fileSystem.ReadAllTextAsync(path, TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
-            if (!_xamlPatcher.RequiresPatching(xaml))
+            if (!xamlPatcher.RequiresPatching(xaml))
                 return;
 
             Logger.LogInfo(this, "Patching '{Uri}'...", controlManager.Document.Uri);
-            string patchedXaml = _xamlPatcher.Patch(xaml);
+            string patchedXaml = xamlPatcher.Patch(xaml);
             await controlManager.ReloadAsync(patchedXaml, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception e)
@@ -239,7 +236,8 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
     /// <returns>A task that represents the asynchronous operation.</returns>
     private async Task RunWithDefaultTimeoutAsync(Func<CancellationToken, Task> function)
     {
-        using CancellationTokenSource cancellationTokenSource = new(TimeSpan.FromSeconds(10));
-        await function(cancellationTokenSource.Token).ConfigureAwait(false);
+        TimeSpan timeout = _config.Timeout;
+        using CancellationTokenSource? cancellationTokenSource = timeout <= TimeSpan.Zero ? null : new(timeout);
+        await function(cancellationTokenSource?.Token ?? default).ConfigureAwait(false);
     }
 }

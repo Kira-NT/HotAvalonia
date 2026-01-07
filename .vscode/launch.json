@@ -13,6 +13,7 @@
         "HOTAVALONIA_SKIP_INITIAL_PATCHING": "false",
         "HOTAVALONIA_DISABLE_INJECTIONS": "false",
         "HOTAVALONIA_LOG_LEVEL_OVERRIDE": "error",
+        "HOTAVALONIA_TIMEOUT": "10000",
       },
       "args": [],
       "cwd": "${workspaceFolder}/samples/HotReloadDemo.Desktop",
