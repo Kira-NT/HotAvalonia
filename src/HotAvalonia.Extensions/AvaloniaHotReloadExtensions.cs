@@ -29,6 +29,7 @@
 // SOFTWARE.
 #endregion
 
+#line hidden
 #pragma warning disable
 #nullable enable
 
@@ -90,7 +91,6 @@ namespace HotAvalonia
         /// <param name="controlType">The control type.</param>
         /// <param name="controlFilePath">The file path to the associated XAML file.</param>
         /// <returns>A factory method for creating an <see cref="IHotReloadContext"/> instance.</returns>
-        [DebuggerStepThrough]
         private static Func<IHotReloadContext> CreateHotReloadContextFactory(Type controlType, string? controlFilePath)
         {
             return new Func<IHotReloadContext>(() =>
@@ -112,7 +112,6 @@ namespace HotAvalonia
         /// </summary>
         /// <param name="projectPathResolver">The callback function capable of resolving a project path for a given assembly.</param>
         /// <returns>A factory method for creating an <see cref="IHotReloadContext"/> instance.</returns>
-        [DebuggerStepThrough]
         private static Func<IHotReloadContext> CreateHotReloadContextFactory(Func<Assembly, string?>? projectPathResolver)
         {
             return new Func<IHotReloadContext>(() =>
@@ -130,7 +129,6 @@ namespace HotAvalonia
         /// </summary>
         /// <param name="projectLocator">The project locator used to find source directories of assemblies.</param>
         /// <returns>A hot reload context for the current environment.</returns>
-        [DebuggerStepThrough]
         private static IHotReloadContext CreateHotReloadContext(AvaloniaProjectLocator projectLocator)
         {
 #if HOTAVALONIA_ENABLE_LITE
@@ -145,7 +143,6 @@ namespace HotAvalonia
         /// Gets the current file system instance.
         /// </summary>
         /// <returns>The current file system instance.</returns>
-        [DebuggerStepThrough]
         private static global::HotAvalonia.IO.IFileSystem GetFileSystem()
         {
 #if HOTAVALONIA_USE_REMOTE_FILE_SYSTEM
@@ -162,7 +159,6 @@ namespace HotAvalonia
         /// </summary>
         /// <param name="builder">The app builder instance.</param>
         /// <returns>The app builder instance.</returns>
-        [DebuggerStepThrough]
         public static AppBuilder UseHotReload(this AppBuilder builder)
         {
 #if HOTAVALONIA_ENABLE && !HOTAVALONIA_DISABLE
@@ -177,7 +173,6 @@ namespace HotAvalonia
         /// <param name="builder">The app builder instance.</param>
         /// <param name="projectPathResolver">The callback function capable of resolving a project path for a given assembly.</param>
         /// <returns>The app builder instance.</returns>
-        [DebuggerStepThrough]
         public static AppBuilder UseHotReload(this AppBuilder builder, Func<Assembly, string?> projectPathResolver)
         {
 #if HOTAVALONIA_ENABLE && !HOTAVALONIA_DISABLE
@@ -192,7 +187,6 @@ namespace HotAvalonia
         /// <param name="app">The Avalonia application instance for which hot reload should be enabled.</param>
         /// <param name="appFilePath">The file path of the application's main source file. Optional if the method called within the file of interest.</param>
         [Conditional("HOTAVALONIA_ENABLE")]
-        [DebuggerStepThrough]
         public static void EnableHotReload(this Application app, [CallerFilePath] string? appFilePath = null)
         {
 #if HOTAVALONIA_ENABLE && !HOTAVALONIA_DISABLE
@@ -206,7 +200,6 @@ namespace HotAvalonia
         /// <param name="app">The Avalonia application instance for which hot reload should be enabled.</param>
         /// <param name="projectPathResolver">The callback function capable of resolving a project path for a given assembly.</param>
         [Conditional("HOTAVALONIA_ENABLE")]
-        [DebuggerStepThrough]
         public static void EnableHotReload(this Application app, Func<Assembly, string?> projectPathResolver)
         {
 #if HOTAVALONIA_ENABLE && !HOTAVALONIA_DISABLE
@@ -219,7 +212,6 @@ namespace HotAvalonia
         /// </summary>
         /// <param name="app">The Avalonia application instance for which hot reload should be disabled.</param>
         [Conditional("HOTAVALONIA_ENABLE")]
-        [DebuggerStepThrough]
         public static void DisableHotReload(this Application app)
         {
 #if HOTAVALONIA_ENABLE && !HOTAVALONIA_DISABLE
@@ -232,3 +224,4 @@ namespace HotAvalonia
 
 #nullable restore
 #pragma warning restore
+#line default
