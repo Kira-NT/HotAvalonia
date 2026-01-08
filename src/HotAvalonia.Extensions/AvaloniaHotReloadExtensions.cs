@@ -42,6 +42,7 @@ namespace HotAvalonia
     using global::System.Reflection;
     using global::System.Runtime.CompilerServices;
     using global::Avalonia;
+    using global::Avalonia.Input;
 
     /// <summary>
     /// Indicates that the decorated method should be called whenever the associated Avalonia control is hot reloaded.
@@ -84,13 +85,6 @@ namespace HotAvalonia
     internal static partial class AvaloniaHotReloadExtensions
     {
 #if HOTAVALONIA_ENABLE && !HOTAVALONIA_DISABLE
-        /// <summary>
-        /// Creates a factory method for generating an <see cref="IHotReloadContext"/>
-        /// using the specified control type and its XAML file path.
-        /// </summary>
-        /// <param name="controlType">The control type.</param>
-        /// <param name="controlFilePath">The file path to the associated XAML file.</param>
-        /// <returns>A factory method for creating an <see cref="IHotReloadContext"/> instance.</returns>
         private static Func<IHotReloadContext> CreateHotReloadContextFactory(Type controlType, string? controlFilePath)
         {
             return new Func<IHotReloadContext>(() =>
@@ -102,16 +96,11 @@ namespace HotAvalonia
                 if (!string.IsNullOrEmpty(controlFilePath))
                     projectLocator.AddHint(controlType, controlFilePath);
 
-                return CreateHotReloadContext(projectLocator);
+                AvaloniaHotReloadConfig config = AvaloniaHotReloadConfig.Default.With(projectLocator: projectLocator);
+                return CreateHotReloadContext(config);
             });
         }
 
-        /// <summary>
-        /// Creates a factory method for generating an <see cref="IHotReloadContext"/>
-        /// using a custom project path resolver.
-        /// </summary>
-        /// <param name="projectPathResolver">The callback function capable of resolving a project path for a given assembly.</param>
-        /// <returns>A factory method for creating an <see cref="IHotReloadContext"/> instance.</returns>
         private static Func<IHotReloadContext> CreateHotReloadContextFactory(Func<Assembly, string?>? projectPathResolver)
         {
             return new Func<IHotReloadContext>(() =>
@@ -120,29 +109,23 @@ namespace HotAvalonia
                 if ((object?)projectPathResolver != null)
                     projectLocator.AddHint(projectPathResolver);
 
-                return CreateHotReloadContext(projectLocator);
+                AvaloniaHotReloadConfig config = AvaloniaHotReloadConfig.Default.With(projectLocator: projectLocator);
+                return CreateHotReloadContext(config);
             });
         }
 
-        /// <summary>
-        /// Creates a hot reload context for the current environment.
-        /// </summary>
-        /// <param name="projectLocator">The project locator used to find source directories of assemblies.</param>
-        /// <returns>A hot reload context for the current environment.</returns>
-        private static IHotReloadContext CreateHotReloadContext(AvaloniaProjectLocator projectLocator)
+#if !HOTAVALONIA_USE_CUSTOM_CONTEXT
+        private static IHotReloadContext CreateHotReloadContext(AvaloniaHotReloadConfig config)
         {
 #if HOTAVALONIA_ENABLE_LITE
-            return AvaloniaHotReloadContext.CreateLite(projectLocator);
+            return AvaloniaHotReloadContext.CreateLite(config);
 #else
-            return AvaloniaHotReloadContext.Create(projectLocator);
+            return AvaloniaHotReloadContext.Create(config);
 #endif
         }
+#endif
 
 #if !HOTAVALONIA_USE_CUSTOM_FILE_SYSTEM
-        /// <summary>
-        /// Gets the current file system instance.
-        /// </summary>
-        /// <returns>The current file system instance.</returns>
         private static global::HotAvalonia.IO.IFileSystem GetFileSystem()
         {
 #if HOTAVALONIA_USE_REMOTE_FILE_SYSTEM
@@ -154,25 +137,23 @@ namespace HotAvalonia
 #endif
 #endif
 
-        /// <summary>
-        /// Enables hot reload functionality for the specified <see cref="AppBuilder"/> instance.
-        /// </summary>
-        /// <param name="builder">The app builder instance.</param>
-        /// <returns>The app builder instance.</returns>
+        /// <inheritdoc cref="UseHotReload(AppBuilder, Func{Assembly, string})"/>
         public static AppBuilder UseHotReload(this AppBuilder builder)
         {
-#if HOTAVALONIA_ENABLE && !HOTAVALONIA_DISABLE
-            AvaloniaHotReload.Enable(builder, CreateHotReloadContextFactory(null));
-#endif
-            return builder;
+            return UseHotReload(builder, projectPathResolver: null);
+        }
+
+        /// <inheritdoc cref="UseHotReload(AppBuilder, Func{Assembly, string}, KeyGesture)"/>
+        public static AppBuilder UseHotReload(this AppBuilder builder, KeyGesture? gesture)
+        {
+            return UseHotReload(builder, projectPathResolver: null, gesture);
         }
 
         /// <summary>
-        /// Enables hot reload functionality for the specified <see cref="AppBuilder"/> instance.
+        /// Enables hot reload functionality for the specified <see cref="AppBuilder"/> instance and automatically
+        /// registers a default hotkey to trigger a manual hot reload event (usually <c>Alt+F5</c>).
         /// </summary>
-        /// <param name="builder">The app builder instance.</param>
-        /// <param name="projectPathResolver">The callback function capable of resolving a project path for a given assembly.</param>
-        /// <returns>The app builder instance.</returns>
+        /// <inheritdoc cref="UseHotReload(AppBuilder, Func{Assembly, string}, KeyGesture)"/>
         public static AppBuilder UseHotReload(this AppBuilder builder, Func<Assembly, string?> projectPathResolver)
         {
 #if HOTAVALONIA_ENABLE && !HOTAVALONIA_DISABLE
@@ -182,15 +163,53 @@ namespace HotAvalonia
         }
 
         /// <summary>
-        /// Enables hot reload functionality for the given Avalonia application.
+        /// Enables hot reload functionality for the specified <see cref="AppBuilder"/> instance.
         /// </summary>
-        /// <param name="app">The Avalonia application instance for which hot reload should be enabled.</param>
-        /// <param name="appFilePath">The file path of the application's main source file. Optional if the method called within the file of interest.</param>
+        /// <param name="builder">The app builder instance.</param>
+        /// <param name="projectPathResolver">The callback function capable of resolving a project path for a given assembly.</param>
+        /// <param name="gesture">
+        /// A gesture representing the hotkey that should trigger a hot reload event,
+        /// or <c>null</c> if no hotkey should be registered.
+        /// </param>
+        /// <returns>The app builder instance.</returns>
+        public static AppBuilder UseHotReload(this AppBuilder builder, Func<Assembly, string?> projectPathResolver, KeyGesture? gesture)
+        {
+#if HOTAVALONIA_ENABLE && !HOTAVALONIA_DISABLE
+            AvaloniaHotReload.Enable(builder, CreateHotReloadContextFactory(projectPathResolver), gesture);
+#endif
+            return builder;
+        }
+
+        /// <inheritdoc cref="UseHotReload(Application, Func{Assembly, string})"/>
+        /// <inheritdoc cref="UseHotReload(Application, KeyGesture, string)"/>
         [Conditional("HOTAVALONIA_ENABLE")]
-        public static void EnableHotReload(this Application app, [CallerFilePath] string? appFilePath = null)
+        public static void UseHotReload(this Application app, [CallerFilePath] string? appFilePath = null)
         {
 #if HOTAVALONIA_ENABLE && !HOTAVALONIA_DISABLE
             AvaloniaHotReload.Enable(app, CreateHotReloadContextFactory(app?.GetType(), appFilePath));
+#endif
+        }
+
+        /// <inheritdoc cref="UseHotReload(Application, Func{Assembly, string}, KeyGesture)"/>
+        /// <param name="appFilePath">The file path of the application's main source file. Optional if the method called within the file of interest.</param>
+        [Conditional("HOTAVALONIA_ENABLE")]
+        public static void UseHotReload(this Application app, KeyGesture? gesture, [CallerFilePath] string? appFilePath = null)
+        {
+#if HOTAVALONIA_ENABLE && !HOTAVALONIA_DISABLE
+            AvaloniaHotReload.Enable(app, CreateHotReloadContextFactory(app?.GetType(), appFilePath), gesture);
+#endif
+        }
+
+        /// <summary>
+        /// Enables hot reload functionality for the given Avalonia application and automatically
+        /// registers a default hotkey to trigger a manual hot reload event (usually <c>Alt+F5</c>).
+        /// </summary>
+        /// <inheritdoc cref="UseHotReload(Application, Func{Assembly, string}, KeyGesture)"/>
+        [Conditional("HOTAVALONIA_ENABLE")]
+        public static void UseHotReload(this Application app, Func<Assembly, string?> projectPathResolver)
+        {
+#if HOTAVALONIA_ENABLE && !HOTAVALONIA_DISABLE
+            AvaloniaHotReload.Enable(app, CreateHotReloadContextFactory(projectPathResolver));
 #endif
         }
 
@@ -198,13 +217,29 @@ namespace HotAvalonia
         /// Enables hot reload functionality for the given Avalonia application.
         /// </summary>
         /// <param name="app">The Avalonia application instance for which hot reload should be enabled.</param>
-        /// <param name="projectPathResolver">The callback function capable of resolving a project path for a given assembly.</param>
+        /// <inheritdoc cref="UseHotReload(AppBuilder, Func{Assembly, string}, KeyGesture)"/>
         [Conditional("HOTAVALONIA_ENABLE")]
-        public static void EnableHotReload(this Application app, Func<Assembly, string?> projectPathResolver)
+        public static void UseHotReload(this Application app, Func<Assembly, string?> projectPathResolver, KeyGesture? gesture)
         {
 #if HOTAVALONIA_ENABLE && !HOTAVALONIA_DISABLE
-            AvaloniaHotReload.Enable(app, CreateHotReloadContextFactory(projectPathResolver));
+            AvaloniaHotReload.Enable(app, CreateHotReloadContextFactory(projectPathResolver), gesture);
 #endif
+        }
+
+        /// <inheritdoc cref="UseHotReload(Application, string)"/>
+        [Conditional("HOTAVALONIA_ENABLE")]
+        [Obsolete("Use 'UseHotReload(Application, string?)' instead.")]
+        public static void EnableHotReload(this Application app, [CallerFilePath] string? appFilePath = null)
+        {
+            UseHotReload(app, appFilePath);
+        }
+
+        /// <inheritdoc cref="UseHotReload(Application, Func{Assembly, string})"/>
+        [Conditional("HOTAVALONIA_ENABLE")]
+        [Obsolete("Use 'UseHotReload(Application, Func<Assembly, string?>)' instead.")]
+        public static void EnableHotReload(this Application app, Func<Assembly, string?> projectPathResolver)
+        {
+            UseHotReload(app, projectPathResolver);
         }
 
         /// <summary>
@@ -216,6 +251,18 @@ namespace HotAvalonia
         {
 #if HOTAVALONIA_ENABLE && !HOTAVALONIA_DISABLE
             AvaloniaHotReload.Disable(app);
+#endif
+        }
+
+        /// <summary>
+        /// Triggers a hot reload event for the given Avalonia application.
+        /// </summary>
+        /// <param name="app">The Avalonia application instance for which to trigger a hot reload event.</param>
+        [Conditional("HOTAVALONIA_ENABLE")]
+        public static void TriggerHotReload(this Application app)
+        {
+#if HOTAVALONIA_ENABLE && !HOTAVALONIA_DISABLE
+            AvaloniaHotReload.Trigger(app);
 #endif
         }
     }

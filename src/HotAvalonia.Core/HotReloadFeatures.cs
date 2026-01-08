@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using Avalonia.Input;
 using Avalonia.Logging;
 
 namespace HotAvalonia;
@@ -29,6 +30,11 @@ internal static class HotReloadFeatures
     /// Gets the default timeout applied to hot reload–related operations.
     /// </summary>
     public static TimeSpan Timeout => TimeSpan.FromMilliseconds(GetInt32(nameof(Timeout), 10000));
+
+    /// <summary>
+    /// Gets the default hotkey used to trigger a manual hot reload event.
+    /// </summary>
+    public static KeyGesture? Hotkey => GetBoolean(nameof(Hotkey), true) ? KeyGesture.Parse(GetString(nameof(Hotkey), "Alt+F5")) : null;
 
     /// <summary>
     /// Retrieves the environment variable value associated with the specified feature name.
