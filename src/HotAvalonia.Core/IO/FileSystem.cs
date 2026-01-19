@@ -303,8 +303,8 @@ public static class FileSystem
 
         while (true)
         {
-            ReadOnlySpan<char> remLeft = left.Slice(length);
-            ReadOnlySpan<char> remRight = right.Slice(length);
+            ReadOnlySpan<char> remLeft = left[length..];
+            ReadOnlySpan<char> remRight = right[length..];
             int hasSeparator = 1;
 
             int nextLeftLength = remLeft.IndexOfAny(directorySeparatorChar, altDirectorySeparatorChar);
@@ -334,7 +334,7 @@ public static class FileSystem
                 break;
         }
 
-        return left.Slice(0, length).ToString();
+        return left[..length].ToString();
     }
 
     /// <summary>

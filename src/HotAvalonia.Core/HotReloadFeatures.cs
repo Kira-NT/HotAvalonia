@@ -133,7 +133,7 @@ internal static class HotReloadFeatures
             return prefix;
 
         int borderCount = 0;
-        for (int i = name.Length - 2, s = name[name.Length - 1] & 0x20, ns; i >= 0; s = ns, i--)
+        for (int i = name.Length - 2, s = name[^1] & 0x20, ns; i >= 0; s = ns, i--)
         {
             if ((ns = name[i] & 0x20) - s == 0x20)
                 borderCount++;

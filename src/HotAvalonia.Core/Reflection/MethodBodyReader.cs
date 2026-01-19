@@ -71,7 +71,7 @@ internal struct MethodBodyReader
             if (size is 0)
                 return default;
 
-            return _methodBody.Slice(_position + size, _opCode.OperandType.GetOperandSize()).Span;
+            return _methodBody.Span.Slice(_position + size, _opCode.OperandType.GetOperandSize());
         }
     }
 
@@ -88,7 +88,7 @@ internal struct MethodBodyReader
             int start = _position + sizeof(byte) + sizeof(int);
             int byteLength = _bytesConsumed - start;
 
-            ReadOnlySpan<byte> jumpTable = _methodBody.Slice(start, byteLength).Span;
+            ReadOnlySpan<byte> jumpTable = _methodBody.Span.Slice(start, byteLength);
             return MemoryMarshal.Cast<byte, int>(jumpTable);
         }
     }
@@ -103,7 +103,7 @@ internal struct MethodBodyReader
     {
         ReadOnlySpan<byte> methodBody = _methodBody.Span;
         int nextPosition = _bytesConsumed;
-        if (!OpCodeHelper.TryReadOpCode(methodBody.Slice(nextPosition), out OpCode newOpCode))
+        if (!OpCodeHelper.TryReadOpCode(methodBody[nextPosition..], out OpCode newOpCode))
             return false;
 
         int operandStart = nextPosition + newOpCode.Size;
@@ -113,7 +113,7 @@ internal struct MethodBodyReader
 
         if (newOpCode.Value is SwitchOpCode)
         {
-            int n = BitConverter.ToInt32(methodBody.Slice(operandStart));
+            int n = BitConverter.ToInt32(methodBody[operandStart..]);
             nextBytesConsumed += n * sizeof(int);
             if (nextBytesConsumed > methodBody.Length)
                 return false;

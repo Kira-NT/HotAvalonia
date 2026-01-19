@@ -134,22 +134,22 @@ public static class Logger
         int length = originalMessageTemplate.Length + 1;
         Span<char> messageTemplate = length < 256 ? stackalloc char[length] : new char[length];
         messageTemplate[0] = ' ';
-        ((ReadOnlySpan<char>)originalMessageTemplate).CopyTo(messageTemplate.Slice(1));
+        ((ReadOnlySpan<char>)originalMessageTemplate).CopyTo(messageTemplate[1..]);
 
         int quoteStart = messageTemplate.IndexOf("'{");
         int quoteEnd = 0;
         while (quoteStart >= 0)
         {
             quoteStart += quoteEnd;
-            quoteEnd = messageTemplate.Slice(quoteStart + 2).IndexOf('\'');
+            quoteEnd = messageTemplate[(quoteStart + 2)..].IndexOf('\'');
             if (quoteEnd < 0)
                 break;
 
             quoteEnd += quoteStart + 2;
-            messageTemplate.Slice(quoteStart + 1, quoteEnd - quoteStart - 1).CopyTo(messageTemplate.Slice(quoteStart));
-            messageTemplate.Slice(quoteEnd + 1).CopyTo(messageTemplate.Slice(--quoteEnd));
-            messageTemplate = messageTemplate.Slice(0, messageTemplate.Length - 2);
-            quoteStart = messageTemplate.Slice(quoteEnd).IndexOf("'{");
+            messageTemplate.Slice(quoteStart + 1, quoteEnd - quoteStart - 1).CopyTo(messageTemplate[quoteStart..]);
+            messageTemplate[(quoteEnd + 1)..].CopyTo(messageTemplate[--quoteEnd..]);
+            messageTemplate = messageTemplate[..^2];
+            quoteStart = messageTemplate[quoteEnd..].IndexOf("'{");
         }
 
         return messageTemplate.ToString();

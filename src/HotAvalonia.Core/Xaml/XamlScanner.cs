@@ -318,8 +318,8 @@ public static class XamlScanner
                 continue;
 
             Type[] genericArguments = findMethod.IsGenericMethod ? findMethod.GetGenericArguments() : Type.EmptyTypes;
-            Type controlType = genericArguments.Length > 0 && field.FieldType.IsAssignableFrom(genericArguments[genericArguments.Length - 1])
-                ? genericArguments[genericArguments.Length - 1]
+            Type controlType = genericArguments.Length > 0 && field.FieldType.IsAssignableFrom(genericArguments[^1])
+                ? genericArguments[^1]
                 : field.FieldType;
 
             yield return new(name, controlType, field);

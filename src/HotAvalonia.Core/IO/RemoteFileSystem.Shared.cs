@@ -59,9 +59,9 @@ partial class RemoteFileSystem
         byte[] rentedBuffer = ArrayPool<byte>.Shared.Rent(bufferLength);
         Span<byte> buffer = rentedBuffer.AsSpan(0, bufferLength);
 
-        BitConverter.TryWriteBytes(buffer.Slice(0, sizeof(ushort)), id);
+        BitConverter.TryWriteBytes(buffer[..sizeof(ushort)], id);
         buffer[sizeof(ushort)] = (byte)action;
-        BitConverter.TryWriteBytes(buffer.Slice(sizeof(ushort) + sizeof(byte)), data.Length);
+        BitConverter.TryWriteBytes(buffer[(sizeof(ushort) + sizeof(byte))..], data.Length);
 
         await stream.WriteAsync(rentedBuffer, 0, bufferLength, cancellationToken).ConfigureAwait(false);
         await stream.WriteAsync(data, 0, data.Length, cancellationToken).ConfigureAwait(false);

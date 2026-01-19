@@ -130,14 +130,14 @@ internal static class AssemblyHelper
         if (buffer.Length < name.Length + prefixLength + publicKey.Length * 2)
             ArgumentOutOfRangeException.Throw();
 
-        Span<char> keyBuffer = buffer.Slice(name.Length + prefixLength);
+        Span<char> keyBuffer = buffer[(name.Length + prefixLength)..];
         for (int i = publicKey.Length - 1; i >= 0; i--)
         {
             byte b = publicKey[i];
             keyBuffer[i << 1] = hexAlphabet[b >>> 4];
             keyBuffer[(i << 1) + 1] = hexAlphabet[b & 0x0F];
         }
-        ((ReadOnlySpan<char>)", PublicKey=").CopyTo(buffer.Slice(name.Length));
+        ((ReadOnlySpan<char>)", PublicKey=").CopyTo(buffer[name.Length..]);
         ((ReadOnlySpan<char>)name).CopyTo(buffer);
     }
 

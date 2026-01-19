@@ -90,10 +90,10 @@ internal static class UriHelper
         ReadOnlySpan<char> pathSpan = GetSafeUriAbsolutePath(path).AsSpan();
 
         if (uriPath.EndsWith("/"))
-            uriPathSpan = uriPathSpan.Slice(0, uriPathSpan.Length - 1);
+            uriPathSpan = uriPathSpan[..^1];
 
         if (path.EndsWith("/"))
-            pathSpan = pathSpan.Slice(0, pathSpan.Length - 1);
+            pathSpan = pathSpan[..^1];
 
         int depth = 0;
         foreach (char x in uriPathSpan)
@@ -106,7 +106,7 @@ internal static class UriHelper
             if (separatorIndex is -1)
                 break;
 
-            pathSpan = pathSpan.Slice(0, separatorIndex);
+            pathSpan = pathSpan[..separatorIndex];
         }
 
         return pathSpan.ToString();

@@ -519,7 +519,7 @@ internal sealed partial class RemoteFileSystem : IFileSystem
 
         char dir = _fileSystemState.DirectorySeparatorChar;
         char altDir = _fileSystemState.AltDirectorySeparatorChar;
-        char l = path1[path1.Length - 1];
+        char l = path1[^1];
         char r = path2[0];
         bool hasSeparator = l == dir || l == altDir || r == dir || r == altDir;
         return hasSeparator ? $"{path1}{path2}" : $"{path1}{dir}{path2}";

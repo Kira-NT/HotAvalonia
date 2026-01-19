@@ -161,7 +161,7 @@ internal class DynamicAssetLoader
     private AssetInfo ResolveAssetInfo(Uri uri, Assembly assembly, string project)
     {
         project = _fileSystem.GetFullPath(project);
-        char projectEnd = project.Length > 0 ? project[project.Length - 1] : _fileSystem.DirectorySeparatorChar;
+        char projectEnd = project.Length > 0 ? project[^1] : _fileSystem.DirectorySeparatorChar;
         if (projectEnd != _fileSystem.DirectorySeparatorChar && projectEnd != _fileSystem.AltDirectorySeparatorChar)
             project += _fileSystem.DirectorySeparatorChar;
 
