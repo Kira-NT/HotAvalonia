@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -7,13 +8,13 @@ using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml.XamlIl.Runtime;
 using Avalonia.Styling;
 using HotAvalonia.Helpers;
-using HotAvalonia.Reflection.Inject;
 
 namespace HotAvalonia.Xaml;
 
 /// <summary>
 /// Represents a successfully compiled XAML document.
 /// </summary>
+[DebuggerDisplay($"{{{nameof(Uri)},nq}}")]
 public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
 {
     /// <summary>
@@ -242,8 +243,7 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
         Reset(rootControl, out Action restore);
         _populate.Invoke(null, [serviceProvider ?? XamlIlRuntimeHelpers.CreateRootServiceProviderV2(), rootControl]);
         restore();
-
-        Refresh(rootControl);
+        _refresh?.Invoke(rootControl);
     }
 
     /// <summary>
@@ -255,16 +255,13 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     /// otherwise, <c>null</c>.
     /// </param>
     /// <returns><c>true</c> if the populate override was successfully injected; otherwise, <c>false</c>.</returns>
-    internal bool TryOverridePopulate(Action<IServiceProvider?, object> populate, [NotNullWhen(true)] out IInjection? injection)
+    internal bool TryOverridePopulate(Action<IServiceProvider?, object> populate, [NotNullWhen(true)] out IDisposable? injection)
     {
-        ArgumentNullException.ThrowIfNull(populate);
-
         if (_populateOverride is null)
         {
             injection = null;
             return false;
         }
-
         injection = new OverridePopulateInjection(_populateOverride, populate);
         return true;
     }
@@ -277,6 +274,7 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     /// the population routine, so we need to sort those out manually.
     /// </remarks>
     /// <param name="rootControl">The root control to refresh.</param>
+    [Obsolete("Use 'Reload(object)' instead.")]
     public void Refresh(object rootControl)
         => _refresh?.Invoke(rootControl);
 
@@ -376,7 +374,7 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
 /// the logic of control population, allowing for a fallback mechanism whenever proper
 /// injection techniques are not available.
 /// </remarks>
-file sealed class OverridePopulateInjection : IInjection
+file sealed class OverridePopulateInjection : IDisposable
 {
     /// <summary>
     /// The field to inject the new population logic into.

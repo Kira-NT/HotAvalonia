@@ -211,34 +211,6 @@ internal static class AssemblyHelper
         => sourceAssembly.ForceAllowAccessTo(FormatAssemblyName(targetAssembly.GetName()));
 
     /// <summary>
-    /// Adds the <c>IgnoresAccessChecksToAttribute</c> to the source assembly to allow access
-    /// to the assembly containing the specified target type.
-    /// </summary>
-    /// <param name="sourceAssembly">The source assembly to which the attribute is added.</param>
-    /// <param name="targetType">The target type whose assembly access is needed.</param>
-    public static void AllowAccessTo(this AssemblyBuilder sourceAssembly, Type targetType)
-        => sourceAssembly.AllowAccessTo(FormatAssemblyName(targetType.Assembly.GetName()));
-
-    /// <summary>
-    /// Adds the <c>IgnoresAccessChecksToAttribute</c> to the source assembly to allow access
-    /// to the assemblies referenced by the specified target method.
-    /// </summary>
-    /// <param name="sourceAssembly">The source assembly to which the attribute is added.</param>
-    /// <param name="targetMethod">The target method whose referenced assemblies' access is needed.</param>
-    public static void AllowAccessTo(this AssemblyBuilder sourceAssembly, MethodBase targetMethod)
-    {
-        IEnumerable<Assembly> referencedAssemblies = ((targetMethod as MethodInfo)?
-            .GetGenericArguments() ?? Type.EmptyTypes)
-            .Concat([targetMethod.DeclaringType, targetMethod.GetReturnType()])
-            .Concat(targetMethod.GetParameters().Select(static x => x.ParameterType))
-            .Select(static x => x.Assembly)
-            .Distinct();
-
-        foreach (Assembly assembly in referencedAssemblies)
-            sourceAssembly.AllowAccessTo(FormatAssemblyName(assembly.GetName()));
-    }
-
-    /// <summary>
     /// Gets the shared dynamic assembly and its associated module.
     /// </summary>
     /// <param name="assembly">When this method returns, contains the <see cref="AssemblyBuilder"/> instance representing the dynamic assembly.</param>

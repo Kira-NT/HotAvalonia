@@ -1,25 +1,33 @@
 namespace HotAvalonia.Reflection.Inject;
 
 /// <summary>
-/// Represents the different types of injection techniques that can be performed.
+/// Represents the different types of injection techniques that can be performed by the <see cref="CallbackInjector"/>.
 /// </summary>
+[Flags]
 internal enum InjectionType
 {
     /// <summary>
-    /// Indicates that no injection technique is available in the current environment.
+    /// Indicates that the current environment does not support injections.
     /// </summary>
-    None,
+    None = 0,
 
     /// <summary>
-    /// Represents a native-level injection.
+    /// Indicates that injections are performed via code-cave-based method detouring.
     /// </summary>
-    /// <remarks>
-    /// This technique hijacks the natively compiled (by JIT) methods and
-    /// replaces them with stubs that lead to injected methods.
-    ///
-    /// It is the most reliable technique, however it's highly sensitive to such things as
-    /// the runtime version, system architecture (e.g., x86, x86_64), etc.,
-    /// making it much less portable.
-    /// </remarks>
-    Native,
+    CodeCave = 1 << 0,
+
+    /// <summary>
+    /// Indicates that injections are performed via direct function pointer replacement.
+    /// </summary>
+    PointerSwap = 1 << 1,
+
+    /// <summary>
+    /// Indicates that injections are performed via MonoMod-based method detouring.
+    /// </summary>
+    MonoMod = 1 << 2,
+
+    /// <summary>
+    /// Represents the default set of allowed injection techniques.
+    /// </summary>
+    Default = CodeCave | PointerSwap | MonoMod,
 }

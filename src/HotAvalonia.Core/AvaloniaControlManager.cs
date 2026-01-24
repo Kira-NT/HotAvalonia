@@ -1,6 +1,6 @@
+using System.Diagnostics;
 using Avalonia.Threading;
 using HotAvalonia.Collections;
-using HotAvalonia.Logging;
 using HotAvalonia.Reflection.Inject;
 using HotAvalonia.Xaml;
 
@@ -9,6 +9,7 @@ namespace HotAvalonia;
 /// <summary>
 /// Manages the lifecycle and state of Avalonia controls.
 /// </summary>
+[DebuggerDisplay($"{{{nameof(Document)},nq}}")]
 internal sealed class AvaloniaControlManager : IDisposable
 {
     /// <summary>
@@ -22,10 +23,10 @@ internal sealed class AvaloniaControlManager : IDisposable
     private readonly WeakSet<object> _controls;
 
     /// <summary>
-    /// The <see cref="IInjection"/> instance responsible for injecting
+    /// The injection instance responsible for injecting
     /// a callback into the control's populate method.
     /// </summary>
-    private readonly IInjection? _populateInjection;
+    private readonly IDisposable? _populateInjection;
 
     /// <summary>
     /// The most recent version of the document associated
@@ -43,8 +44,10 @@ internal sealed class AvaloniaControlManager : IDisposable
 
         _document = document;
         _controls = new();
-        if (!TryInjectPopulateCallback(document, OnPopulate, out _populateInjection))
-            Logger.LogWarning("Failed to subscribe to the 'Populate' event of '{ControlUri}'. The control won't be reloaded upon file changes.", document.Uri);
+
+        Action<IServiceProvider?, object> populate = document.Populate;
+        if (!document.TryOverridePopulate((s, c) => OnPopulate(populate, s, c), out _populateInjection))
+            CallbackInjector.TryInject(document.PopulateMethod, OnPopulate, out _populateInjection);
     }
 
     /// <summary>
@@ -94,60 +97,16 @@ internal sealed class AvaloniaControlManager : IDisposable
         }
     }
 
-    /// <summary>
-    /// Handles the population of a control.
-    /// </summary>
-    /// <param name="provider">The service provider.</param>
-    /// <param name="control">The control to be populated.</param>
-    /// <returns><c>true</c> if the control was populated successfully; otherwise, <c>false</c>.</returns>
-    private bool OnPopulate(IServiceProvider? provider, object control)
+    private void OnPopulate(Action<IServiceProvider?, object> populate, IServiceProvider? provider, object control)
     {
         _controls.Add(control);
         if (_recompiledDocument is null)
-            return false;
-
-        _recompiledDocument.Populate(provider, control);
-        return true;
-    }
-
-    /// <summary>
-    /// Attempts to inject a callback into the populate method of the given control.
-    /// </summary>
-    /// <param name="document">The document associated with controls managed by this instance.</param>
-    /// <param name="onPopulate">The callback to invoke when a control is populated.</param>
-    /// <param name="injection">
-    /// When this method returns, contains the <see cref="IInjection"/> instance if the injection was successful;
-    /// otherwise, <c>null</c>.
-    /// </param>
-    /// <returns>
-    /// <c>true</c> if the injection was successful;
-    /// otherwise, <c>false</c>.
-    /// </returns>
-    private static bool TryInjectPopulateCallback(
-        CompiledXamlDocument document,
-        Func<IServiceProvider?, object, bool> onPopulate,
-        out IInjection? injection)
-    {
-        // At this point, we have two different fallbacks at our disposal:
-        //  - First, we try to perform an injection via MonoMod. It's great
-        //    and reliable; however, it doesn't support architectures other
-        //    than AMD64 (at least at the time of writing), and it requires
-        //    explicit support for every single new .NET release.
-        //  - In case this whole endeavor is run on a non-AMD64 device,
-        //    rendering `CallbackInjector` unusable, we fall back to
-        //    undocumented `!XamlIlPopulateOverride` fields.
-
-        if (CallbackInjector.IsSupported)
         {
-            injection = CallbackInjector.Inject(document.PopulateMethod, onPopulate);
-            return true;
+            populate(provider, control);
         }
-
-        void PopulateOverride(IServiceProvider? provider, object control)
+        else
         {
-            if (!onPopulate(provider, control))
-                document.Populate(provider, control);
+            _recompiledDocument.Populate(provider, control);
         }
-        return document.TryOverridePopulate(PopulateOverride, out injection);
     }
 }

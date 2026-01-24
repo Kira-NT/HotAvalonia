@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Reflection.Emit;
+using HotAvalonia.Reflection;
 
 namespace HotAvalonia.Helpers;
 
@@ -9,149 +10,6 @@ namespace HotAvalonia.Helpers;
 internal static class ILGeneratorHelper
 {
     /// <summary>
-    /// Emits an opcode to load a native integer constant onto the evaluation stack.
-    /// </summary>
-    /// <param name="generator">The IL generator used for code emission.</param>
-    /// <param name="value">The native integer value to load.</param>
-    public static void EmitLdc_IN(this ILGenerator generator, nint value)
-    {
-        if (IntPtr.Size is sizeof(int))
-            generator.Emit(OpCodes.Ldc_I4, (int)value);
-        else
-            generator.Emit(OpCodes.Ldc_I8, value);
-    }
-
-    /// <summary>
-    /// Emits an opcode to load a 4-byte integer constant onto the evaluation stack.
-    /// </summary>
-    /// <param name="generator">The IL generator used for code emission.</param>
-    /// <param name="value">The 4-byte integer value to load.</param>
-    public static void EmitLdc_I4(this ILGenerator generator, int value)
-    {
-        switch (value)
-        {
-            case -1:
-                generator.Emit(OpCodes.Ldc_I4_M1);
-                return;
-
-            case 0:
-                generator.Emit(OpCodes.Ldc_I4_0);
-                return;
-
-            case 1:
-                generator.Emit(OpCodes.Ldc_I4_1);
-                return;
-
-            case 2:
-                generator.Emit(OpCodes.Ldc_I4_2);
-                return;
-
-            case 3:
-                generator.Emit(OpCodes.Ldc_I4_3);
-                return;
-
-            case 4:
-                generator.Emit(OpCodes.Ldc_I4_4);
-                return;
-
-            case 5:
-                generator.Emit(OpCodes.Ldc_I4_5);
-                return;
-
-            case 6:
-                generator.Emit(OpCodes.Ldc_I4_6);
-                return;
-
-            case 7:
-                generator.Emit(OpCodes.Ldc_I4_7);
-                return;
-
-            case 8:
-                generator.Emit(OpCodes.Ldc_I4_8);
-                return;
-
-            default:
-                generator.Emit(OpCodes.Ldc_I4, value);
-                return;
-        }
-    }
-
-    /// <summary>
-    /// Emits an opcode to load an argument onto the evaluation stack.
-    /// </summary>
-    /// <param name="generator">The IL generator used for code emission.</param>
-    /// <param name="index">The index of the argument to load.</param>
-    public static void EmitLdarg(this ILGenerator generator, int index)
-    {
-        switch (index)
-        {
-            case 0:
-                generator.Emit(OpCodes.Ldarg_0);
-                return;
-
-            case 1:
-                generator.Emit(OpCodes.Ldarg_1);
-                return;
-
-            case 2:
-                generator.Emit(OpCodes.Ldarg_2);
-                return;
-
-            case 3:
-                generator.Emit(OpCodes.Ldarg_3);
-                return;
-
-            case > 4 and <= byte.MaxValue:
-                generator.Emit(OpCodes.Ldarg_S, (byte)index);
-                return;
-
-            case <= short.MaxValue:
-                generator.Emit(OpCodes.Ldarg, (short)index);
-                return;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(index));
-        }
-    }
-
-    /// <summary>
-    /// Emits an opcode to load a default value onto the evaluation stack based on the given type.
-    /// </summary>
-    /// <param name="generator">The IL generator used for code emission.</param>
-    /// <param name="type">The type for which to load the default value.</param>
-    public static void EmitLddefault(this ILGenerator generator, Type type)
-    {
-        if (!type.IsValueType)
-        {
-            generator.Emit(OpCodes.Ldnull);
-            return;
-        }
-
-        LocalBuilder valueInitializer = generator.DeclareLocal(type);
-        generator.Emit(OpCodes.Ldloca, valueInitializer);
-        generator.Emit(OpCodes.Initobj, type);
-        generator.Emit(OpCodes.Ldloc, valueInitializer);
-    }
-
-    /// <summary>
-    /// Emits a call to the specified method, using the appropriate opcode based on whether the method is virtual.
-    /// </summary>
-    /// <param name="generator">The IL generator used for code emission.</param>
-    /// <param name="method">The method to be called.</param>
-    public static void EmitCall(this ILGenerator generator, MethodBase method)
-    {
-        if (method is MethodInfo methodInfo)
-        {
-            generator.EmitCall(methodInfo.IsVirtual ? OpCodes.Callvirt : OpCodes.Call, methodInfo, null);
-        }
-        else
-        {
-            generator.EmitLdc_IN(method.GetFunctionPointer());
-            generator.EmitCalli(OpCodes.Calli, method.CallingConvention, method.GetReturnType(), method.GetParameterTypes(), null);
-        }
-    }
-
-    /// <summary>
     /// Declares a collection of local variables on the specified <see cref="ILGenerator"/>.
     /// </summary>
     /// <param name="generator">The <see cref="ILGenerator"/> on which to declare local variables.</param>
@@ -159,10 +17,8 @@ internal static class ILGeneratorHelper
     public static void DeclareLocals(this ILGenerator generator, IEnumerable<LocalVariableInfo> variables)
     {
         int previousVariableIndex = -1;
-        LocalVariableInfo[] locals = variables.OrderBy(x => x.LocalIndex).ToArray();
-        for (int i = 0; i < locals.Length; i++)
+        foreach (LocalVariableInfo local in variables.OrderBy(static x => x.LocalIndex))
         {
-            LocalVariableInfo local = locals[i];
             if (local.LocalIndex <= previousVariableIndex)
                 ArgumentException.Throw(nameof(variables), $"Invalid or duplicate index: {local.LocalIndex}");
 
@@ -173,5 +29,40 @@ internal static class ILGeneratorHelper
             if (local.LocalIndex != builtIndex.LocalIndex)
                 throw new InvalidOperationException("Generator was modified; operation may not execute.");
         }
+    }
+
+    /// <summary>
+    /// Defines a set of labels on the specified <see cref="ILGenerator"/>
+    /// that correspond to the branch targets of an existing method body.
+    /// </summary>
+    /// <param name="il">The <see cref="ILGenerator"/> on which to define the labels.</param>
+    /// <param name="source">A byte array containing the IL bytes of the source method body.</param>
+    /// <returns>
+    /// A <see cref="Dictionary{TKey, TValue}"/> that maps IL offsets from the source method body
+    /// to the corresponding <see cref="Label"/> instances defined on the provided IL generator.
+    /// </returns>
+    public static Dictionary<int, Label> DefineLabels(this ILGenerator il, byte[]? source)
+    {
+        Dictionary<int, Label> labels = [];
+        MethodBodyReader reader = new(source);
+        while (reader.Next())
+        {
+            ReadOnlySpan<int> jumpTable = reader.OpCode.OperandType switch
+            {
+                OperandType.ShortInlineBrTarget => [reader.GetSByte()],
+                OperandType.InlineBrTarget => [reader.GetInt32()],
+                OperandType.InlineSwitch => reader.JumpTable,
+                _ => [],
+            };
+
+            int offset = reader.BytesConsumed;
+            foreach (int target in jumpTable)
+            {
+                int labelOffset = target + offset;
+                if (!labels.ContainsKey(labelOffset))
+                    labels[labelOffset] = il.DefineLabel();
+            }
+        }
+        return labels;
     }
 }

@@ -41,7 +41,7 @@ internal sealed class AvaloniaAssetsHotReloadContext : IHotReloadContext
     /// <inheritdoc/>
     public void EnableHotReload()
     {
-        Logger.LogInfo(this, "Enabling hot reload for assets...");
+        Logger.LogInfo(this, "Enabling hot reload for Avalonia assets...");
         IAssetLoader? currentAssetLoader = _assetManager.AssetLoader;
         if (currentAssetLoader is null or DynamicAssetLoader)
             return;
@@ -55,7 +55,7 @@ internal sealed class AvaloniaAssetsHotReloadContext : IHotReloadContext
     /// <inheritdoc/>
     public void DisableHotReload()
     {
-        Logger.LogInfo(this, "Disabling hot reload for assets...");
+        Logger.LogInfo(this, "Disabling hot reload for Avalonia assets...");
         IAssetLoader? currentAssetLoader = _assetManager.AssetLoader;
         if (currentAssetLoader is not DynamicAssetLoader dynamicAssetLoader)
             return;

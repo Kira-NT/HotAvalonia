@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Avalonia.Input;
 using Avalonia.Logging;
+using HotAvalonia.Reflection.Inject;
 
 namespace HotAvalonia;
 
@@ -12,9 +13,9 @@ namespace HotAvalonia;
 internal static class HotReloadFeatures
 {
     /// <summary>
-    /// Gets a value that indicates whether injections should be disabled.
+    /// Gets a set of allowed injection techniques.
     /// </summary>
-    public static bool DisableInjections => GetBoolean(nameof(DisableInjections));
+    public static InjectionType InjectionType => GetEnum(nameof(InjectionType), InjectionType.Default);
 
     /// <summary>
     /// Gets a value that indicates whether the initial patching should be skipped.

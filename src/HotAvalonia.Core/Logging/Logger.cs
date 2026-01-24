@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Logging;
 using Avalonia.Markup.Xaml;
+using HotAvalonia.Reflection.Inject;
 using HotAvalonia.Xaml;
 using AvaloniaLogger = Avalonia.Logging.Logger;
 
@@ -43,6 +44,7 @@ public static class Logger
         {
             LogWarning("Failed to identify a dynamic assembly used for runtime-compiled XAML.");
         }
+        LogDebug("Injection type: {InjectionType}", CallbackInjector.InjectionType);
     }
 
     /// <inheritdoc cref="LogDebug(object?, string, ReadOnlySpan{object?})"/>

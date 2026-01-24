@@ -221,11 +221,12 @@ file static class DynamicAssetLoaderBuilder
         //     {
         //         _assetLoader.<...>(...);
         //     }
-        MethodInfo[] virtualMethods = typeof(IAssetLoader).GetMethods();
+        MethodInfo[] virtualMethods = typeof(IAssetLoader).GetInstanceMethods();
         foreach (MethodInfo virtualMethod in virtualMethods)
         {
             Type[] parameterTypes = virtualMethod.GetParameterTypes();
             MethodInfo? parentMethod = parentType.GetInstanceMethod(virtualMethod.Name, parameterTypes);
+            MethodInfo baseMethod = parentMethod ?? virtualMethod;
 
             MethodBuilder virtualMethodBuilder = typeBuilder.DefineMethod(
                 virtualMethod.Name, VirtualMethod,
@@ -236,8 +237,8 @@ file static class DynamicAssetLoaderBuilder
             if (parentMethod is null)
                 virtualIl.Emit(OpCodes.Ldfld, fallbackAssetLoader);
             for (int i = 1; i <= parameterTypes.Length; i++)
-                virtualIl.EmitLdarg(i);
-            virtualIl.EmitCall(parentMethod ?? virtualMethod);
+                virtualIl.Emit(OpCodes.Ldarg, i);
+            virtualIl.Emit(baseMethod.IsVirtual ? OpCodes.Callvirt : OpCodes.Call, baseMethod);
             virtualIl.Emit(OpCodes.Ret);
         }
 

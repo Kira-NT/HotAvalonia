@@ -168,8 +168,6 @@ file static class DynamicAssetBuilder
         if (existingType is not null)
             return existingType;
 
-        assemblyBuilder.AllowAccessTo(assetType);
-
         // public sealed class {TAsset}$Dynamic : TAsset, IObservable<TAsset>, IDisposable
         // {
         TypeBuilder typeBuilder = moduleBuilder.DefineType(fullName, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Class);
@@ -282,7 +280,7 @@ file static class DynamicAssetBuilder
         ILGenerator il = factory.GetILGenerator();
 
         for (int i = 0; i < parameterTypes.Length; i++)
-            il.EmitLdarg(i);
+            il.Emit(OpCodes.Ldarg, i);
 
         il.Emit(OpCodes.Newobj, ctor);
         il.Emit(OpCodes.Ret);

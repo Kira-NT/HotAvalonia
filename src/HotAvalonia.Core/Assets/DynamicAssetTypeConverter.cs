@@ -97,9 +97,6 @@ file static class DynamicAssetTypeConverterBuilder
         if (existingType is not null)
             return existingType;
 
-        assemblyBuilder.AllowAccessTo(assetType);
-        assemblyBuilder.AllowAccessTo(assetConverterType);
-
         // public sealed class {TAssetTypeConverter}$Dynamic : TAssetTypeConverter
         // {
         TypeBuilder typeBuilder = moduleBuilder.DefineType(fullName, TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.Class);
