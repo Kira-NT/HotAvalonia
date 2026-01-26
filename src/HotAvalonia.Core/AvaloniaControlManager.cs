@@ -62,35 +62,40 @@ internal sealed class AvaloniaControlManager : IDisposable
     public void Dispose()
         => _populateInjection?.Dispose();
 
+    /// <summary>
+    /// Asynchronously recompiles the controls associated with this manager without reloading them.
+    /// </summary>
+    /// <param name="xaml">The XAML markup to recompile the controls from.</param>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    public Task RecompileAsync(string xaml, CancellationToken cancellationToken = default)
+        => Dispatcher.UIThread.InvokeAsync(() => Recompile(xaml, cancellationToken), DispatcherPriority.Render, cancellationToken).GetTask();
+
     /// <inheritdoc cref="ReloadAsync(string, CancellationToken)"/>
     public Task ReloadAsync(CancellationToken cancellationToken = default)
-        => Dispatcher.UIThread.InvokeAsync(() => UnsafeReload(cancellationToken), DispatcherPriority.Render, cancellationToken).GetTask();
+        => Dispatcher.UIThread.InvokeAsync(() => Reload(cancellationToken), DispatcherPriority.Render, cancellationToken).GetTask();
 
     /// <summary>
     /// Asynchronously reloads the controls associated with this manager.
     /// </summary>
-    /// <param name="xaml">The XAML markup to reload the control from.</param>
+    /// <param name="xaml">The XAML markup to reload the controls from.</param>
     /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
     public Task ReloadAsync(string xaml, CancellationToken cancellationToken = default)
-        => Dispatcher.UIThread.InvokeAsync(() => UnsafeReloadAsync(xaml, cancellationToken), DispatcherPriority.Render, cancellationToken).GetTask().Unwrap();
+        => Dispatcher.UIThread.InvokeAsync(() => Reload(xaml, cancellationToken), DispatcherPriority.Render, cancellationToken).GetTask();
 
-    /// <inheritdoc cref="ReloadAsync(string, CancellationToken)"/>
-    private async Task UnsafeReloadAsync(string xaml, CancellationToken cancellationToken)
+    private void Recompile(string xaml, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        await Task.Yield();
-
         CompiledXamlDocument compiledXaml = XamlCompiler.Compile(xaml, _document.Uri, _document.RootType.Assembly);
         _recompiledDocument = new(compiledXaml.Uri, compiledXaml.BuildMethod, compiledXaml.PopulateMethod, _document);
-
-        UnsafeReload(cancellationToken);
     }
 
-    /// <summary>
-    /// Reloads the controls associated with this manager.
-    /// </summary>
-    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
-    private void UnsafeReload(CancellationToken cancellationToken)
+    private void Reload(string xaml, CancellationToken cancellationToken)
+    {
+        Recompile(xaml, cancellationToken);
+        Reload(cancellationToken);
+    }
+
+    private void Reload(CancellationToken cancellationToken)
     {
         CompiledXamlDocument document = _recompiledDocument ?? _document;
         foreach (object control in _controls)
@@ -103,13 +108,13 @@ internal sealed class AvaloniaControlManager : IDisposable
     private void OnPopulate(Action<IServiceProvider?, object> populate, IServiceProvider? provider, object control)
     {
         _controls.Add(control);
-        if (_recompiledDocument is null)
+        if (_recompiledDocument is not null)
         {
-            populate(provider, control);
+            _recompiledDocument.Populate(provider, control);
         }
         else
         {
-            _recompiledDocument.Populate(provider, control);
+            populate(provider, control);
         }
     }
 

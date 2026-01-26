@@ -1,5 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using Avalonia;
+using Avalonia.Controls;
 using HotAvalonia.Helpers;
 using HotAvalonia.IO;
 using HotAvalonia.Logging;
@@ -132,10 +134,37 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
             if (!await fileSystem.FileExistsAsync(fullPath, cancellationToken).ConfigureAwait(false))
                 return;
 
-            Logger.LogInfo(this, "Reloading '{Uri}'...", control.Document.Uri);
+            Type controlType = control.Document.RootType;
+            bool isApp = typeof(Application).IsAssignableFrom(controlType);
             string xaml = await fileSystem.ReadAllTextAsync(fullPath, TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
             string patchedXaml = Config.XamlPatcher.Patch(xaml);
-            await control.ReloadAsync(patchedXaml, cancellationToken).ConfigureAwait(false);
+            switch (Config.Mode)
+            {
+                // For Application instances, we always want to use Aggressive mode, because their
+                // main view/window is never defined via XAML and therefore won't be reloaded when
+                // the recompiled Populate method is called.
+                //
+                // Then, for other controls, we don't yet have logic to track their usage across
+                // the user's codebase (mainly because I want to experiment a bit more with how
+                // costly and useful that would be). As a result, Balanced mode is mostly treated
+                // the same as Minimal one.
+                // However, for IResourceProvider instances (e.g., Styles, ResourceDictionary,
+                // etc.), since they are often registered globally, we may as well short-circuit
+                // directly to the Aggressive mode logic instead.
+                //
+                // This should be, as always, good enough for the initial rollout of this feature.
+                case HotReloadMode.Minimal when !isApp:
+                case HotReloadMode.Balanced when !isApp && !typeof(IResourceProvider).IsAssignableFrom(controlType):
+                    Logger.LogInfo(this, "Reloading '{Uri}'...", control.Document.Uri);
+                    await control.ReloadAsync(patchedXaml, cancellationToken).ConfigureAwait(false);
+                    break;
+
+                default:
+                    Logger.LogInfo(this, "Recompiling '{Uri}'...", control.Document.Uri);
+                    await control.RecompileAsync(patchedXaml, cancellationToken).ConfigureAwait(false);
+                    TriggerHotReload();
+                    break;
+            }
         }
         catch (Exception e)
         {

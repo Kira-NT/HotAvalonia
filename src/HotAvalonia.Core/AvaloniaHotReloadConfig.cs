@@ -18,6 +18,7 @@ public sealed record class AvaloniaHotReloadConfig
     {
         XamlPatcher = XamlPatcher.Default,
         SkipInitialPatching = HotReloadFeatures.SkipInitialPatching,
+        Mode = HotReloadFeatures.Mode,
         Timeout = HotReloadFeatures.Timeout,
     };
 
@@ -58,6 +59,11 @@ public sealed record class AvaloniaHotReloadConfig
     }
 
     /// <summary>
+    /// Gets or sets the hot reload mode.
+    /// </summary>
+    public HotReloadMode Mode { get; init; } = HotReloadMode.Minimal;
+
+    /// <summary>
     /// Gets or sets the default timeout applied to hot reload–related operations.
     /// </summary>
     public TimeSpan Timeout { get; init; }
@@ -72,6 +78,7 @@ public sealed record class AvaloniaHotReloadConfig
         XamlPatcher? xamlPatcher = null,
         bool? skipInitialPatching = null,
         AvaloniaProjectLocator? projectLocator = null,
+        HotReloadMode? mode = null,
         TimeSpan? timeout = null
     ) => this with
     {
@@ -80,6 +87,7 @@ public sealed record class AvaloniaHotReloadConfig
         XamlPatcher = xamlPatcher ?? XamlPatcher,
         SkipInitialPatching = skipInitialPatching ?? SkipInitialPatching,
         ProjectLocator = projectLocator ?? ProjectLocator,
+        Mode = mode ?? Mode,
         Timeout = timeout ?? Timeout,
     };
 }

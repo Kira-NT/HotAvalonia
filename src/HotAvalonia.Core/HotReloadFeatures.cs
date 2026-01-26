@@ -33,6 +33,11 @@ internal static class HotReloadFeatures
     public static TimeSpan Timeout => TimeSpan.FromMilliseconds(GetInt32(nameof(Timeout), 10000));
 
     /// <summary>
+    /// Gets the default hot reload mode.
+    /// </summary>
+    public static HotReloadMode Mode => GetEnum(nameof(Mode), HotReloadMode.Balanced);
+
+    /// <summary>
     /// Gets the default hotkey used to trigger a manual hot reload event.
     /// </summary>
     public static KeyGesture? Hotkey => GetBoolean(nameof(Hotkey), true) ? KeyGesture.Parse(GetString(nameof(Hotkey), "Alt+F5")) : null;
