@@ -23,9 +23,9 @@ internal static class HotReloadFeatures
     public static bool SkipInitialPatching => GetBoolean(nameof(SkipInitialPatching));
 
     /// <summary>
-    /// Gets the log level override for hot reload-related events.
+    /// Gets the minimum log level for hot reload-related events.
     /// </summary>
-    public static LogEventLevel LogLevelOverride => GetEnum<LogEventLevel>(nameof(LogLevelOverride));
+    public static LogEventLevel MinLogLevel => GetEnum(nameof(MinLogLevel), LogEventLevel.Debug);
 
     /// <summary>
     /// Gets the default timeout applied to hot reload–related operations.

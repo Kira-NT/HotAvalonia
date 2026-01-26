@@ -22,7 +22,7 @@ public static class Logger
     /// <summary>
     /// The minimum log level attributed to all messages emitted by this logger.
     /// </summary>
-    private static readonly LogEventLevel s_minLogLevel = HotReloadFeatures.LogLevelOverride;
+    private static readonly LogEventLevel s_minLogLevel = HotReloadFeatures.MinLogLevel;
 
     /// <summary>
     /// Logs diagnostic information about the current runtime environment.
