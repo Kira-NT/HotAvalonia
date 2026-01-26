@@ -1,55 +1,13 @@
-using System.Reflection;
+using System.ComponentModel;
 
 namespace HotAvalonia;
 
 /// <summary>
 /// Provides factory methods and utilities for working with <see cref="IHotReloadContext"/> instances.
 /// </summary>
+[EditorBrowsable(EditorBrowsableState.Never)]
 public static class HotReloadContext
 {
-    /// <summary>
-    /// Creates a new <see cref="IHotReloadContext"/> for the specified <see cref="AppDomain"/>
-    /// using the provided context factory.
-    /// </summary>
-    /// <param name="appDomain">The <see cref="AppDomain"/> to create the context for.</param>
-    /// <param name="contextFactory">
-    /// The factory function to create <see cref="IHotReloadContext"/> instances for
-    /// the assemblies that have been loaded into the execution context of
-    /// the specified application domain.
-    /// </param>
-    /// <returns>A new <see cref="IHotReloadContext"/> for the specified <see cref="AppDomain"/>.</returns>
-    public static IHotReloadContext FromAppDomain(
-        AppDomain appDomain,
-        Func<IHotReloadContext, AppDomain, Assembly, IHotReloadContext?> contextFactory)
-    {
-        ArgumentNullException.ThrowIfNull(appDomain);
-        ArgumentNullException.ThrowIfNull(contextFactory);
-
-        return new AppDomainHotReloadContext(appDomain, contextFactory);
-    }
-
-    /// <inheritdoc cref="FromAppDomain(AppDomain, Func{IHotReloadContext, AppDomain, Assembly, IHotReloadContext?})"/>
-    public static IHotReloadContext FromAppDomain(
-        AppDomain appDomain,
-        Func<AppDomain, Assembly, IHotReloadContext?> contextFactory)
-    {
-        ArgumentNullException.ThrowIfNull(appDomain);
-        ArgumentNullException.ThrowIfNull(contextFactory);
-
-        return new AppDomainHotReloadContext(appDomain, (_, dom, asm) => contextFactory(dom, asm));
-    }
-
-    /// <inheritdoc cref="FromAppDomain(AppDomain, Func{IHotReloadContext, AppDomain, Assembly, IHotReloadContext?})"/>
-    public static IHotReloadContext FromAppDomain(
-        AppDomain appDomain,
-        Func<Assembly, IHotReloadContext?> contextFactory)
-    {
-        ArgumentNullException.ThrowIfNull(appDomain);
-        ArgumentNullException.ThrowIfNull(contextFactory);
-
-        return new AppDomainHotReloadContext(appDomain, (_, _, asm) => contextFactory(asm));
-    }
-
     /// <inheritdoc cref="Combine(IHotReloadContext, IEnumerable&lt;IHotReloadContext&gt;)"/>
     public static IHotReloadContext Combine(this IHotReloadContext context, params IHotReloadContext[] contexts)
         => Combine(context, (IEnumerable<IHotReloadContext>)contexts);
@@ -85,25 +43,5 @@ public static class HotReloadContext
             .ToArray();
 
         return new CombinedHotReloadContext(contextArray);
-    }
-
-    /// <summary>
-    /// Creates an <see cref="IHotReloadContext"/> that is initialized lazily using the specified factory function.
-    /// </summary>
-    /// <param name="contextFactory">A delegate that produces the underlying <see cref="IHotReloadContext"/>.</param>
-    /// <returns>An <see cref="IHotReloadContext"/> that defers creation of the underlying context until it is needed.</returns>
-    public static IHotReloadContext Lazy(Func<IHotReloadContext> contextFactory)
-        => new LazyHotReloadContext(new(contextFactory));
-
-    /// <summary>
-    /// Creates an <see cref="IHotReloadContext"/> that is initialized lazily using the specified <see cref="Lazy{T}"/> instance.
-    /// </summary>
-    /// <param name="lazyContext">A <see cref="Lazy{T}"/> that provides the underlying <see cref="IHotReloadContext"/>.</param>
-    /// <returns>An <see cref="IHotReloadContext"/> that defers creation of the underlying context until it is needed.</returns>
-    public static IHotReloadContext Lazy(Lazy<IHotReloadContext> lazyContext)
-    {
-        ArgumentNullException.ThrowIfNull(lazyContext);
-
-        return new LazyHotReloadContext(lazyContext);
     }
 }

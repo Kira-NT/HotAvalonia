@@ -1,4 +1,7 @@
 using System.Diagnostics;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using HotAvalonia.Collections;
 using HotAvalonia.Reflection.Inject;
@@ -108,5 +111,35 @@ internal sealed class AvaloniaControlManager : IDisposable
         {
             _recompiledDocument.Populate(provider, control);
         }
+    }
+
+    /// <summary>
+    /// Finds the closest descendants of the current instance within the provided collection.
+    /// </summary>
+    /// <param name="controls">The array of control managers to search.</param>
+    /// <returns>The closest descendants of the current instance found in the provided collection.</returns>
+    internal IEnumerable<AvaloniaControlManager> FindClosestDescendants(AvaloniaControlManager[] controls)
+        => _controls.SelectMany(x => FindClosestDescendants(x, controls)).Distinct();
+
+    private static IEnumerable<AvaloniaControlManager> FindClosestDescendants(object control, AvaloniaControlManager[] controls)
+    {
+        IEnumerable<object> children = control switch
+        {
+            ILogical logical => logical.LogicalChildren,
+            Application { ApplicationLifetime: IClassicDesktopStyleApplicationLifetime app } => app.Windows,
+            Application { ApplicationLifetime: ISingleViewApplicationLifetime { MainView: { } view } } => [view],
+            _ => [],
+        };
+        return children.SelectMany(x => FindSelfOrClosestDescendants(x, controls));
+    }
+
+    private static IEnumerable<AvaloniaControlManager> FindSelfOrClosestDescendants(object control, AvaloniaControlManager[] controls)
+    {
+        foreach (AvaloniaControlManager self in controls)
+        {
+            if (self._controls.Contains(control))
+                return [self];
+        }
+        return FindClosestDescendants(control, controls);
     }
 }

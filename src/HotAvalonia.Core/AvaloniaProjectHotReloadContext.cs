@@ -1,5 +1,5 @@
 using System.ComponentModel;
-using Avalonia;
+using System.Diagnostics;
 using HotAvalonia.Helpers;
 using HotAvalonia.IO;
 using HotAvalonia.Logging;
@@ -8,121 +8,103 @@ using HotAvalonia.Xaml;
 namespace HotAvalonia;
 
 /// <summary>
-/// Manages the hot reload context for Avalonia controls.
+/// Represents a hot reload context for a single Avalonia project.
 /// </summary>
+[DebuggerDisplay($"{{{nameof(Path)},nq}}")]
 internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupportInitialize
 {
-    /// <summary>
-    /// The Avalonia control managers, mapped by their respective file paths.
-    /// </summary>
+    private readonly AvaloniaSolutionHotReloadContext _solution;
+
     private readonly Dictionary<string, AvaloniaControlManager> _controls;
 
-    /// <summary>
-    /// The file watcher responsible for observing changes in Avalonia control files.
-    /// </summary>
     private readonly FileWatcher _watcher;
-
-    /// <summary>
-    /// The hot reload configuration.
-    /// </summary>
-    private readonly AvaloniaHotReloadConfig _config;
-
-    /// <summary>
-    /// Indicates whether hot reload is currently enabled.
-    /// </summary>
-    private bool _enabled;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AvaloniaProjectHotReloadContext"/> class.
     /// </summary>
-    /// <param name="rootPath">The root directory of the Avalonia project to watch.</param>
-    /// <param name="documents">The list of XAML documents to manage.</param>
-    /// <param name="config">The hot reload configuration to use.</param>
-    public AvaloniaProjectHotReloadContext(string rootPath, IEnumerable<CompiledXamlDocument> documents, AvaloniaHotReloadConfig config)
+    /// <param name="solution">The solution this project belongs to.</param>
+    /// <param name="path">The root directory of this project.</param>
+    /// <param name="documents">The list of XAML documents that belong to the project.</param>
+    public AvaloniaProjectHotReloadContext(AvaloniaSolutionHotReloadContext solution, string path, IEnumerable<CompiledXamlDocument> documents)
     {
-        IFileSystem fileSystem = config.FileSystem;
-        rootPath = fileSystem.GetFullPath(rootPath);
+        IFileSystem fileSystem = solution.Config.FileSystem;
+        path = fileSystem.GetFullPath(path);
+
+        _solution = solution;
         _controls = documents.ToDictionary
         (
-            x => fileSystem.GetFullPath(fileSystem.ResolvePathFromUri(rootPath, x.Uri)),
+            x => fileSystem.GetFullPath(fileSystem.ResolvePathFromUri(path, x.Uri)),
             x => new AvaloniaControlManager(x),
             fileSystem.PathComparer
         );
-
-        _config = config;
-        _watcher = new(rootPath, fileSystem, _controls.Keys);
+        _watcher = new(path, fileSystem, _controls.Keys);
         _watcher.Changed += OnChanged;
         _watcher.Renamed += OnRenamed;
         _watcher.Error += OnError;
     }
 
-    /// <inheritdoc/>
-    public bool IsHotReloadEnabled => _enabled;
+    /// <summary>
+    /// Gets the solution this project belongs to.
+    /// </summary>
+    public AvaloniaSolutionHotReloadContext Solution => _solution;
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Gets the collection of controls that belong to this project.
+    /// </summary>
+    public IReadOnlyCollection<AvaloniaControlManager> Controls => _controls.Values;
+
+    /// <summary>
+    /// Gets the hot reload configuration applied to this project.
+    /// </summary>
+    public AvaloniaHotReloadConfig Config => _solution.Config;
+
+    /// <summary>
+    /// Gets the root directory of this project.
+    /// </summary>
+    public string Path => _watcher.DirectoryName;
+
+    public bool IsHotReloadEnabled => _solution.IsHotReloadEnabled;
+
     public void BeginInit() { }
 
-    /// <inheritdoc/>
     public void EndInit()
     {
-        if (_config.SkipInitialPatching)
+        if (Config.SkipInitialPatching)
             return;
 
         _ = RunWithDefaultTimeoutAsync(ct => Task.WhenAll(_controls.Select(x => PatchAsync(x.Value, x.Key, ct))));
     }
 
-    /// <inheritdoc/>
     public void TriggerHotReload()
-        => _ = RunWithDefaultTimeoutAsync(ReloadAsync);
+        => _solution.TriggerHotReload();
 
-    /// <inheritdoc/>
     public void EnableHotReload()
-    {
-        Logger.LogInfo(this, "Enabling hot reload for '{Location}'...", _watcher.DirectoryName);
-        _enabled = true;
-    }
+        => _solution.EnableHotReload();
 
-    /// <inheritdoc/>
     public void DisableHotReload()
-    {
-        Logger.LogInfo(this, "Disabling hot reload for '{Location}'...", _watcher.DirectoryName);
-        _enabled = false;
-    }
+        => _solution.DisableHotReload();
 
-    /// <inheritdoc/>
     public void Dispose()
     {
-        DisableHotReload();
-
         _watcher.Changed -= OnChanged;
         _watcher.Renamed -= OnRenamed;
         _watcher.Error -= OnError;
         _watcher.Dispose();
 
-        foreach (AvaloniaControlManager control in _controls.Values)
+        foreach ((_, AvaloniaControlManager control) in _controls)
             control.Dispose();
 
         _controls.Clear();
     }
 
-    /// <summary>
-    /// Handles the file changes by attempting to reload the corresponding Avalonia control.
-    /// </summary>
-    /// <param name="sender">The source of the event.</param>
-    /// <param name="args">The event arguments containing details of the changed file.</param>
     private void OnChanged(object sender, FileSystemEventArgs args)
     {
-        if (!_enabled)
+        if (!IsHotReloadEnabled)
             return;
 
         _ = RunWithDefaultTimeoutAsync(cancellationToken => ReloadAsync(args.FullPath, cancellationToken));
     }
 
-    /// <summary>
-    /// Handles the renamed files by updating their corresponding <see cref="AvaloniaControlManager"/> entries.
-    /// </summary>
-    /// <param name="sender">The source of the event.</param>
-    /// <param name="args">The event arguments containing details of the renamed file.</param>
     private void OnRenamed(object sender, RenamedEventArgs args)
     {
         string newFullPath = args.FullPath;
@@ -135,49 +117,12 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
         _controls[newFullPath] = controlManager;
     }
 
-    /// <summary>
-    /// Handles errors that occur during file monitoring.
-    /// </summary>
-    /// <param name="sender">The source of the event.</param>
-    /// <param name="args">The event arguments containing the error details.</param>
     private void OnError(object sender, ErrorEventArgs args)
         => Logger.LogError(sender, "An unexpected error occurred while monitoring file changes: {Exception}", args.GetException());
 
-    /// <summary>
-    /// Asynchronously reloads all registered controls.
-    /// </summary>
-    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
-    /// <returns>A task that represents the asynchronous operation.</returns>
-    private async Task ReloadAsync(CancellationToken cancellationToken)
-    {
-        foreach ((_, AvaloniaControlManager control) in _controls)
-        {
-            // The simplest and most effective way to reload all controls within the current
-            // context is to reload the top-level `Application` instance that contains them.
-            if (!typeof(Application).IsAssignableFrom(control.Document.RootType))
-                continue;
-
-            try
-            {
-                Logger.LogInfo(this, "Reloading '{Uri}'...", control.Document.Uri);
-                await control.ReloadAsync(cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception e)
-            {
-                Logger.LogError(this, "Failed to reload '{Uri}': {Exception}", control.Document.Uri, e);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Asynchronously reloads a control associated with the provided file path.
-    /// </summary>
-    /// <param name="path">The file path associated with the control that needs to be reloaded.</param>
-    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
-    /// <returns>A task that represents the asynchronous operation.</returns>
     private async Task ReloadAsync(string path, CancellationToken cancellationToken)
     {
-        IFileSystem fileSystem = _config.FileSystem;
+        IFileSystem fileSystem = Config.FileSystem;
         string fullPath = fileSystem.GetFullPath(path);
         if (!_controls.TryGetValue(fullPath, out AvaloniaControlManager? control))
             return;
@@ -189,7 +134,7 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
 
             Logger.LogInfo(this, "Reloading '{Uri}'...", control.Document.Uri);
             string xaml = await fileSystem.ReadAllTextAsync(fullPath, TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
-            string patchedXaml = _config.XamlPatcher.Patch(xaml);
+            string patchedXaml = Config.XamlPatcher.Patch(xaml);
             await control.ReloadAsync(patchedXaml, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception e)
@@ -198,22 +143,15 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
         }
     }
 
-    /// <summary>
-    /// Asynchronously applies a patch to a specified control if required.
-    /// </summary>
-    /// <param name="controlManager">The control manager responsible for reloading the patched XAML.</param>
-    /// <param name="path">The file path to the XAML document.</param>
-    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
-    /// <returns>A task that represents the asynchronous operation.</returns>
     private async Task PatchAsync(AvaloniaControlManager controlManager, string path, CancellationToken cancellationToken)
     {
         try
         {
-            IFileSystem fileSystem = _config.FileSystem;
+            IFileSystem fileSystem = Config.FileSystem;
             if (!await fileSystem.FileExistsAsync(path, cancellationToken).ConfigureAwait(false))
                 return;
 
-            XamlPatcher xamlPatcher = _config.XamlPatcher;
+            XamlPatcher xamlPatcher = Config.XamlPatcher;
             string xaml = await fileSystem.ReadAllTextAsync(path, TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
             if (!xamlPatcher.RequiresPatching(xaml))
                 return;
@@ -228,15 +166,9 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
         }
     }
 
-    /// <summary>
-    /// Executes the specified asynchronous operation using a cancellation token
-    /// that is automatically canceled after the configured default timeout.
-    /// </summary>
-    /// <param name="function">The function to execute.</param>
-    /// <returns>A task that represents the asynchronous operation.</returns>
     private async Task RunWithDefaultTimeoutAsync(Func<CancellationToken, Task> function)
     {
-        TimeSpan timeout = _config.Timeout;
+        TimeSpan timeout = Config.Timeout;
         using CancellationTokenSource? cancellationTokenSource = timeout <= TimeSpan.Zero ? null : new(timeout);
         await function(cancellationTokenSource?.Token ?? default).ConfigureAwait(false);
     }

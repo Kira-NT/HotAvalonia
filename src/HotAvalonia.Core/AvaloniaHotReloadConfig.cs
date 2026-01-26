@@ -22,12 +22,6 @@ public sealed record class AvaloniaHotReloadConfig
     };
 
     /// <summary>
-    /// Gets or sets the root hot reload context used as a fallback when
-    /// reloading an individual component fails.
-    /// </summary>
-    public IHotReloadContext? Root { get; init; }
-
-    /// <summary>
     /// Gets or sets the application domain that hot reload operations
     /// are performed in.
     /// </summary>
@@ -73,7 +67,6 @@ public sealed record class AvaloniaHotReloadConfig
     /// <inheritdoc/>
     [EditorBrowsable(EditorBrowsableState.Never)]
     public AvaloniaHotReloadConfig With(
-        IHotReloadContext? root = null,
         AppDomain? appDomain = null,
         IServiceProvider? serviceProvider = null,
         XamlPatcher? xamlPatcher = null,
@@ -82,7 +75,6 @@ public sealed record class AvaloniaHotReloadConfig
         TimeSpan? timeout = null
     ) => this with
     {
-        Root = root ?? Root,
         AppDomain = appDomain ?? AppDomain,
         ServiceProvider = serviceProvider ?? ServiceProvider,
         XamlPatcher = xamlPatcher ?? XamlPatcher,
