@@ -40,7 +40,7 @@ internal static class HotReloadFeatures
     /// <summary>
     /// Gets the default hotkey used to trigger a manual hot reload event.
     /// </summary>
-    public static KeyGesture? Hotkey => GetBoolean(nameof(Hotkey), true) ? KeyGesture.Parse(GetString(nameof(Hotkey), "Alt+F5")) : null;
+    public static KeyGesture? Hotkey => GetOption(nameof(Hotkey), "Alt+F5") is string key ? KeyGesture.Parse(key) : null;
 
     /// <summary>
     /// Retrieves the environment variable value associated with the specified feature name.
@@ -63,6 +63,34 @@ internal static class HotReloadFeatures
     [return: NotNullIfNotNull(nameof(defaultValue))]
     internal static string? GetString(string featureName, string? defaultValue = null)
         => GetString(featureName.AsMemory(), defaultValue);
+
+    /// <summary>
+    /// Retrieves the value of the specified feature, where falsy values
+    /// (<c>false</c> or <c>0</c>) explicitly disable it, truthy values
+    /// (<c>true</c> or non-zero integers) cause <paramref name="defaultValue"/>
+    /// to be returned, and any other value is returned as-is.
+    /// </summary>
+    /// <param name="featureName">The name of the feature.</param>
+    /// <param name="defaultValue">The value to return when the feature is unset.</param>
+    /// <returns>The feature value, or <c>null</c> if the feature is explicitly disabled.</returns>
+    internal static string? GetOption(ReadOnlyMemory<char> featureName, string? defaultValue = null)
+    {
+        string? stringValue = GetString(featureName);
+        if (stringValue is null)
+            return defaultValue;
+
+        if (bool.TryParse(stringValue, out bool boolValue))
+            return boolValue ? defaultValue : null;
+
+        if (int.TryParse(stringValue, out int intValue))
+            return intValue != 0 ? defaultValue : null;
+
+        return stringValue;
+    }
+
+    /// <inheritdoc cref="GetOption(ReadOnlyMemory{char}, string?)"/>
+    internal static string? GetOption(string featureName, string? defaultValue = null)
+        => GetOption(featureName.AsMemory(), defaultValue);
 
     /// <summary>
     /// Retrieves the environment variable value associated with the specified feature name
