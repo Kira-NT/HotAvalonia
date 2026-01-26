@@ -8,6 +8,12 @@
     <PublishAot>true</PublishAot>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <HotAvaloniaHotkey>F5</HotAvaloniaHotkey>
+    <HotAvaloniaTimeout>disable</HotAvaloniaTimeout>
+    <HotAvaloniaMinLogLevel>error</HotAvaloniaMinLogLevel>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="../HotReloadDemo/HotReloadDemo.csproj" />
     <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />

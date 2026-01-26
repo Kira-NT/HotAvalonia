@@ -43,20 +43,27 @@ internal static class HotReloadFeatures
     public static KeyGesture? Hotkey => GetOption(nameof(Hotkey), "Alt+F5") is string key ? KeyGesture.Parse(key) : null;
 
     /// <summary>
-    /// Retrieves the environment variable value associated with the specified feature name.
+    /// Retrieves the value of the specified feature as a <see cref="string"/>.
     /// </summary>
-    /// <param name="featureName">The feature name.</param>
-    /// <param name="defaultValue">The default value to return if the environment variable is not set.</param>
+    /// <param name="featureName">The name of the feature.</param>
+    /// <param name="defaultValue">The value to return if the feature is not set.</param>
     /// <returns>
-    /// The string value of the environment variable, or <paramref name="defaultValue"/>
-    /// if the variable is not set.
+    /// The feature value as a <see cref="string"/>, or <paramref name="defaultValue"/> if the feature is not set.
     /// </returns>
     [return: NotNullIfNotNull(nameof(defaultValue))]
     internal static string? GetString(ReadOnlyMemory<char> featureName, string? defaultValue = null)
     {
         string variableName = GetEnvironmentVariableName(featureName);
         string? variableValue = Environment.GetEnvironmentVariable(variableName);
-        return string.IsNullOrEmpty(variableValue) ? defaultValue : variableValue;
+        if (!string.IsNullOrEmpty(variableValue))
+            return variableValue;
+
+        string elementName = GetAppContextElementName(featureName);
+        string? elementValue = AppContext.GetData(elementName)?.ToString();
+        if (elementValue is null && AppContext.TryGetSwitch(elementName, out bool switchValue))
+            elementValue = switchValue ? bool.TrueString : bool.FalseString;
+
+        return string.IsNullOrEmpty(elementValue) ? defaultValue : elementValue;
     }
 
     /// <inheritdoc cref="GetString(ReadOnlyMemory{char}, string?)"/>
@@ -93,14 +100,12 @@ internal static class HotReloadFeatures
         => GetOption(featureName.AsMemory(), defaultValue);
 
     /// <summary>
-    /// Retrieves the environment variable value associated with the specified feature name
-    /// and converts it to a <see cref="bool"/>.
+    /// Retrieves the value of the specified feature as a <see cref="bool"/>.
     /// </summary>
-    /// <param name="featureName">The feature name.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
+    /// <param name="featureName">The name of the feature.</param>
+    /// <param name="defaultValue">The value to return if the feature is not set.</param>
     /// <returns>
-    /// The boolean representation of the environment variable, or <paramref name="defaultValue"/>
-    /// if the conversion fails.
+    /// The feature value as a <see cref="bool"/>, or <paramref name="defaultValue"/> if the feature is not set.
     /// </returns>
     internal static bool GetBoolean(ReadOnlyMemory<char> featureName, bool defaultValue = false)
     {
@@ -119,14 +124,12 @@ internal static class HotReloadFeatures
         => GetBoolean(featureName.AsMemory(), defaultValue);
 
     /// <summary>
-    /// Retrieves the environment variable value associated with the specified feature name
-    /// and converts it to a 32-bit integer.
+    /// Retrieves the value of the specified feature as an <see cref="int"/>.
     /// </summary>
-    /// <param name="featureName">The feature name.</param>
-    /// <param name="defaultValue">The default integer value to return if the conversion fails.</param>
+    /// <param name="featureName">The name of the feature.</param>
+    /// <param name="defaultValue">The value to return if the feature is not set.</param>
     /// <returns>
-    /// The 32-bit integer representation of the environment variable, or <paramref name="defaultValue"/>
-    /// if the conversion fails.
+    /// The feature value as an <see cref="int"/>, or <paramref name="defaultValue"/> if the feature is not set.
     /// </returns>
     internal static int GetInt32(ReadOnlyMemory<char> featureName, int defaultValue = 0)
         => int.TryParse(GetString(featureName), out int value) ? value : defaultValue;
@@ -136,15 +139,14 @@ internal static class HotReloadFeatures
         => GetInt32(featureName.AsMemory(), defaultValue);
 
     /// <summary>
-    /// Retrieves the environment variable value associated with the specified feature name
-    /// and converts it to the specified enumeration type.
+    /// Retrieves the value of the specified feature as a <typeparamref name="TEnum"/>.
     /// </summary>
     /// <typeparam name="TEnum">The enumeration type to which the value should be converted.</typeparam>
-    /// <param name="featureName">The feature name.</param>
-    /// <param name="defaultValue">The default enumeration value to return if the conversion fails.</param>
+    /// <param name="featureName">The name of the feature.</param>
+    /// <param name="defaultValue">The value to return if the feature is not set.</param>
     /// <returns>
-    /// The enumeration value corresponding to the environment variable, or <paramref name="defaultValue"/>
-    /// if the conversion fails.
+    /// The feature value as a <typeparamref name="TEnum"/>, or
+    /// <paramref name="defaultValue"/> if the feature is not set.
     /// </returns>
     internal static TEnum GetEnum<TEnum>(ReadOnlyMemory<char> featureName, TEnum defaultValue = default) where TEnum : struct, Enum
         => Enum.TryParse(GetString(featureName), ignoreCase: true, out TEnum value) ? value : defaultValue;
@@ -153,12 +155,6 @@ internal static class HotReloadFeatures
     internal static TEnum GetEnum<TEnum>(string featureName, TEnum defaultValue = default) where TEnum : struct, Enum
         => GetEnum(featureName.AsMemory(), defaultValue);
 
-    /// <summary>
-    /// Formats a feature name written in PascalCase or camelCase into a SCREAMING_SNAKE_CASE
-    /// environment variable name prefixed with "HOTAVALONIA_".
-    /// </summary>
-    /// <param name="featureName">The feature name to format.</param>
-    /// <returns>The feature name formatted as an environment variable name corresponding to the said feature.</returns>
     private static string GetEnvironmentVariableName(ReadOnlyMemory<char> featureName)
     {
         const string prefix = "HOTAVALONIA_";
@@ -190,6 +186,17 @@ internal static class HotReloadFeatures
 
                 Unsafe.Add(ref envName, --j) = (char)(c & ~(((uint)(c - 'a') <= 'z' - 'a' ? 1 : 0) << 5));
             }
+        });
+    }
+
+    private static string GetAppContextElementName(ReadOnlyMemory<char> featureName)
+    {
+        const string prefix = $"{nameof(HotAvalonia)}.";
+        return string.Create(prefix.Length + featureName.Length, featureName, static (buffer, memory) =>
+        {
+            ReadOnlySpan<char> name = memory.Span;
+            name.CopyTo(buffer.Slice(prefix.Length, name.Length));
+            ((ReadOnlySpan<char>)prefix).CopyTo(buffer);
         });
     }
 }

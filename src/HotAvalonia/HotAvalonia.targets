@@ -37,6 +37,27 @@
     <HotAvaloniaIncludeExtensions Condition="'$(HotAvaloniaIncludeExtensions)' == ''">$(_HotAvaloniaIsExe)</HotAvaloniaIncludeExtensions>
     <HotAvaloniaIncludeExtensions Condition="'$(HotAvaloniaIncludeExtensions)' != 'true'">false</HotAvaloniaIncludeExtensions>
 
+    <!-- Disable injections on non-desktop platforms by default. -->
+    <HotAvaloniaInjections Condition="'$(HotAvaloniaInjections)' == 'enable'">true</HotAvaloniaInjections>
+    <HotAvaloniaInjections Condition="'$(HotAvaloniaInjections)' == 'disable'">false</HotAvaloniaInjections>
+    <HotAvaloniaInjectionType Condition="'$(HotAvaloniaInjectionType)' == '' And '$(HotAvaloniaInjections)' == 'true'"></HotAvaloniaInjectionType>
+    <HotAvaloniaInjectionType Condition="'$(HotAvaloniaInjectionType)' == '' And '$(HotAvaloniaInjections)' == 'false'">none</HotAvaloniaInjectionType>
+    <HotAvaloniaInjectionType Condition="'$(HotAvaloniaInjectionType)' == '' And '$(HotAvaloniaInjections)' != 'true' And $(_HotAvaloniaIsNotDesktop)">none</HotAvaloniaInjectionType>
+
+    <!-- Enable initial patching unless it's explicitly disabled. -->
+    <HotAvaloniaInitialPatching Condition="'$(HotAvaloniaInitialPatching)' == 'enable'">true</HotAvaloniaInitialPatching>
+    <HotAvaloniaInitialPatching Condition="'$(HotAvaloniaInitialPatching)' == 'disable'">false</HotAvaloniaInitialPatching>
+    <HotAvaloniaSkipInitialPatching Condition="'$(HotAvaloniaSkipInitialPatching)' == 'enable' Or '$(HotAvaloniaInitialPatching)' == 'false'">true</HotAvaloniaSkipInitialPatching>
+    <HotAvaloniaSkipInitialPatching Condition="'$(HotAvaloniaSkipInitialPatching)' == 'disable' Or '$(HotAvaloniaInitialPatching)' == 'true'">false</HotAvaloniaSkipInitialPatching>
+
+    <!-- Enable the default timeout unless it's explicitly disabled. -->
+    <HotAvaloniaTimeout Condition="'$(HotAvaloniaTimeout)' == 'enable' Or '$(HotAvaloniaTimeout)' == 'true'"></HotAvaloniaTimeout>
+    <HotAvaloniaTimeout Condition="'$(HotAvaloniaTimeout)' == 'disable' Or '$(HotAvaloniaTimeout)' == 'false'">0</HotAvaloniaTimeout>
+
+    <!-- Enable the default hotkey unless it's explicitly disabled. -->
+    <HotAvaloniaHotkey Condition="'$(HotAvaloniaHotkey)' == 'enable'"></HotAvaloniaHotkey>
+    <HotAvaloniaHotkey Condition="'$(HotAvaloniaHotkey)' == 'disable'">false</HotAvaloniaHotkey>
+
     <!-- The auto-enable feature works only in the context of startup projects that produce an actual executable. -->
     <HotAvaloniaAutoEnable Condition="'$(HotAvaloniaAutoEnable)' == ''">$(_HotAvaloniaIsExe)</HotAvaloniaAutoEnable>
     <HotAvaloniaAutoEnable Condition="'$(HotAvaloniaAutoEnable)' != 'true' Or !$(HotAvalonia)">false</HotAvaloniaAutoEnable>
@@ -100,6 +121,15 @@
     <DefineConstants Condition="$(HotAvaloniaLite)">$(DefineConstants)$(_HotAvaloniaDefineConstantsSeparator)HOTAVALONIA_ENABLE_LITE</DefineConstants>
     <DefineConstants Condition="!$(HotAvaloniaIncludeExtensions)">$(DefineConstants)$(_HotAvaloniaDefineConstantsSeparator)HOTAVALONIA_EXCLUDE_EXTENSIONS</DefineConstants>
   </PropertyGroup>
+
+  <ItemGroup Label="HotAvalonia: Runtime Options">
+    <RuntimeHostConfigurationOption Condition="'$(HotAvaloniaInjectionType)' != ''" Include="HotAvalonia.InjectionType" Value="$(HotAvaloniaInjectionType)" />
+    <RuntimeHostConfigurationOption Condition="'$(HotAvaloniaSkipInitialPatching)' != ''" Include="HotAvalonia.SkipInitialPatching" Value="$(HotAvaloniaSkipInitialPatching)" />
+    <RuntimeHostConfigurationOption Condition="'$(HotAvaloniaMinLogLevel)' != ''" Include="HotAvalonia.MinLogLevel" Value="$(HotAvaloniaMinLogLevel)" />
+    <RuntimeHostConfigurationOption Condition="'$(HotAvaloniaTimeout)' != ''" Include="HotAvalonia.Timeout" Value="$(HotAvaloniaTimeout)" />
+    <RuntimeHostConfigurationOption Condition="'$(HotAvaloniaMode)' != ''" Include="HotAvalonia.Mode" Value="$(HotAvaloniaMode)" />
+    <RuntimeHostConfigurationOption Condition="'$(HotAvaloniaHotkey)' != ''" Include="HotAvalonia.Hotkey" Value="$(HotAvaloniaHotkey)" />
+  </ItemGroup>
 
   <PropertyGroup Label="HotAvalonia: iOS Properties" Condition="$(HotAvalonia) And $(_HotAvaloniaIsIOS)">
     <!-- Force-enable Mono Interpreter on iOS to accommodate the platform's fundamental design flaws. -->

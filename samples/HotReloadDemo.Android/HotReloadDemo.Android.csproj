@@ -8,6 +8,12 @@
     <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <HotAvaloniaHotkey>F5</HotAvaloniaHotkey>
+    <HotAvaloniaTimeout>disable</HotAvaloniaTimeout>
+    <HotAvaloniaMinLogLevel>error</HotAvaloniaMinLogLevel>
+  </PropertyGroup>
+
   <ItemGroup>
     <AndroidResource Include="../../media/icon.png" Link="Resources/drawable/icon.png" />
   </ItemGroup>
