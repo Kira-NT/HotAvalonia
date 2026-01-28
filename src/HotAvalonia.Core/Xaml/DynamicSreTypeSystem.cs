@@ -41,9 +41,9 @@ internal static class DynamicSreTypeSystem
             return existingType;
 
         Assembly XamlX = typeof(AvaloniaRuntimeXamlLoader).Assembly;
-        assembly.ForceAllowAccessTo(XamlX);
+        assembly.AllowAccessTo(XamlX);
         foreach (AssemblyName referencedAssemblyName in XamlX.GetReferencedAssemblies())
-            assembly.ForceAllowAccessTo(referencedAssemblyName);
+            assembly.AllowAccessTo(referencedAssemblyName);
 
         Type IXamlType = XamlX.GetType("XamlX.TypeSystem.IXamlType", throwOnError: true)!;
         Type IXamlAssembly = XamlX.GetType("XamlX.TypeSystem.IXamlAssembly", throwOnError: true)!;
@@ -74,13 +74,6 @@ internal static class DynamicSreTypeSystem
         FieldBuilder _appDomain = DynamicSreTypeSystem.DefineField(
             nameof(_appDomain),
             typeof(AppDomain),
-            FieldAttributes.Private | FieldAttributes.InitOnly
-        );
-
-        //     private readonly AssemblyBuilder _host;
-        FieldBuilder _host = DynamicSreTypeSystem.DefineField(
-            nameof(_host),
-            typeof(AssemblyBuilder),
             FieldAttributes.Private | FieldAttributes.InitOnly
         );
 
@@ -298,9 +291,6 @@ internal static class DynamicSreTypeSystem
         //         if (assembly is not { IsDynamic: false })
         //             return;
         //
-        //         using (IDisposable context = AssemblyHelper.ForceAllowDynamicCode())
-        //             _host.AllowAccessTo(assembly);
-        //
         //         List<IXamlAssembly> assemblies = _assemblies;
         //         SreAssembly publicAssembly = CreateSreAssembly(assembly, this);
         //         SreAssembly internalAssembly = _internalAssembly;
@@ -326,7 +316,6 @@ internal static class DynamicSreTypeSystem
         Label onAssemblyLoadCheckLoadedAssembly = il.DefineLabel();
         Label onAssemblyLoadLoadedAssemblyIsNullOrDynamic = il.DefineLabel();
         Label onAssemblyLoadLoadedAssemblyIsNotDynamic = il.DefineLabel();
-        Label onAssemblyLoadEndDynamicScopeFinally = il.DefineLabel();
         Label onAssemblyLoadLoadedTypesIsArray = il.DefineLabel();
         Label onAssemblyLoadLoadedAssemblyContainsPublicTypes = il.DefineLabel();
         Label onAssemblyLoadEndFinally = il.DefineLabel();
@@ -337,7 +326,6 @@ internal static class DynamicSreTypeSystem
         il.DeclareLocal(SreAssembly);
         il.DeclareLocal(typeof(IEnumerable<Type>));
         il.DeclareLocal(typeof(Type[]));
-        il.DeclareLocal(typeof(IDisposable));
         il.DeclareLocal(typeof(object));
         il.DeclareLocal(typeof(bool));
         il.DeclareLocal(typeof(int));
@@ -358,20 +346,6 @@ internal static class DynamicSreTypeSystem
         il.MarkLabel(onAssemblyLoadLoadedAssemblyIsNullOrDynamic);
         il.Emit(OpCodes.Ret);
         il.MarkLabel(onAssemblyLoadLoadedAssemblyIsNotDynamic);
-        il.Emit(OpCodes.Call, new Func<IDisposable>(AssemblyHelper.ForceAllowDynamicCode).Method);
-        il.Emit(OpCodes.Stloc_S, (byte)6);
-        il.BeginExceptionBlock();
-        il.Emit(OpCodes.Ldarg_0);
-        il.Emit(OpCodes.Ldfld, _host);
-        il.Emit(OpCodes.Ldloc_0);
-        il.Emit(OpCodes.Call, new Action<AssemblyBuilder, Assembly>(AssemblyHelper.ForceAllowAccessTo).Method);
-        il.BeginFinallyBlock();
-        il.Emit(OpCodes.Ldloc_S, (byte)6);
-        il.Emit(OpCodes.Brfalse_S, onAssemblyLoadEndDynamicScopeFinally);
-        il.Emit(OpCodes.Ldloc_S, (byte)6);
-        il.Emit(OpCodes.Callvirt, typeof(IDisposable).GetMethod(nameof(IDisposable.Dispose))!);
-        il.MarkLabel(onAssemblyLoadEndDynamicScopeFinally);
-        il.EndExceptionBlock();
         il.Emit(OpCodes.Ldarg_0);
         il.Emit(OpCodes.Ldfld, _assemblies);
         il.Emit(OpCodes.Stloc_1);
@@ -396,12 +370,12 @@ internal static class DynamicSreTypeSystem
         il.Emit(OpCodes.Stloc_S, (byte)5);
         il.Emit(OpCodes.Ldarg_0);
         il.Emit(OpCodes.Ldfld, _lock);
-        il.Emit(OpCodes.Stloc_S, (byte)7);
+        il.Emit(OpCodes.Stloc_S, (byte)6);
         il.Emit(OpCodes.Ldc_I4_0);
-        il.Emit(OpCodes.Stloc_S, (byte)8);
+        il.Emit(OpCodes.Stloc_S, (byte)7);
         il.BeginExceptionBlock();
-        il.Emit(OpCodes.Ldloc_S, (byte)7);
-        il.Emit(OpCodes.Ldloca_S, (byte)8);
+        il.Emit(OpCodes.Ldloc_S, (byte)6);
+        il.Emit(OpCodes.Ldloca_S, (byte)7);
         il.Emit(OpCodes.Call, typeof(Monitor).GetMethod(nameof(Monitor.Enter), [typeof(object), typeof(bool).MakeByRefType()])!);
         il.Emit(OpCodes.Ldloc_S, (byte)5);
         il.Emit(OpCodes.Ldloc_2);
@@ -422,19 +396,19 @@ internal static class DynamicSreTypeSystem
         il.Emit(OpCodes.Ldloc_2);
         il.Emit(OpCodes.Ldsfld, s_xamlAssemblyNameComparer);
         il.Emit(OpCodes.Call, _assemblies.FieldType.GetMethod(nameof(List<>.BinarySearch), [typeof(int), typeof(int), IXamlAssembly, typeof(IComparer<>).MakeGenericType(IXamlAssembly)])!);
-        il.Emit(OpCodes.Stloc_S, (byte)9);
+        il.Emit(OpCodes.Stloc_S, (byte)8);
         il.Emit(OpCodes.Ldloc_1);
-        il.Emit(OpCodes.Ldloc_S, (byte)9);
-        il.Emit(OpCodes.Ldloc_S, (byte)9);
+        il.Emit(OpCodes.Ldloc_S, (byte)8);
+        il.Emit(OpCodes.Ldloc_S, (byte)8);
         il.Emit(OpCodes.Ldc_I4_S, (sbyte)31);
         il.Emit(OpCodes.Shr);
         il.Emit(OpCodes.Xor);
         il.Emit(OpCodes.Ldloc_2);
         il.Emit(OpCodes.Call, _assemblies.FieldType.GetMethod(nameof(List<>.Insert), [typeof(int), IXamlAssembly])!);
         il.BeginFinallyBlock();
-        il.Emit(OpCodes.Ldloc_S, (byte)8);
-        il.Emit(OpCodes.Brfalse_S, onAssemblyLoadEndFinally);
         il.Emit(OpCodes.Ldloc_S, (byte)7);
+        il.Emit(OpCodes.Brfalse_S, onAssemblyLoadEndFinally);
+        il.Emit(OpCodes.Ldloc_S, (byte)6);
         il.Emit(OpCodes.Call, new Action<object>(Monitor.Exit).Method);
         il.MarkLabel(onAssemblyLoadEndFinally);
         il.EndExceptionBlock();
@@ -799,7 +773,6 @@ internal static class DynamicSreTypeSystem
         //         Array.Sort(loadedAssemblies, new Comparison<Assembly>(CompareAssemblyNames));
         //
         //         _appDomain = appDomain;
-        //         _host = host;
         //         _assemblies = new(loadedAssemblies.Length * 2);
         //         _typeDic = new(loadedAssemblies.Length * 10);
         //         _lock = new();
@@ -833,9 +806,6 @@ internal static class DynamicSreTypeSystem
         il.Emit(OpCodes.Ldarg_0);
         il.Emit(OpCodes.Ldarg_1);
         il.Emit(OpCodes.Stfld, _appDomain);
-        il.Emit(OpCodes.Ldarg_0);
-        il.Emit(OpCodes.Ldarg_2);
-        il.Emit(OpCodes.Stfld, _host);
         il.Emit(OpCodes.Ldarg_0);
         il.Emit(OpCodes.Ldloc_0);
         il.Emit(OpCodes.Ldlen);
