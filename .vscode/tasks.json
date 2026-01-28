@@ -11,20 +11,21 @@
         "/property:Configuration=Debug",
         "/property:GenerateFullPaths=true",
         "/consoleloggerparameters:NoSummary",
-        "-tl",
       ],
       "problemMatcher": "$msCompile",
     },
     {
-      "label": "prepare-android-environment",
+      "label": "android-install",
       "dependsOrder": "sequence",
       "dependsOn": [
-        "workload-install-android",
-        "install-android-sdk",
+        "android-install-workload",
+        "android-install-sdk",
       ],
+      "problemMatcher": [],
     },
     {
-      "label": "workload-install-android",
+      "label": "android-install-workload",
+      "hide": true,
       "type": "process",
       "command": "dotnet",
       "args": [
@@ -35,7 +36,8 @@
       "problemMatcher": "$msCompile",
     },
     {
-      "label": "install-android-sdk",
+      "label": "android-install-sdk",
+      "hide": true,
       "type": "process",
       "command": "dotnet",
       "args": [
@@ -47,9 +49,12 @@
         "/t:InstallAndroidDependencies",
       ],
       "problemMatcher": "$msCompile",
+      "runOptions": {
+        "reevaluateOnRerun": false,
+      },
     },
     {
-      "label": "start-android-emulator",
+      "label": "android-run-emulator",
       "type": "shell",
       "command": "${input:androidSdkDir}/emulator/emulator -avd ${input:androidEmulatorName} -partition-size 512",
       "windows": {
@@ -64,21 +69,47 @@
         "panel": "shared",
         "showReuseMessage": false,
         "clear": true,
-      }
-    }
+      },
+      "runOptions": {
+        "reevaluateOnRerun": false,
+      },
+    },
+    {
+      "label": "android-run-demo",
+      "hide": true,
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "${workspaceFolder}/samples/HotReloadDemo.Android",
+        "/property:Configuration=Debug",
+        "/property:GenerateFullPaths=true",
+        "/consoleloggerparameters:NoSummary",
+        "/property:AndroidSdkDirectory=${input:androidSdkDir}",
+        "/property:JavaSdkDirectory=${input:javaSdkDir}",
+				"-p:AndroidAttachDebugger=true",
+				"-p:AndroidSdbHostPort=19680",
+				"-p:AndroidSdbTargetPort=19680",
+        "/t:Run",
+      ],
+      "problemMatcher": "$msCompile",
+      "runOptions": {
+        "reevaluateOnRerun": false,
+      },
+    },
   ],
   "inputs": [
     {
       "id": "androidSdkDir",
       "type": "promptString",
       "description": "Enter Android SDK Directory",
-      "default": "${env:HOME}/.android",
+      "default": "${env:HOME}/.local/share/android",
     },
     {
       "id": "javaSdkDir",
       "type": "promptString",
       "description": "Enter Java SDK Directory",
-      "default": "${env:HOME}/.android/java",
+      "default": "${env:HOME}/.local/share/android/java",
     },
     {
       "id": "androidEmulatorName",
