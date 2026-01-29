@@ -21,9 +21,4 @@ internal static class UnreferencedTypes
     /// Represents the fully-qualified type name for <c>HotAvalonia.AvaloniaHotReloadExtensions</c>.
     /// </summary>
     public static readonly TypeName HotAvalonia_AvaloniaHotReloadExtensions = "HotAvalonia.AvaloniaHotReloadExtensions";
-
-    /// <summary>
-    /// Represents the fully-qualified type name for <c>HotAvalonia.IO.IFileSystem</c>.
-    /// </summary>
-    public static readonly TypeName HotAvalonia_IO_IFileSystem = "HotAvalonia.IO.IFileSystem";
 }

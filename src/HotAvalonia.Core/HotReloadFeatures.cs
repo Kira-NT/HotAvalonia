@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Net;
 using System.Runtime.CompilerServices;
 using Avalonia.Input;
 using Avalonia.Logging;
@@ -41,6 +42,16 @@ internal static class HotReloadFeatures
     /// Gets the default hotkey used to trigger a manual hot reload event.
     /// </summary>
     public static KeyGesture? Hotkey => GetOption(nameof(Hotkey), "Alt+F5") is string key ? KeyGesture.Parse(key) : null;
+
+    /// <summary>
+    /// Gets the default network endpoint of the remote file system.
+    /// </summary>
+    public static IPEndPoint? RemoteFileSystemAddress => GetString(nameof(RemoteFileSystemAddress)) is string s ? IPEndPoint.Parse(s) : null;
+
+    /// <summary>
+    /// Gets the default authentication secret for the remote file system.
+    /// </summary>
+    public static byte[] RemoteFileSystemSecret => Convert.FromBase64String(GetString(nameof(RemoteFileSystemSecret), string.Empty));
 
     /// <summary>
     /// Retrieves the value of the specified feature as a <see cref="string"/>.

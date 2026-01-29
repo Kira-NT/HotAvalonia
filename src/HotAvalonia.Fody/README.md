@@ -28,7 +28,6 @@ Like any other Fody weaver, `HotAvalonia.Fody` can be configured either via `Fod
         </Solution>
         <PopulateOverride Enable="true" />
         <UseHotReload Enable="true" GeneratePathResolver="true" />
-        <FileSystemCredentials Enable="true" Address="127.0.0.1" Port="20158" Secret="TXkgU3VwZXIgU2VjcmV0IFZhbHVl" />
         <References Enable="false" Exclude="HotAvalonia.Core;Avalonia.Markup.Xaml.Loader" />
       </HotAvalonia>
     </Weavers>
@@ -60,17 +59,6 @@ This feature weaver is responsible for automatically invoking `HotAvalonia.Avalo
 | :--- | :---------- | :------ | :------- |
 | `Enable` | Sets a value indicating whether this feature weaver is enabled. | `false` | `true` <br> `false` |
 | `GeneratePathResolver` | Sets a value indicating whether this feature weaver should automatically generate `HotAvalonia.AvaloniaHotReloadExtensions.ResolveProjectPath(Assembly)` based on the `<Solution>` element, if this method does not already exist. | `false` | `true` <br> `false` |
-
-### FileSystemCredentials
-
-This feature weaver is responsible for injecting remote file system credentials into the app, enabling it to connect to the appropriate host to retrieve all the information necessary for hot reload to function.
-
-| Name | Description | Default | Examples |
-| :--- | :---------- | :------ | :------- |
-| `Enable` | Sets a value indicating whether this feature weaver is enabled. | `false` | `true` <br> `false` |
-| `Address` | Provides the address of the remote file system to the app. | `127.0.0.1` | `192.168.0.2` |
-| `Port` | Provides the port of the remote file system to the app. | `20158` | `8080` |
-| `Secret` | Provides the secret required by the remote file system to the app. | N/A | `TXkgU3VwZXIgU2VjcmV0IFZhbHVl` |
 
 ### References
 

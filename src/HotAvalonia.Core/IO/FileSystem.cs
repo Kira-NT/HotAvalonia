@@ -24,22 +24,13 @@ public static class FileSystem
     public static IFileSystem Current { get; } = new LocalFileSystem();
 
     /// <summary>
-    /// The length of time, in milliseconds, before a synchronous attempt
-    /// to connect to a remote file system times out.
-    /// </summary>
-    private static readonly int s_remoteFileSystemConnectionTimeout = 5000;
-
-    /// <summary>
     /// Connects to a remote file system.
     /// </summary>
     /// <param name="endpoint">The remote endpoint to connect to.</param>
     /// <param name="secret">The secret key used for authentication.</param>
     /// <returns>A new instance of <see cref="IFileSystem"/> representing the remote file system.</returns>
     public static IFileSystem Connect(IPEndPoint endpoint, byte[] secret)
-    {
-        using CancellationTokenSource cancellationTokenSource = new(s_remoteFileSystemConnectionTimeout);
-        return ConnectAsync(endpoint, secret, cancellationTokenSource.Token).GetAwaiter().GetResult();
-    }
+        => GetResultWithDefaultTimeout(cancellationToken => ConnectAsync(endpoint, secret, cancellationToken));
 
     /// <summary>
     /// Attempts to connect to a remote file system.
@@ -54,22 +45,18 @@ public static class FileSystem
     /// </returns>
     [return: NotNullIfNotNull(nameof(fallbackFileSystem))]
     public static IFileSystem? Connect(IPEndPoint endpoint, byte[] secret, IFileSystem? fallbackFileSystem)
-    {
-        using CancellationTokenSource cancellationTokenSource = new(s_remoteFileSystemConnectionTimeout);
-        return ConnectAsync(endpoint, secret, fallbackFileSystem, cancellationTokenSource.Token).GetAwaiter().GetResult();
-    }
+        => GetResultWithDefaultTimeout(cancellationToken => ConnectAsync(endpoint, secret, fallbackFileSystem, cancellationToken));
 
     /// <summary>
-    /// Connects to a remote file system using configuration options inferred from the current assemblies.
+    /// Connects to a remote file system using configuration options inferred from the current environment.
     /// </summary>
     /// <returns>A new instance of <see cref="IFileSystem"/> representing the remote file system.</returns>
-    [Obsolete("Use 'Connect(IPEndPoint, byte[])' instead.")]
     [EditorBrowsable(EditorBrowsableState.Never)]
     public static IFileSystem Connect()
-        => throw new InvalidOperationException("Configuration options for connecting to the remote file system have not been provided.");
+        => GetResultWithDefaultTimeout(ConnectAsync);
 
     /// <summary>
-    /// Attempts to connect to a remote file system using configuration options inferred from the current assemblies.
+    /// Attempts to connect to a remote file system using configuration options inferred from the current environment.
     /// If the connection fails, returns <paramref name="fallbackFileSystem"/> instead.
     /// </summary>
     /// <param name="fallbackFileSystem">The fallback file system to use in case of failure.</param>
@@ -77,25 +64,48 @@ public static class FileSystem
     /// A new instance of <see cref="IFileSystem"/> representing the remote file system
     /// if the connection attempt was successful; otherwise, <paramref name="fallbackFileSystem"/>.
     /// </returns>
-    [Obsolete("Use 'Connect(IPEndPoint, byte[], IFileSystem?)' instead.")]
     [EditorBrowsable(EditorBrowsableState.Never)]
     [return: NotNullIfNotNull(nameof(fallbackFileSystem))]
     public static IFileSystem? Connect(IFileSystem? fallbackFileSystem)
+        => GetResultWithDefaultTimeout(cancellationToken => ConnectAsync(fallbackFileSystem, cancellationToken));
+
+    /// <summary>
+    /// Asynchronously connects to a remote file system using configuration options inferred from the current environment.
+    /// </summary>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    /// <returns>A new instance of <see cref="IFileSystem"/> representing the remote file system.</returns>
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public static Task<IFileSystem> ConnectAsync(CancellationToken cancellationToken = default)
     {
-        Logger.LogError("Unable to determine configuration options for connecting to the remote file system.");
-        return fallbackFileSystem;
+        IPEndPoint? endpoint = HotReloadFeatures.RemoteFileSystemAddress;
+        byte[]? secret = HotReloadFeatures.RemoteFileSystemSecret;
+        if (endpoint is not null && secret is not null)
+            return ConnectAsync(endpoint, secret, cancellationToken);
+
+        return Task.FromException<IFileSystem>(new InvalidOperationException("Configuration options for connecting to the remote file system have not been provided."));
     }
 
-    // HotAvalonia.Fody appends `IPEndPoint, byte[]` to the list of arguments passed to the stub method.
-    // Thus, when using `(IFileSystem?)` we need `(IFileSystem?, IPEndPoint, byte[])` to be available.
-    // Technically, I could change that, but appending arguments is so much easier than prepending, because
-    // it doesn't involve any stack analysis. So, yeah, this method is only here because I'm lazy.
-    /// <inheritdoc cref="Connect(IPEndPoint, byte[], IFileSystem?)"/>
-    [Obsolete("Use 'Connect(IPEndPoint, byte[], IFileSystem?)' instead.")]
+    /// <summary>
+    /// Attempts to asynchronously connect to a remote file system using configuration options inferred from the current environment.
+    /// If the connection fails, returns <paramref name="fallbackFileSystem"/> instead.
+    /// </summary>
+    /// <param name="fallbackFileSystem">The fallback file system to use in case of failure.</param>
+    /// <returns>
+    /// A new instance of <see cref="IFileSystem"/> representing the remote file system
+    /// if the connection attempt was successful; otherwise, <paramref name="fallbackFileSystem"/>.
+    /// </returns>
     [EditorBrowsable(EditorBrowsableState.Never)]
     [return: NotNullIfNotNull(nameof(fallbackFileSystem))]
-    public static IFileSystem? Connect(IFileSystem? fallbackFileSystem, IPEndPoint endpoint, byte[] secret)
-        => Connect(endpoint, secret, fallbackFileSystem);
+    public static Task<IFileSystem?> ConnectAsync(IFileSystem? fallbackFileSystem, CancellationToken cancellationToken = default)
+    {
+        IPEndPoint? endpoint = HotReloadFeatures.RemoteFileSystemAddress;
+        byte[]? secret = HotReloadFeatures.RemoteFileSystemSecret;
+        if (endpoint is not null && secret is not null)
+            return ConnectAsync(endpoint, secret, fallbackFileSystem, cancellationToken);
+
+        Logger.LogError("Unable to determine configuration options for connecting to the remote file system.");
+        return Task.FromResult(fallbackFileSystem);
+    }
 
     /// <summary>
     /// Asynchronously connects to a remote file system.
@@ -501,5 +511,12 @@ public static class FileSystem
 
         // In the case of a positive overflow, stick to the default size.
         return DefaultCopyBufferSize;
+    }
+
+    private static T GetResultWithDefaultTimeout<T>(Func<CancellationToken, Task<T>> func)
+    {
+        TimeSpan timeout = HotReloadFeatures.Timeout;
+        using CancellationTokenSource? cancellationTokenSource = timeout <= TimeSpan.Zero ? null : new(timeout);
+        return func(cancellationTokenSource?.Token ?? default).GetAwaiter().GetResult();
     }
 }

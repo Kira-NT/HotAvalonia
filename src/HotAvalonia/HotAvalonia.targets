@@ -122,15 +122,6 @@
     <DefineConstants Condition="!$(HotAvaloniaIncludeExtensions)">$(DefineConstants)$(_HotAvaloniaDefineConstantsSeparator)HOTAVALONIA_EXCLUDE_EXTENSIONS</DefineConstants>
   </PropertyGroup>
 
-  <ItemGroup Label="HotAvalonia: Runtime Options">
-    <RuntimeHostConfigurationOption Condition="'$(HotAvaloniaInjectionType)' != ''" Include="HotAvalonia.InjectionType" Value="$(HotAvaloniaInjectionType)" />
-    <RuntimeHostConfigurationOption Condition="'$(HotAvaloniaSkipInitialPatching)' != ''" Include="HotAvalonia.SkipInitialPatching" Value="$(HotAvaloniaSkipInitialPatching)" />
-    <RuntimeHostConfigurationOption Condition="'$(HotAvaloniaMinLogLevel)' != ''" Include="HotAvalonia.MinLogLevel" Value="$(HotAvaloniaMinLogLevel)" />
-    <RuntimeHostConfigurationOption Condition="'$(HotAvaloniaTimeout)' != ''" Include="HotAvalonia.Timeout" Value="$(HotAvaloniaTimeout)" />
-    <RuntimeHostConfigurationOption Condition="'$(HotAvaloniaMode)' != ''" Include="HotAvalonia.Mode" Value="$(HotAvaloniaMode)" />
-    <RuntimeHostConfigurationOption Condition="'$(HotAvaloniaHotkey)' != ''" Include="HotAvalonia.Hotkey" Value="$(HotAvaloniaHotkey)" />
-  </ItemGroup>
-
   <PropertyGroup Label="HotAvalonia: iOS Properties" Condition="$(HotAvalonia) And $(_HotAvaloniaIsIOS)">
     <!-- Force-enable Mono Interpreter on iOS to accommodate the platform's fundamental design flaws. -->
     <MtouchInterpreter>all</MtouchInterpreter>
@@ -150,7 +141,6 @@
 
   <!-- Generate a weaver config for `HotAvalonia.Fody`. -->
   <UsingTask TaskName="HotAvalonia.GenerateFileSystemServerConfigTask" AssemblyFile="$(_HotAvaloniaAssemblyFile)" />
-  <UsingTask TaskName="HotAvalonia.GetFileSystemClientConfigTask" AssemblyFile="$(_HotAvaloniaAssemblyFile)" />
   <Target
     Name="HotAvaloniaGenerateFodyConfig"
     AfterTargets="$(HotAvaloniaAfterTargets)"
@@ -182,16 +172,6 @@
       AllowShutDownRequests="$(HarfsExitOnDisconnect)"
       OutputPath="$(IntermediateOutputPath)$(HarfsConfigOutputPath)"
     />
-    <HotAvalonia.GetFileSystemClientConfigTask
-      Condition="$(HotAvaloniaRemote)"
-      FileSystemServerConfigPath="$(IntermediateOutputPath)$(HarfsConfigOutputPath)"
-      Address="$(HarfsAddress)"
-      FallbackAddress="$(HarfsFallbackAddress)"
-    >
-      <Output TaskParameter="Address" PropertyName="HarfsAddress" />
-      <Output TaskParameter="Port" PropertyName="HarfsPort" />
-      <Output TaskParameter="Secret" PropertyName="HarfsSecretBase64" />
-    </HotAvalonia.GetFileSystemClientConfigTask>
 
     <!-- Prepare the weaver config and pass it down to Fody's `WeaverConfiguration`. -->
     <PropertyGroup>
@@ -201,7 +181,6 @@
           <References Enable="$(HotAvaloniaProcessReferences)" Exclude="$(HotAvaloniaExcludeReferences)" />
           <PopulateOverride Enable="$(HotAvaloniaRecompileResources)" />
           <UseHotReload Enable="$(HotAvaloniaAutoEnable)" GeneratePathResolver="$(HotAvaloniaGeneratePathResolver)" />
-          <FileSystemCredentials Enable="$(HotAvaloniaRemote)" Address="$(HarfsAddress)" Port="$(HarfsPort)" Secret="$(HarfsSecretBase64)" />
         </HotAvalonia>
       </_HotAvaloniaWeaverConfiguration>
 
@@ -212,6 +191,34 @@
         <Weavers>$(_HotAvaloniaWeaverConfiguration)</Weavers>
       </WeaverConfiguration>
     </PropertyGroup>
+  </Target>
+
+  <UsingTask TaskName="HotAvalonia.GetFileSystemClientConfigTask" AssemblyFile="$(_HotAvaloniaAssemblyFile)" />
+  <Target
+    Name="HotAvaloniaGenerateRuntimeConfig"
+    Condition="'$(GenerateRuntimeConfigurationFiles)' == 'true'"
+    AfterTargets="AfterCompile;HotAvaloniaGenerateFodyConfig"
+    BeforeTargets="GenerateBuildRuntimeConfigurationFiles"
+  >
+    <HotAvalonia.GetFileSystemClientConfigTask
+      Condition="$(HotAvaloniaRemote)"
+      FileSystemServerConfigPath="$(IntermediateOutputPath)$(HarfsConfigOutputPath)"
+      Address="$(HarfsAddress)"
+      FallbackAddress="$(HarfsFallbackAddress)"
+    >
+      <Output TaskParameter="Address" PropertyName="HarfsAddress" />
+      <Output TaskParameter="Secret" PropertyName="HarfsSecretBase64" />
+    </HotAvalonia.GetFileSystemClientConfigTask>
+    <ItemGroup>
+      <RuntimeHostConfigurationOption Condition="'$(HotAvaloniaInjectionType)' != ''" Include="HotAvalonia.InjectionType" Value="$(HotAvaloniaInjectionType)" />
+      <RuntimeHostConfigurationOption Condition="'$(HotAvaloniaSkipInitialPatching)' != ''" Include="HotAvalonia.SkipInitialPatching" Value="$(HotAvaloniaSkipInitialPatching)" />
+      <RuntimeHostConfigurationOption Condition="'$(HotAvaloniaMinLogLevel)' != ''" Include="HotAvalonia.MinLogLevel" Value="$(HotAvaloniaMinLogLevel)" />
+      <RuntimeHostConfigurationOption Condition="'$(HotAvaloniaTimeout)' != ''" Include="HotAvalonia.Timeout" Value="$(HotAvaloniaTimeout)" />
+      <RuntimeHostConfigurationOption Condition="'$(HotAvaloniaMode)' != ''" Include="HotAvalonia.Mode" Value="$(HotAvaloniaMode)" />
+      <RuntimeHostConfigurationOption Condition="'$(HotAvaloniaHotkey)' != ''" Include="HotAvalonia.Hotkey" Value="$(HotAvaloniaHotkey)" />
+      <RuntimeHostConfigurationOption Condition="'$(HarfsAddress)' != ''" Include="HotAvalonia.RemoteFileSystemAddress" Value="$(HarfsAddress)" />
+      <RuntimeHostConfigurationOption Condition="'$(HarfsSecretBase64)' != ''" Include="HotAvalonia.RemoteFileSystemSecret" Value="$(HarfsSecretBase64)" />
+    </ItemGroup>
   </Target>
 
   <!-- If remote hot reload is enabled, start HARFS when the build completes. -->

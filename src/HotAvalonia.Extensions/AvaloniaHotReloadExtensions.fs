@@ -29,7 +29,6 @@
 // SOFTWARE.
 //#endregion
 
-#nowarn FS0044
 #nowarn FS3261
 
 namespace HotAvalonia

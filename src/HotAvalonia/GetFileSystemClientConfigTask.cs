@@ -28,12 +28,6 @@ public sealed class GetFileSystemClientConfigTask : MSBuildTask
     public string? FallbackAddress { get; set; }
 
     /// <summary>
-    /// Gets the port number the client should connect to.
-    /// </summary>
-    [Output]
-    public string? Port { get; private set; }
-
-    /// <summary>
     /// Gets the secret used for authentication.
     /// </summary>
     [Output]
@@ -43,15 +37,18 @@ public sealed class GetFileSystemClientConfigTask : MSBuildTask
     protected override void ExecuteCore()
     {
         FileSystemServerConfig config = FileSystemServerConfig.Load(FileSystemServerConfigPath);
-        if (!IPAddress.TryParse(Address, out IPAddress? ip))
+        int port = config.Port;
+        string ip = Address ?? string.Empty;
+        if (!IPAddress.TryParse(ip, out _))
         {
-            ip = InterNetwork.GetLocalAddress();
-            if (ip is null && !IPAddress.TryParse(FallbackAddress, out ip))
-                ip = IPAddress.Loopback;
+            IPAddress? ipAddress = InterNetwork.GetLocalAddress();
+            if (ipAddress is null && !IPAddress.TryParse(FallbackAddress ?? string.Empty, out ipAddress))
+                ipAddress = IPAddress.Loopback;
+
+            ip = ipAddress.ToString();
         }
 
-        Address = ip.ToString();
-        Port = config.Port.ToString();
+        Address = ip.IndexOf(':') >= 0 ? $"[{ip}]:{port}" : $"{ip}:{port}";
         Secret = config.Secret ?? string.Empty;
     }
 }
