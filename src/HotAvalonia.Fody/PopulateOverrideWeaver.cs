@@ -82,7 +82,14 @@ internal sealed class PopulateOverrideWeaver : FeatureWeaver
         MethodDefinition populateTrampoline = CreatePopulateTrampoline(populateTrampolineName, resource.Populate, populateOverride);
         declaringType.Methods.Add(populateTrampoline);
 
-        resource.Build.ReplaceMethodReferences(resource.Populate, populateTrampoline);
+        foreach (Instruction instruction in resource.Build.Body.Instructions)
+        {
+            // Obviously, determining method equality solely by name is not correct. However, it suits our
+            // needs in this simple case, and I couldn't be bothered to implement it properly right now.
+            // So what? Bite me.
+            if ((instruction.Operand as MethodReference)?.Name == resource.Populate.Name)
+                instruction.Operand = populateTrampoline;
+        }
     }
 
     /// <summary>

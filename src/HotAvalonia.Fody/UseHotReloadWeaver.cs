@@ -35,6 +35,8 @@ internal sealed class UseHotReloadWeaver : FeatureWeaver
     /// </summary>
     private readonly CecilMethod _pathResolverCtor;
 
+    private const string UseHotReloadMethodName = "UseHotReload";
+
     /// <summary>
     /// Initializes a new instance of the <see cref="UseHotReloadWeaver"/> class.
     /// </summary>
@@ -56,8 +58,6 @@ internal sealed class UseHotReloadWeaver : FeatureWeaver
     /// <inheritdoc/>
     public override void Execute()
     {
-        const string UseHotReloadMethodName = "UseHotReload";
-
         TypeDefinition? hotReloadExtensions = ModuleDefinition.GetType(UnreferencedTypes.HotAvalonia_AvaloniaHotReloadExtensions);
         MethodDefinition? useHotReload = hotReloadExtensions?.GetMethod(UseHotReloadMethodName, BindingFlag.AnyStatic, [UnreferencedTypes.Avalonia_AppBuilder, typeof(Func<Assembly, string?>)], UnreferencedTypes.Avalonia_AppBuilder);
         useHotReload ??= hotReloadExtensions?.GetMethod(UseHotReloadMethodName, BindingFlag.AnyStatic, [UnreferencedTypes.Avalonia_AppBuilder], UnreferencedTypes.Avalonia_AppBuilder);
@@ -69,7 +69,14 @@ internal sealed class UseHotReloadWeaver : FeatureWeaver
 
         if (!TryFindInjectionPoint(ModuleDefinition, out MethodDefinition? target, out Instruction? injectionPoint))
         {
-            WriteError($"Unable to enable hot reload: no entry point has been identified.");
+            WriteError($"Failed to automatically enable hot reload: no entry point has been identified.");
+            return;
+        }
+
+        if (injectionPoint.Operand is MethodReference { Name: UseHotReloadMethodName })
+        {
+            SequencePoint? location = target.DebugInformation.SequencePoints.LastOrDefault(x => !x.IsHidden && x.Offset <= injectionPoint.Offset);
+            WriteWarning($"A redundant '.{UseHotReloadMethodName}()' call was detected. Remove it, or disable '<HotAvaloniaAutoEnable>' in your project file.", location);
             return;
         }
 
@@ -97,25 +104,38 @@ internal sealed class UseHotReloadWeaver : FeatureWeaver
         const string BuildAvaloniaAppMethodName = "BuildAvaloniaApp";
         const string CustomizeAppBuilderMethodName = "CustomizeAppBuilder";
 
+        static bool TryFindExistingInjectionPoint([NotNullWhen(true)] MethodDefinition? method, [NotNullWhen(true)] out Instruction? injectionPoint)
+            => (injectionPoint = method?.Body.Instructions.FirstOrDefault(x => x.Operand is MethodReference { Name: UseHotReloadMethodName })) is not null;
+
+        static bool TryGetSingleRetInstruction([NotNullWhen(true)] MethodDefinition? method, [NotNullWhen(true)] out Instruction? ret)
+            => (ret = method?.Body.Instructions.Where(x => x.OpCode.Code is Code.Ret).Select((x, i) => i == 0 ? x : null).Take(2).LastOrDefault()) is not null;
+
+        static bool TryGetCallInstruction([NotNullWhen(true)] MethodDefinition? method, TypeName returnType, [NotNullWhen(true)] out Instruction? call)
+            => (call = method?.Body.Instructions.FirstOrDefault(x => x is { OpCode.Code: Code.Call or Code.Callvirt, Operand: MethodReference callee } && callee.ReturnType == returnType)) is not null;
+
+        MethodDefinition? entryPoint = module.EntryPoint;
+        if (TryFindExistingInjectionPoint(entryPoint, out injectionPoint))
+        {
+            target = entryPoint;
+            return true;
+        }
+
         // Our preferred injection target is `<Program>.BuildAvaloniaApp()`.
         // Sadly, it's just a non-enforceable convention, so it might not exist.
-        MethodDefinition? entryPoint = module.EntryPoint;
         MethodDefinition? appBuilder = entryPoint?.DeclaringType.GetMethod(BuildAvaloniaAppMethodName, BindingFlag.AnyStatic, [], UnreferencedTypes.Avalonia_AppBuilder);
-        if (appBuilder is not null && appBuilder.TryGetSingleRetInstruction(out Instruction? ret))
+        if (TryFindExistingInjectionPoint(appBuilder, out injectionPoint) || TryGetSingleRetInstruction(appBuilder, out injectionPoint))
         {
             target = appBuilder;
-            injectionPoint = ret;
             return true;
         }
 
         // If we cannot inject into `<Program>.BuildAvaloniaApp()`, attempt to inject directly into `<Program>.<Main>()`.
         // However, in order to do this, we need to find a method call that creates an `AppBuilder` instance first.
         // Fortunately, this is quite straightforward.
-        Instruction? afterFactory = entryPoint.TryGetCallInstruction(UnreferencedTypes.Avalonia_AppBuilder, out Instruction? factory) ? factory.Next : null;
-        if ((entryPoint, afterFactory) is (not null, not null))
+        if (TryGetCallInstruction(entryPoint, UnreferencedTypes.Avalonia_AppBuilder, out Instruction? factory))
         {
             target = entryPoint;
-            injectionPoint = afterFactory;
+            injectionPoint = factory.Next;
             return true;
         }
 
@@ -126,10 +146,9 @@ internal sealed class UseHotReloadWeaver : FeatureWeaver
         // This is exactly what we're looking for.
         IEnumerable<MethodDefinition> appBuilderCandidates = module.GetMethods(CustomizeAppBuilderMethodName, BindingFlag.NonPublicInstance, [UnreferencedTypes.Avalonia_AppBuilder], UnreferencedTypes.Avalonia_AppBuilder);
         appBuilder = appBuilderCandidates.Where(x => x.IsVirtual).Select((x, i) => i == 0 ? x : null).Take(2).LastOrDefault();
-        if (appBuilder is not null && appBuilder.TryGetSingleRetInstruction(out ret))
+        if (TryFindExistingInjectionPoint(appBuilder, out injectionPoint) || TryGetSingleRetInstruction(appBuilder, out injectionPoint))
         {
             target = appBuilder;
-            injectionPoint = ret;
             return true;
         }
 
