@@ -8,7 +8,7 @@
 //#region License
 // MIT License
 //
-// Copyright (c) 2023-2025 Kira NT
+// Copyright (c) 2023-2026 Kira NT
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
