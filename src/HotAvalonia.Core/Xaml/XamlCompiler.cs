@@ -145,7 +145,7 @@ public static class XamlCompiler
         if (buildMethod is null || populateMethod is null)
             ArgumentException.Throw(nameof(compiledXamlType));
 
-        return new(uri, buildMethod, populateMethod);
+        return new(uri, buildMethod, populateMethod, null, null);
     }
 
     /// <summary>

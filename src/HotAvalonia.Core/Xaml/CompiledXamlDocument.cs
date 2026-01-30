@@ -17,64 +17,42 @@ namespace HotAvalonia.Xaml;
 [DebuggerDisplay($"{{{nameof(Uri)},nq}}")]
 public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
 {
-    /// <summary>
-    /// The field reference for <c>StyledElement._stylesApplied</c>.
-    /// </summary>
     private static readonly FieldInfo? s_stylesAppliedField = typeof(StyledElement).GetInstanceField("_stylesApplied", typeof(bool));
 
-    /// <summary>
-    /// The property reference for <c>AvaloniaObject.InheritanceParent</c>.
-    /// </summary>
-    private static readonly PropertyInfo? s_inheritanceParentProperty = typeof(AvaloniaObject).GetInstanceProperty("InheritanceParent");
+    private static readonly Func<AvaloniaObject, AvaloniaObject?>? s_getInheritanceParent = typeof(AvaloniaObject).GetInstanceProperty("InheritanceParent")?.GetMethod?.CreateDelegate<Func<AvaloniaObject, AvaloniaObject?>>();
 
-    /// <summary>
-    /// The URI associated with the XAML document.
-    /// </summary>
-    private readonly Uri _uri;
+    internal readonly Uri _uri;
 
-    /// <summary>
-    /// The type of the root element produced by the XAML document.
-    /// </summary>
-    private readonly Type _rootType;
+    internal readonly Type _rootType;
 
-    /// <summary>
-    /// The method used to create a new instance of the XAML document's root control.
-    /// </summary>
-    private readonly MethodBase _build;
+    internal readonly MethodBase _build;
 
-    /// <summary>
-    /// The method used to populate an existing instance of the root control.
-    /// </summary>
-    private readonly MethodInfo _populate;
+    internal readonly Action<IServiceProvider?, object> _populate;
 
-    /// <summary>
-    /// An optional field representing an override for the populate method.
-    /// </summary>
-    private readonly FieldInfo? _populateOverride;
+    internal readonly FieldInfo? _populateOverride;
 
-    /// <summary>
-    /// An optional action used to refresh the root control after loading.
-    /// </summary>
-    private readonly Action<object>? _refresh;
+    internal readonly Action<object>? _refresh;
 
     /// <inheritdoc cref="CompiledXamlDocument(Uri, MethodBase, MethodInfo, FieldInfo?, Action{object}?)"/>
     public CompiledXamlDocument(string uri, MethodBase build, MethodInfo populate)
-        : this(new Uri(uri), build, populate, null, null)
+        : this(new Uri(uri), AsBuildMethod(build), ToPopulateDelegate(populate), null, null)
     {
     }
 
     /// <inheritdoc cref="CompiledXamlDocument(Uri, MethodBase, MethodInfo, FieldInfo?, Action{object}?)"/>
     public CompiledXamlDocument(Uri uri, MethodBase build, MethodInfo populate)
-        : this(uri, build, populate, null, null)
+        : this(uri, AsBuildMethod(build), ToPopulateDelegate(populate), null, null)
     {
+        ArgumentNullException.ThrowIfNull(uri);
     }
 
     /// <inheritdoc cref="CompiledXamlDocument(Uri, MethodBase, MethodInfo, CompiledXamlDocument)"/>
+    [Obsolete("Use 'CompiledXamlDocument(string, MethodBase, MethodInfo)' instead.")]
     public CompiledXamlDocument(string? uri, MethodBase? build, MethodInfo? populate, CompiledXamlDocument baseDocument)
         : this(
             uri is null ? baseDocument._uri : new(uri),
-            build ?? baseDocument._build,
-            populate ?? baseDocument._populate,
+            build is null ? baseDocument._build : AsBuildMethod(build),
+            populate is null ? baseDocument._populate : ToPopulateDelegate(populate),
             baseDocument._populateOverride,
             baseDocument._refresh)
     {
@@ -88,11 +66,12 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     /// <param name="build">The method used to create a new instance of the root control.</param>
     /// <param name="populate">The method used to populate an existing root control.</param>
     /// <param name="baseDocument">The base document from which default values are taken if any of the other parameters are <c>null</c>.</param>
+    [Obsolete("Use 'CompiledXamlDocument(Uri, MethodBase, MethodInfo)' instead.")]
     public CompiledXamlDocument(Uri? uri, MethodBase? build, MethodInfo? populate, CompiledXamlDocument baseDocument)
         : this(
             uri ?? baseDocument._uri,
-            build ?? baseDocument._build,
-            populate ?? baseDocument._populate,
+            build is null ? baseDocument._build : AsBuildMethod(build),
+            populate is null ? baseDocument._populate : ToPopulateDelegate(populate),
             baseDocument._populateOverride,
             baseDocument._refresh)
     {
@@ -106,26 +85,13 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     /// <param name="populate">The method used to populate an existing root control.</param>
     /// <param name="populateOverride">An optional field representing an override for the populate method.</param>
     /// <param name="refresh">A delegate that defines a refresh action for the root control.</param>
-    internal CompiledXamlDocument(
-        Uri uri,
-        MethodBase build,
-        MethodInfo populate,
-        FieldInfo? populateOverride = null,
-        Action<object>? refresh = null)
+    internal CompiledXamlDocument(Uri uri, MethodBase build, MethodInfo populate, FieldInfo? populateOverride, Action<object>? refresh)
+        : this(uri, build, populate.CreateUnsafeDelegate<Action<IServiceProvider?, object>>(), populateOverride, refresh)
     {
-        ArgumentNullException.ThrowIfNull(uri);
-        ArgumentNullException.ThrowIfNull(build);
-        ArgumentNullException.ThrowIfNull(populate);
+    }
 
-        if (!XamlScanner.IsBuildMethod(build))
-            ArgumentException.Throw(nameof(build), "The provided method does not meet the build method criteria.");
-
-        if (!XamlScanner.IsPopulateMethod(populate))
-            ArgumentException.Throw(nameof(populate), "The provided method does not meet the populate method criteria.");
-
-        if (populateOverride is not null && !XamlScanner.IsPopulateOverrideField(populateOverride))
-            ArgumentException.Throw(nameof(populateOverride), "The provided field does not meet the populate override criteria.");
-
+    internal CompiledXamlDocument(Uri uri, MethodBase build, Action<IServiceProvider?, object> populate, FieldInfo? populateOverride, Action<object>? refresh)
+    {
         _uri = uri;
         _build = build;
         _populate = populate;
@@ -152,7 +118,7 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     /// <summary>
     /// Gets the method used to populate an existing root control.
     /// </summary>
-    public MethodInfo PopulateMethod => _populate;
+    public MethodInfo PopulateMethod => _populate.Method;
 
     /// <summary>
     /// Creates a new instance of the root control representing this document.
@@ -225,7 +191,7 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     {
         ArgumentNullException.ThrowIfNull(rootControl);
 
-        _populate.Invoke(null, [serviceProvider ?? XamlIlRuntimeHelpers.CreateRootServiceProviderV2(), rootControl]);
+        _populate(serviceProvider ?? XamlIlRuntimeHelpers.CreateRootServiceProviderV2(), rootControl);
     }
 
     /// <inheritdoc cref="Reload(IServiceProvider?, object)"/>
@@ -238,11 +204,10 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
     /// <inheritdoc cref="Populate(IServiceProvider?, object)"/>
     public void Reload(IServiceProvider? serviceProvider, object rootControl)
     {
-        ArgumentNullException.ThrowIfNull(rootControl);
-
-        Reset(rootControl, out Action restore);
-        _populate.Invoke(null, [serviceProvider ?? XamlIlRuntimeHelpers.CreateRootServiceProviderV2(), rootControl]);
-        restore();
+        Detach(rootControl, out ILogical? logicalParent, out AvaloniaObject? inheritanceParent);
+        Clear(rootControl);
+        Populate(serviceProvider, rootControl);
+        Attach(rootControl, logicalParent, inheritanceParent);
         _refresh?.Invoke(rootControl);
     }
 
@@ -316,46 +281,14 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
         styles?.Clear();
     }
 
-    /// <summary>
-    /// Fully resets the state of an Avalonia control and
-    /// provides a callback to restore its original state.
-    /// </summary>
-    /// <param name="control">The control to reset.</param>
-    /// <param name="restore">When this method returns, contains a callback to restore the control's original state.</param>
-    private static void Reset(object? control, out Action restore)
-    {
-        Detach(control, out ILogical? logicalParent, out AvaloniaObject? inheritanceParent);
-        Clear(control);
-        restore = () => Attach(control, logicalParent, inheritanceParent);
-    }
-
-    /// <summary>
-    /// Detaches an Avalonia control from its logical and inheritance parents.
-    /// </summary>
-    /// <param name="control">The control to detach.</param>
-    /// <param name="logicalParent">
-    /// When this method returns, contains the control's logical parent, or <c>null</c> if it has none.
-    /// </param>
-    /// <param name="inheritanceParent">
-    /// When this method returns, contains the control's inheritance parent, or <c>null</c> if it has none.
-    /// </param>
     private static void Detach(object? control, out ILogical? logicalParent, out AvaloniaObject? inheritanceParent)
     {
         logicalParent = (control as ILogical)?.GetLogicalParent();
-        inheritanceParent = control is AvaloniaObject
-            ? s_inheritanceParentProperty?.GetValue(control) as AvaloniaObject
-            : null;
-
+        inheritanceParent = control is AvaloniaObject obj ? s_getInheritanceParent?.Invoke(obj) : null;
         (control as ISetLogicalParent)?.SetParent(null);
         (control as ISetInheritanceParent)?.SetParent(null);
     }
 
-    /// <summary>
-    /// Attaches an Avalonia control to the specified logical and inheritance parents.
-    /// </summary>
-    /// <param name="control">The control to attach.</param>
-    /// <param name="logicalParent">The logical parent to attach the control to.</param>
-    /// <param name="inheritanceParent">The inheritance parent to attach the control to.</param>
     private static void Attach(object? control, ILogical? logicalParent, AvaloniaObject? inheritanceParent)
     {
         if (logicalParent is not null && control is ISetLogicalParent logical)
@@ -363,6 +296,24 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
 
         if (inheritanceParent is not null && control is ISetInheritanceParent inheritance)
             inheritance.SetParent(inheritanceParent);
+    }
+
+    private static MethodBase AsBuildMethod(MethodBase build)
+    {
+        ArgumentNullException.ThrowIfNull(build);
+        if (!XamlScanner.IsBuildMethod(build))
+            ArgumentException.Throw(nameof(build), "The provided method does not meet the build method criteria.");
+
+        return build;
+    }
+
+    private static Action<IServiceProvider?, object> ToPopulateDelegate(MethodInfo populate)
+    {
+        ArgumentNullException.ThrowIfNull(populate);
+        if (!XamlScanner.IsPopulateMethod(populate))
+            ArgumentException.Throw(nameof(populate), "The provided method does not meet the populate method criteria.");
+
+        return populate.CreateUnsafeDelegate<Action<IServiceProvider?, object>>();
     }
 }
 

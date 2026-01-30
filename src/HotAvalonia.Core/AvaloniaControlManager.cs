@@ -48,8 +48,7 @@ internal sealed class AvaloniaControlManager : IDisposable
         _document = document;
         _controls = new();
 
-        Action<IServiceProvider?, object> populate = document.Populate;
-        if (!document.TryOverridePopulate((s, c) => OnPopulate(populate, s, c), out _populateInjection))
+        if (!document.TryOverridePopulate((s, c) => OnPopulate(document._populate, s, c), out _populateInjection))
             CallbackInjector.TryInject(document.PopulateMethod, OnPopulate, out _populateInjection);
     }
 
@@ -85,8 +84,8 @@ internal sealed class AvaloniaControlManager : IDisposable
     private void Recompile(string xaml, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        CompiledXamlDocument compiledXaml = XamlCompiler.Compile(xaml, _document.Uri, _document.RootType.Assembly);
-        _recompiledDocument = new(compiledXaml.Uri, compiledXaml.BuildMethod, compiledXaml.PopulateMethod, _document);
+        CompiledXamlDocument compiledXaml = XamlCompiler.Compile(xaml, _document._uri, _document._rootType.Assembly);
+        _recompiledDocument = new(compiledXaml._uri, compiledXaml._build, compiledXaml._populate, compiledXaml._populateOverride, _document._refresh);
     }
 
     private void Reload(string xaml, CancellationToken cancellationToken)
