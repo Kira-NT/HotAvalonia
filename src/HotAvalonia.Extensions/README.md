@@ -15,7 +15,7 @@
 
 ## Usage
 
-This library is distributed in the form of source code, intended to be included in the compilation context of consuming projects. While this approach makes it quite a bit less portable, since the same logic must be re-implemented again and again across different languages *(e.g., C#, F#, VB)*, it is also the best possible solution for our goals: it allows for a dynamic, easily extensible codebase that consumers can use and modify as needed, with or without referencing [`HotAvalonia.Core`](https://github.com/Kira-NT/HotAvalonia/blob/HEAD/src/HotAvalonia.Core), depending on their context.
+This library is distributed in the form of source code, intended to be included in the compilation context of consuming projects. While this approach makes it quite a bit less portable, since the same logic must be re-implemented again and again across different languages *(i.e., C#, F#, VB)*, it is also the best possible solution for our goals: it allows for a dynamic, easily extensible codebase that consumers can use and modify as needed, with or without referencing [`HotAvalonia.Core`](https://github.com/Kira-NT/HotAvalonia/blob/HEAD/src/HotAvalonia.Core), depending on their context.
 
 ### AvaloniaHotReloadExtensions
 
@@ -75,6 +75,7 @@ The behavior of this class is heavily influenced by compiler constants, which yo
 | `HOTAVALONIA_ENABLE` | If defined, `AvaloniaHotReloadExtensions` assumes the current project references [`HotAvalonia.Core`](https://github.com/Kira-NT/HotAvalonia/blob/HEAD/src/HotAvalonia.Core), thereby transforming `.UseHotReload()`, `.EnableHotReload()`, and `.DisableHotReload()` from no-op stubs into methods that actually do what they advertise. <br><br> This mechanism allows consuming projects to reference [`HotAvalonia.Core`](https://github.com/Kira-NT/HotAvalonia/blob/HEAD/src/HotAvalonia.Core) conditionally, such as only for Debug builds, making it possible to completely strip out hot reload functionality from the Release builds. |
 | `HOTAVALONIA_DISABLE` | Overrides `HOTAVALONIA_ENABLE`, effectively un-defining it. |
 | `HOTAVALONIA_ENABLE_LITE` | If defined, the hot reload context is created using `AvaloniaHotReloadContext.CreateLite()` instead of `AvaloniaHotReloadContext.Create()`. |
+| `HOTAVALONIA_USE_CUSTOM_CONTEXT` | If defined, you must provide a custom implementation of `AvaloniaHotReloadExtensions.CreateHotReloadContext()`. |
 | `HOTAVALONIA_USE_REMOTE_FILE_SYSTEM` | If defined, HotAvalonia uses a file system accessor created via `FileSystem.Connect()` instead of defaulting to `FileSystem.Current`. |
 | `HOTAVALONIA_USE_CUSTOM_FILE_SYSTEM` | If defined, you must provide a custom implementation of `AvaloniaHotReloadExtensions.GetFileSystem()`. |
 
@@ -85,6 +86,10 @@ namespace HotAvalonia;
 
 partial class AvaloniaHotReloadExtensions
 {
+    // If `HOTAVALONIA_USE_CUSTOM_CONTEXT` is defined,
+    // you can supply HotAvalonia with a custom hot reload context.
+    internal static IHotReloadContext CreateHotReloadContext(AvaloniaHotReloadConfig config) => new MyHotReloadContext();
+
     // If `HOTAVALONIA_USE_CUSTOM_FILE_SYSTEM` is defined,
     // you can supply HotAvalonia with a custom file system accessor.
     internal static IFileSystem GetFileSystem() => new MyCustomFileSystem();

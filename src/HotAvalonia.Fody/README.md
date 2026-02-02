@@ -9,7 +9,7 @@
 [![Version](https://img.shields.io/github/v/release/Kira-NT/HotAvalonia?sort=date&label=version)](https://github.com/Kira-NT/HotAvalonia/releases/latest)
 [![License](https://img.shields.io/github/license/Kira-NT/HotAvalonia?cacheSeconds=36000)](https://github.com/Kira-NT/HotAvalonia/blob/HEAD/LICENSE.md)
 
-`HotAvalonia.Fody` is a [Fody](https://github.com/Fody/Fody) weaver created to overcome certain limitations that would otherwise render hot reload infeasible on non-x64 devices, while also enhancing the overall experience for HotAvalonia users.
+`HotAvalonia.Fody` is an optional [Fody](https://github.com/Fody/Fody) weaver designed to enhance the overall hot reload experience for HotAvalonia users.
 
 ----
 
@@ -39,13 +39,13 @@ Here's a quick overview of the weaver-specific properties:
 
 ### PopulateOverride
 
-This feature weaver is responsible for recompiling Avalonia resources *(such as styles and resource dictionaries)* to make them hot-reloadable even on non‑x64 devices, where injection‑based hot reload is unavailable.
+This feature weaver is responsible for injecting a small piece of logic into Avalonia resources *(such as styles and resource dictionaries)*, allowing their original, precompiled `Populate` method to be overridden at runtime even in environments where method injection is unavailable.
 
 | Name | Description | Default | Examples |
 | :--- | :---------- | :------ | :------- |
 | `Enable` | Sets a value indicating whether this feature weaver is enabled. | `false` | `true` <br> `false` |
 
-Note that for this weaver to work properly, Fody needs to run **after** Avalonia has finished compiling the XAML files; otherwise, there will be nothing to recompile. This can be achieved by:
+Note that for this weaver to work properly, Fody needs to run **after** Avalonia has finished compiling the XAML files; otherwise, there will be nothing to inject into. This can be achieved by:
 
 ```xml
 <FodyDependsOnTargets>$(FodyDependsOnTargets);CompileAvaloniaXaml</FodyDependsOnTargets>
