@@ -18,6 +18,14 @@ Add the following package reference to your project file *(e.g., `.csproj`, `.fs
 <PackageReference Include="HotAvalonia" Version="3.*" PrivateAssets="All" Publish="True" />
 ```
 
+Alternatively, if you've already successfully migrated to **Avalonia 12**:
+
+```xml
+<!-- Don't forget to replace $(AvaloniaVersion) with the actual Avalonia package version. -->
+<PackageReference Include="Avalonia.Markup.Xaml.Loader" Version="$(AvaloniaVersion)" PrivateAssets="All" Publish="True" />
+<PackageReference Include="HotAvalonia" Version="3.*" PrivateAssets="All" Publish="True" />
+```
+
 That's it. Simply start debugging your app as you normally would, make changes to some XAML files, and see them being applied in real time. Enjoy!
 
 If you have a multi-project setup, `HotAvalonia` must be installed into your startup project *(the one that produces the final executable)*. It is also highly recommended to install it in every project that contains Avalonia controls to ensure the most stable hot reload experience possible.
@@ -203,7 +211,7 @@ If you prefer a different method name or want to re-run more than one method, yo
 
 > Is this an official Avalonia project?
 
-No, this project is not affiliated with Avalonia nor endorsed by it.
+No, this project is not affiliated with Avalonia.
 
 This is a one-girl-army effort to improve the framework's DX by providing the community with a free and open-source hot reload solution. The Avalonia team has repeatedly stated that they are not currently interested in spending their limited resources on implementing something this complex, and even if they ever do come around to it, it is planned to be a closed-source, paid feature for participants in the [Accelerate](https://avaloniaui.net/accelerate) program.
 
