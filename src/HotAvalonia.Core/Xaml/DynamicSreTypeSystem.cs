@@ -49,6 +49,7 @@ internal static class DynamicSreTypeSystem
         Type IXamlAssembly = XamlX.GetType("XamlX.TypeSystem.IXamlAssembly", throwOnError: true)!;
         Type IXamlTypeSystem = XamlX.GetType("XamlX.TypeSystem.IXamlTypeSystem", throwOnError: true)!;
         Type IXamlCustomAttribute = XamlX.GetType("XamlX.TypeSystem.IXamlCustomAttribute", throwOnError: true)!;
+        Type? XamlTypeWellKnownTypes = XamlX.GetType("XamlX.TypeSystem.XamlTypeWellKnownTypes", throwOnError: false);
         Type SreTypeSystem = XamlX.GetType("XamlX.IL.SreTypeSystem", throwOnError: true)!;
         Type SreType = XamlX.GetType("XamlX.IL.SreTypeSystem+SreType", throwOnError: true)!;
         Type SreAssembly = XamlX.GetType("XamlX.IL.SreTypeSystem+SreAssembly", throwOnError: true)!;
@@ -96,6 +97,9 @@ internal static class DynamicSreTypeSystem
 
         //     private Dictionary<Type, SreType> _typeDic; // Inherited from SreTypeSystem
         FieldInfo _typeDic = SreTypeSystem.GetField(nameof(_typeDic), (BindingFlags)(-1))!;
+
+        //     public XamlTypeWellKnownTypes WellKnownTypes { get; } // Inherited from SreTypeSystem
+        FieldInfo? _wellKnownTypes = SreTypeSystem.GetFields((BindingFlags)(-1)).FirstOrDefault(x => x.FieldType == XamlTypeWellKnownTypes);
 
         //     private static int CompareAssemblyNames(Assembly x, Assembly y)
         //         => string.Compare(x.GetName().Name, y.GetName().Name, StringComparison.InvariantCultureIgnoreCase);
@@ -782,6 +786,8 @@ internal static class DynamicSreTypeSystem
         //         appDomain.AssemblyLoad += OnAssemblyLoad;
         //         for (int i = 0; i < loadedAssemblies.Length; i++)
         //             OnAssemblyLoad(appDomain, new(loadedAssemblies[i]));
+        //
+        //         WellKnownTypes = new XamlTypeWellKnownTypes(this);
         //     }
         ConstructorBuilder ctor = DynamicSreTypeSystem.DefineConstructor(
             MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
@@ -861,6 +867,13 @@ internal static class DynamicSreTypeSystem
         il.Emit(OpCodes.Ldlen);
         il.Emit(OpCodes.Conv_I4);
         il.Emit(OpCodes.Blt_S, ctorLoopHead);
+        if (_wellKnownTypes is not null)
+        {
+            il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Newobj, _wellKnownTypes.FieldType.GetConstructor([IXamlTypeSystem])!);
+            il.Emit(OpCodes.Stfld, _wellKnownTypes);
+        }
         il.Emit(OpCodes.Ret);
 
         //     static DynamicSreTypeSystem()
