@@ -38,19 +38,19 @@ internal sealed class EmptyFileSystemWatcher : IFileSystemWatcher
     }
 
     /// <inheritdoc/>
-    public event FileSystemEventHandler Created { add { } remove { } }
+    public event FileChangeEventHandler Created { add { } remove { } }
 
     /// <inheritdoc/>
-    public event FileSystemEventHandler Deleted { add { } remove { } }
+    public event FileChangeEventHandler Deleted { add { } remove { } }
 
     /// <inheritdoc/>
-    public event FileSystemEventHandler Changed { add { } remove { } }
+    public event FileChangeEventHandler Changed { add { } remove { } }
 
     /// <inheritdoc/>
-    public event RenamedEventHandler Renamed { add { } remove { } }
+    public event FileRenameEventHandler Renamed { add { } remove { } }
 
     /// <inheritdoc/>
-    public event ErrorEventHandler Error { add { } remove { } }
+    public event FileWatcherErrorEventHandler Error { add { } remove { } }
 
     /// <inheritdoc/>
     public void Dispose() { }

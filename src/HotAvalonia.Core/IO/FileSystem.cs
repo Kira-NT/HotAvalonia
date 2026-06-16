@@ -152,124 +152,36 @@ public static class FileSystem
     }
 
     /// <summary>
-    /// A factory function used to instantiate <see cref="FileSystemEventArgs"/> objects.
-    /// </summary>
-    private static readonly Func<WatcherChangeTypes, string, string, FileSystemEventArgs> s_fileSystemEventArgsFactory = CreateFileSystemEventArgsFactory();
-
-    /// <summary>
-    /// Creates a new instance of the <see cref="FileSystemEventArgs"/> class.
+    /// Creates a new instance of the <see cref="FileChangeEventArgs"/> class.
     /// </summary>
     /// <param name="fileSystem">The file system associated with the event.</param>
     /// <param name="changeType">One of the <see cref="WatcherChangeTypes"/> values, which represents the kind of change detected in the file system.</param>
     /// <param name="fullPath">The fully qualified path of the affected file or directory.</param>
-    /// <returns>A new <see cref="FileSystemEventArgs"/> instance for the specified file system event.</returns>
-    public static FileSystemEventArgs CreateFileSystemEventArgs(this IFileSystem fileSystem, WatcherChangeTypes changeType, string fullPath)
+    /// <returns>A new <see cref="FileChangeEventArgs"/> instance for the specified file system event.</returns>
+    public static FileChangeEventArgs CreateFileChangeEventArgs(this IFileSystem fileSystem, WatcherChangeTypes changeType, string fullPath)
     {
         ArgumentNullException.ThrowIfNull(fileSystem);
         ArgumentNullException.ThrowIfNull(fullPath);
 
-        string name = fileSystem.GetFileName(fullPath);
-        return s_fileSystemEventArgsFactory(changeType, name, fullPath);
+        // HotAvalonia's own event type — the BCL FileSystemEventArgs is a throw-stub on iOS (ctor + FullPath
+        // getter both throw PlatformNotSupportedException), so it cannot be used in the watcher chain.
+        return new FileChangeEventArgs(changeType, fullPath);
     }
 
     /// <summary>
-    /// Creates a factory function used to instantiate <see cref="FileSystemEventArgs"/> objects.
-    /// </summary>
-    /// <returns>A factory function that creates <see cref="FileSystemEventArgs"/> objects.</returns>
-    private static Func<WatcherChangeTypes, string, string, FileSystemEventArgs> CreateFileSystemEventArgsFactory()
-    {
-        // public static FileSystemEventArgs CreateFileSystemEventArgs(WatcherChangeTypes changeType, string name, string fullPath)
-        // {
-        //     FileSystemEventArgs args = new(changeType, Path.DirectorySeparatorChar.ToString(), name);
-        //     args._fullPath = fullPath;
-        //     return args;
-        // }
-        Type returnType = typeof(FileSystemEventArgs);
-        Type[] parameterTypes = [typeof(WatcherChangeTypes), typeof(string), typeof(string)];
-
-        ConstructorInfo ctor = returnType.GetInstanceConstructor(parameterTypes)!;
-        FieldInfo fullPathField = returnType.GetInstanceField("_fullPath") ?? returnType.GetInstanceField("fullPath")!;
-
-        using IDisposable context = MethodHelper.DefineDynamicMethod("CreateFileSystemEventArgs", returnType, parameterTypes, out DynamicMethod method);
-
-        ILGenerator il = method.GetILGenerator();
-        il.Emit(OpCodes.Ldarg_0);
-#pragma warning disable RS0030 // Do not use banned APIs
-        il.Emit(OpCodes.Ldstr, Path.DirectorySeparatorChar.ToString());
-#pragma warning restore RS0030 // Do not use banned APIs
-        il.Emit(OpCodes.Ldarg_1);
-        il.Emit(OpCodes.Newobj, ctor);
-        il.Emit(OpCodes.Dup);
-        il.Emit(OpCodes.Ldarg_2);
-        il.Emit(OpCodes.Stfld, fullPathField);
-        il.Emit(OpCodes.Ret);
-
-        return (Func<WatcherChangeTypes, string, string, FileSystemEventArgs>)method.CreateDelegate(typeof(Func<WatcherChangeTypes, string, string, FileSystemEventArgs>));
-    }
-
-    /// <summary>
-    /// A factory function used to instantiate <see cref="RenamedEventArgs"/> objects.
-    /// </summary>
-    private static readonly Func<WatcherChangeTypes, string, string, string, string, RenamedEventArgs> s_renamedEventArgsFactory = CreateRenamedEventArgsFactory();
-
-    /// <summary>
-    /// Creates a new instance of the <see cref="RenamedEventArgs"/> class.
+    /// Creates a new instance of the <see cref="FileRenameEventArgs"/> class.
     /// </summary>
     /// <param name="fileSystem">The file system associated with the event.</param>
     /// <param name="changeType">One of the <see cref="WatcherChangeTypes"/> values, which represents the kind of change detected in the file system.</param>
     /// <param name="fullPath">The fully qualified path of the affected file or directory.</param>
     /// <param name="oldFullPath">The previous fully qualified path of the affected file or directory.</param>
-    /// <returns>A new <see cref="RenamedEventArgs"/> instance for the specified file system event.</returns>
-    public static RenamedEventArgs CreateFileSystemEventArgs(this IFileSystem fileSystem, WatcherChangeTypes changeType, string fullPath, string oldFullPath)
+    /// <returns>A new <see cref="FileRenameEventArgs"/> instance for the specified file system event.</returns>
+    public static FileRenameEventArgs CreateFileChangeEventArgs(this IFileSystem fileSystem, WatcherChangeTypes changeType, string fullPath, string oldFullPath)
     {
         ArgumentNullException.ThrowIfNull(fileSystem);
         ArgumentNullException.ThrowIfNull(fullPath);
 
-        string name = fileSystem.GetFileName(fullPath);
-        string oldName = fileSystem.GetFileName(oldFullPath);
-        return s_renamedEventArgsFactory(changeType, name, fullPath, oldName, oldFullPath);
-    }
-
-    /// <summary>
-    /// Creates a factory function used to instantiate <see cref="RenamedEventArgs"/> objects.
-    /// </summary>
-    /// <returns>A factory function that creates <see cref="RenamedEventArgs"/> objects.</returns>
-    private static Func<WatcherChangeTypes, string, string, string, string, RenamedEventArgs> CreateRenamedEventArgsFactory()
-    {
-        // public static RenamedEventArgs CreateRenamedEventArgs(WatcherChangeTypes changeType, string name, string fullPath, string oldName, string oldFullPath)
-        // {
-        //     RenamedEventArgs args = new(changeType, Path.DirectorySeparatorChar.ToString(), name, oldName);
-        //     args._fullPath = fullPath;
-        //     args._oldFullPath = oldFullPath;
-        //     return args;
-        // }
-        Type parentType = typeof(FileSystemEventArgs);
-        Type returnType = typeof(RenamedEventArgs);
-        Type[] parameterTypes = [typeof(WatcherChangeTypes), typeof(string), typeof(string), typeof(string), typeof(string)];
-
-        ConstructorInfo ctor = returnType.GetInstanceConstructor([typeof(WatcherChangeTypes), typeof(string), typeof(string), typeof(string)])!;
-        FieldInfo fullPathField = parentType.GetInstanceField("_fullPath") ?? parentType.GetInstanceField("fullPath")!;
-        FieldInfo oldFullPathField = returnType.GetInstanceField("_oldFullPath") ?? returnType.GetInstanceField("oldFullPath")!;
-
-        using IDisposable context = MethodHelper.DefineDynamicMethod("CreateRenamedEventArgs", returnType, parameterTypes, out DynamicMethod method);
-
-        ILGenerator il = method.GetILGenerator();
-        il.Emit(OpCodes.Ldarg_0);
-#pragma warning disable RS0030 // Do not use banned APIs
-        il.Emit(OpCodes.Ldstr, Path.DirectorySeparatorChar.ToString());
-#pragma warning restore RS0030 // Do not use banned APIs
-        il.Emit(OpCodes.Ldarg_1);
-        il.Emit(OpCodes.Ldarg_3);
-        il.Emit(OpCodes.Newobj, ctor);
-        il.Emit(OpCodes.Dup);
-        il.Emit(OpCodes.Ldarg_2);
-        il.Emit(OpCodes.Stfld, fullPathField);
-        il.Emit(OpCodes.Dup);
-        il.Emit(OpCodes.Ldarg_S, 4);
-        il.Emit(OpCodes.Stfld, oldFullPathField);
-        il.Emit(OpCodes.Ret);
-
-        return (Func<WatcherChangeTypes, string, string, string, string, RenamedEventArgs>)method.CreateDelegate(typeof(Func<WatcherChangeTypes, string, string, string, string, RenamedEventArgs>));
+        return new FileRenameEventArgs(changeType, fullPath, oldFullPath);
     }
 
     /// <summary>

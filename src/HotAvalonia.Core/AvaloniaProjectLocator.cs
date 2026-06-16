@@ -50,6 +50,7 @@ public sealed class AvaloniaProjectLocator
         _fileSystem = fileSystem;
         _cache = new();
         _hints = new();
+        AddHint(GetSourceRootFromMetadata);
     }
 
     /// <summary>
@@ -116,6 +117,29 @@ public sealed class AvaloniaProjectLocator
         Assembly assembly = type.Assembly;
         string directoryName = UriHelper.ResolveHostPath(uri, fileName);
         AddHint(assembly, directoryName);
+    }
+
+    /// <summary>
+    /// The <see cref="AssemblyMetadataAttribute"/> key under which the build bakes a project's source
+    /// root, letting the locator find the source even when the debug info that normally carries it is
+    /// stripped (e.g. by the iOS Full linker).
+    /// </summary>
+    private const string SourceRootMetadataKey = "HotAvalonia.SourceRoot";
+
+    /// <summary>
+    /// A built-in hint that reads the source root baked into the assembly by HotAvalonia's build targets.
+    /// </summary>
+    /// <param name="assembly">The assembly to inspect.</param>
+    /// <returns>The baked source root, or <c>null</c> if the assembly carries no such metadata.</returns>
+    private static string? GetSourceRootFromMetadata(Assembly assembly)
+    {
+        foreach (AssemblyMetadataAttribute attribute in assembly.GetCustomAttributes<AssemblyMetadataAttribute>())
+        {
+            if (SourceRootMetadataKey.Equals(attribute.Key, StringComparison.Ordinal))
+                return attribute.Value;
+        }
+
+        return null;
     }
 
     /// <summary>

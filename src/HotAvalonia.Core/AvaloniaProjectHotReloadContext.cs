@@ -99,7 +99,7 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
         _controls.Clear();
     }
 
-    private void OnChanged(object sender, FileSystemEventArgs args)
+    private void OnChanged(object sender, FileChangeEventArgs args)
     {
         if (!IsHotReloadEnabled)
             return;
@@ -107,7 +107,7 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
         _ = RunWithDefaultTimeoutAsync(cancellationToken => ReloadAsync(args.FullPath, cancellationToken));
     }
 
-    private void OnRenamed(object sender, RenamedEventArgs args)
+    private void OnRenamed(object sender, FileRenameEventArgs args)
     {
         string newFullPath = args.FullPath;
         string oldFullPath = args.OldFullPath;
@@ -119,8 +119,8 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
         _controls[newFullPath] = controlManager;
     }
 
-    private void OnError(object sender, ErrorEventArgs args)
-        => Logger.LogError(sender, "An unexpected error occurred while monitoring file changes: {Exception}", args.GetException());
+    private void OnError(object sender, Exception error)
+        => Logger.LogError(sender, "An unexpected error occurred while monitoring file changes: {Exception}", error);
 
     private async Task ReloadAsync(string path, CancellationToken cancellationToken)
     {
@@ -133,6 +133,14 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
         {
             if (!await fileSystem.FileExistsAsync(fullPath, cancellationToken).ConfigureAwait(false))
                 return;
+
+            // iOS path: the on-device XAML compiler can't run (Reflection.Emit), so reload from the
+            // Mac-compiled populate DLL published next to the view instead of compiling XAML here.
+            if (Config.UseHostCompiledXaml)
+            {
+                await ReloadFromHostCompiledAsync(control, fullPath, cancellationToken).ConfigureAwait(false);
+                return;
+            }
 
             Type controlType = control.Document.RootType;
             bool isApp = typeof(Application).IsAssignableFrom(controlType);
@@ -170,6 +178,48 @@ internal sealed class AvaloniaProjectHotReloadContext : IHotReloadContext, ISupp
         {
             Logger.LogError(this, "Failed to reload '{Uri}': {Exception}", control.Document.Uri, e);
         }
+    }
+
+    private async Task ReloadFromHostCompiledAsync(AvaloniaControlManager control, string axamlPath, CancellationToken cancellationToken)
+    {
+        IFileSystem fileSystem = Config.FileSystem;
+        string dllPath = axamlPath + HostCompiledXamlNaming.SidecarSuffix;
+        DateTime axamlTime = await fileSystem.GetLastWriteTimeUtcAsync(axamlPath, cancellationToken).ConfigureAwait(false);
+
+        byte[]? assemblyBytes = await WaitForFreshAssemblyAsync(fileSystem, dllPath, axamlTime, cancellationToken).ConfigureAwait(false);
+        if (assemblyBytes is null)
+        {
+            Logger.LogError(this, "Timed out waiting for host-compiled '{Path}'. Is the host watch/compile step running?", dllPath);
+            return;
+        }
+
+        Logger.LogInfo(this, "Reloading '{Uri}' from host-compiled assembly ({Size} bytes)...", control.Document.Uri, assemblyBytes.Length);
+        await control.ReloadFromAssemblyAsync(assemblyBytes, cancellationToken).ConfigureAwait(false);
+        TriggerHotReload();
+    }
+
+    // The Mac compiles asynchronously (~3-5 s), so the freshly published DLL lags the .axaml save.
+    // Poll until a DLL at least as new as the edit shows up (~20 s budget), then read its bytes.
+    private static async Task<byte[]?> WaitForFreshAssemblyAsync(IFileSystem fileSystem, string dllPath, DateTime notBeforeUtc, CancellationToken cancellationToken)
+    {
+        DateTime threshold = notBeforeUtc - TimeSpan.FromSeconds(2);
+        for (int attempt = 0; attempt < 40; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (await fileSystem.FileExistsAsync(dllPath, cancellationToken).ConfigureAwait(false))
+            {
+                DateTime dllTime = await fileSystem.GetLastWriteTimeUtcAsync(dllPath, cancellationToken).ConfigureAwait(false);
+                if (dllTime >= threshold)
+                {
+                    using System.IO.Stream stream = await fileSystem.OpenReadAsync(dllPath, cancellationToken).ConfigureAwait(false);
+                    using System.IO.MemoryStream buffer = new();
+                    await stream.CopyToAsync(buffer, 81920, cancellationToken).ConfigureAwait(false);
+                    return buffer.ToArray();
+                }
+            }
+            await Task.Delay(500, cancellationToken).ConfigureAwait(false);
+        }
+        return null;
     }
 
     private async Task PatchAsync(AvaloniaControlManager controlManager, string path, CancellationToken cancellationToken)

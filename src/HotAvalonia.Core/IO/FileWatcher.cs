@@ -15,7 +15,7 @@ internal sealed class FileWatcher : IDisposable
     /// <summary>
     /// The cache of filesystem events.
     /// </summary>
-    private readonly MemoryCache<FileSystemEventArgs> _eventCache;
+    private readonly MemoryCache<FileChangeEventArgs> _eventCache;
 
     /// <summary>
     /// The object used for locking in thread-safe operations.
@@ -78,17 +78,17 @@ internal sealed class FileWatcher : IDisposable
     /// <summary>
     /// Occurs when a change in a file is detected.
     /// </summary>
-    public event FileSystemEventHandler? Changed;
+    public event FileChangeEventHandler? Changed;
 
     /// <summary>
     /// Occurs when a move operation for a file is detected.
     /// </summary>
-    public event RenamedEventHandler? Renamed;
+    public event FileRenameEventHandler? Renamed;
 
     /// <summary>
     /// Occurs when an error is encountered during file monitoring.
     /// </summary>
-    public event ErrorEventHandler? Error;
+    public event FileWatcherErrorEventHandler? Error;
 
     /// <summary>
     /// The root directory being watched.
@@ -146,7 +146,7 @@ internal sealed class FileWatcher : IDisposable
     /// </summary>
     /// <param name="sender">The source of the event.</param>
     /// <param name="args">The event arguments containing information about the file change.</param>
-    private void OnCreatedOrDeleted(object sender, FileSystemEventArgs args)
+    private void OnCreatedOrDeleted(object sender, FileChangeEventArgs args)
         => OnFileSystemEvent(args);
 
     /// <summary>
@@ -154,7 +154,7 @@ internal sealed class FileWatcher : IDisposable
     /// </summary>
     /// <param name="sender">The source of the event.</param>
     /// <param name="args">The event arguments containing information about the file change.</param>
-    private void OnChanged(object sender, FileSystemEventArgs args)
+    private void OnChanged(object sender, FileChangeEventArgs args)
         => OnFileSystemEvent(args, () => Changed?.Invoke(this, args));
 
     /// <summary>
@@ -162,7 +162,7 @@ internal sealed class FileWatcher : IDisposable
     /// </summary>
     /// <param name="sender">The source of the event.</param>
     /// <param name="args">Event arguments containing the old and new name of the file.</param>
-    private void OnRenamed(object sender, RenamedEventArgs args)
+    private void OnRenamed(object sender, FileRenameEventArgs args)
         => OnFileSystemEvent(args, () => Renamed?.Invoke(this, args), () =>
         {
             _files.Remove(args.OldFullPath);
@@ -173,9 +173,9 @@ internal sealed class FileWatcher : IDisposable
     /// Handles any error that occurs during file watching.
     /// </summary>
     /// <param name="sender">The source of the event.</param>
-    /// <param name="args">The event arguments containing error details.</param>
-    private void OnError(object sender, ErrorEventArgs args)
-        => Error?.Invoke(this, args);
+    /// <param name="error">The error that occurred.</param>
+    private void OnError(object sender, Exception error)
+        => Error?.Invoke(this, error);
 
     /// <summary>
     /// Handles a filesystem event, performing necessary actions based on the event type.
@@ -184,12 +184,12 @@ internal sealed class FileWatcher : IDisposable
     /// <param name="path">The path of the file associated with the event.</param>
     /// <param name="handler">A handler for the event.</param>
     /// <param name="sync">An action to synchronize changes after processing the event.</param>
-    private void OnFileSystemEvent(FileSystemEventArgs args, Action? handler = null, Action? sync = null)
+    private void OnFileSystemEvent(FileChangeEventArgs args, Action? handler = null, Action? sync = null)
     {
         lock (_lock)
         {
             bool isFullPathWatched = IsWatchingFile(args.FullPath);
-            bool isOldFullPathWatched = args is RenamedEventArgs renamed && IsWatchingFile(renamed.OldFullPath);
+            bool isOldFullPathWatched = args is FileRenameEventArgs renamed && IsWatchingFile(renamed.OldFullPath);
             if (!isFullPathWatched && !isOldFullPathWatched)
             {
                 _eventCache.Add(args);
@@ -223,7 +223,7 @@ internal sealed class FileWatcher : IDisposable
     /// </summary>
     /// <param name="args">The event arguments containing information about the filesystem operation.</param>
     /// <returns><c>true</c> if the event is a duplicate; otherwise, <c>false</c>.</returns>
-    private bool IsDuplicateEvent(FileSystemEventArgs args)
+    private bool IsDuplicateEvent(FileChangeEventArgs args)
     {
         // Currently, we only care about filtering duplicate change events:
         // - They trigger most of the unnecessary work.
@@ -247,7 +247,7 @@ internal sealed class FileWatcher : IDisposable
     /// </summary>
     /// <param name="args">The event arguments containing information about the filesystem operation.</param>
     /// <returns><c>true</c> if a complex event (change or move operation) was successfully processed; otherwise, <c>false</c>.</returns>
-    private bool TryProcessComplexEvent(FileSystemEventArgs args)
+    private bool TryProcessComplexEvent(FileChangeEventArgs args)
         => TryProcessComplexChange_NTFS(args)
         || TryProcessComplexChange_ReFS(args)
         || TryProcessComplexMove(args);
@@ -270,7 +270,7 @@ internal sealed class FileWatcher : IDisposable
     /// </remarks>
     /// <param name="args">The event arguments containing information about the filesystem operation.</param>
     /// <returns><c>true</c> if a complex move operation was successfully processed; otherwise, <c>false</c>.</returns>
-    private bool TryProcessComplexMove(FileSystemEventArgs args)
+    private bool TryProcessComplexMove(FileChangeEventArgs args)
     {
         if (args.ChangeType is not (WatcherChangeTypes.Created or WatcherChangeTypes.Deleted))
             return false;
@@ -283,7 +283,7 @@ internal sealed class FileWatcher : IDisposable
 
         lock (_lock)
         {
-            FileSystemEventArgs? oppositeEvent = _eventCache.FirstOrDefault(x => x.ChangeType == oppositeChangeType && fileNameComparer.Equals(x.FullPath, fileName));
+            FileChangeEventArgs? oppositeEvent = _eventCache.FirstOrDefault(x => x.ChangeType == oppositeChangeType && fileNameComparer.Equals(x.FullPath, fileName));
             if (oppositeEvent is null)
                 return false;
 
@@ -292,7 +292,7 @@ internal sealed class FileWatcher : IDisposable
                 : (oppositeEvent.FullPath, args.FullPath);
         }
 
-        OnRenamed(this, _fileSystem.CreateFileSystemEventArgs(WatcherChangeTypes.Renamed, newFullPath, oldFullPath));
+        OnRenamed(this, _fileSystem.CreateFileChangeEventArgs(WatcherChangeTypes.Renamed, newFullPath, oldFullPath));
         return true;
     }
 
@@ -322,7 +322,7 @@ internal sealed class FileWatcher : IDisposable
     /// </remarks>
     /// <param name="args">The event arguments containing information about the filesystem operation.</param>
     /// <returns><c>true</c> if a complex change operation was successfully processed; otherwise, <c>false</c>.</returns>
-    private bool TryProcessComplexChange_NTFS(FileSystemEventArgs args)
+    private bool TryProcessComplexChange_NTFS(FileChangeEventArgs args)
     {
         if (args.ChangeType is not WatcherChangeTypes.Deleted)
             return false;
@@ -333,7 +333,7 @@ internal sealed class FileWatcher : IDisposable
         lock (_lock)
         {
             previousPath = _eventCache
-                .OfType<RenamedEventArgs>()
+                .OfType<FileRenameEventArgs>()
                 .FirstOrDefault(x => fileNameComparer.Equals(x.FullPath, path))?.OldFullPath;
         }
 
@@ -346,8 +346,8 @@ internal sealed class FileWatcher : IDisposable
             _files.Add(previousPath);
         }
 
-        Renamed?.Invoke(this, _fileSystem.CreateFileSystemEventArgs(WatcherChangeTypes.Renamed, previousPath, path));
-        Changed?.Invoke(this, _fileSystem.CreateFileSystemEventArgs(WatcherChangeTypes.Changed, previousPath));
+        Renamed?.Invoke(this, _fileSystem.CreateFileChangeEventArgs(WatcherChangeTypes.Renamed, previousPath, path));
+        Changed?.Invoke(this, _fileSystem.CreateFileChangeEventArgs(WatcherChangeTypes.Changed, previousPath));
         return true;
     }
 
@@ -374,9 +374,9 @@ internal sealed class FileWatcher : IDisposable
     /// </remarks>
     /// <param name="args">The event arguments containing information about the filesystem operation.</param>
     /// <returns><c>true</c> if a complex change operation was successfully processed; otherwise, <c>false</c>.</returns>
-    private bool TryProcessComplexChange_ReFS(FileSystemEventArgs args)
+    private bool TryProcessComplexChange_ReFS(FileChangeEventArgs args)
     {
-        if (args is not RenamedEventArgs renamedArgs)
+        if (args is not FileRenameEventArgs renamedArgs)
             return false;
 
         // We only want to catch an event when an untracked file
@@ -399,7 +399,7 @@ internal sealed class FileWatcher : IDisposable
 
         // `FileWatcher` currently does not propagate `Deleted` events to its subscribers.
         // However, if this ever changes, we will need to create a synthetic `Created` event here as well.
-        Changed?.Invoke(this, _fileSystem.CreateFileSystemEventArgs(WatcherChangeTypes.Changed, path));
+        Changed?.Invoke(this, _fileSystem.CreateFileChangeEventArgs(WatcherChangeTypes.Changed, path));
         return true;
     }
 

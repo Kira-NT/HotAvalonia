@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 using HotAvalonia.DependencyInjection;
 using HotAvalonia.IO;
 using HotAvalonia.Xaml;
@@ -59,6 +60,21 @@ public sealed record class AvaloniaHotReloadConfig
     }
 
     /// <summary>
+    /// Whether the current OS forbids runtime code generation (Reflection.Emit), making host-compiled
+    /// reload the only viable option. <c>true</c> on iOS.
+    /// </summary>
+    private static readonly bool s_requiresHostCompiledXaml = RuntimeInformation.IsOSPlatform(OSPlatform.Create("IOS"));
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to reload from host-compiled populate assemblies fetched
+    /// over the file system instead of compiling XAML on-device. Required on iOS, where the on-device XAML
+    /// compiler (Reflection.Emit) is unavailable — so this defaults to <c>true</c> on iOS and <c>false</c>
+    /// elsewhere. The host publishes a DLL next to each changed view as
+    /// <c>&lt;view&gt;.axaml.hotreload.dll</c>, produced by a host-side watch/compile step.
+    /// </summary>
+    public bool UseHostCompiledXaml { get; init; } = s_requiresHostCompiledXaml;
+
+    /// <summary>
     /// Gets or sets the hot reload mode.
     /// </summary>
     public HotReloadMode Mode { get; init; } = HotReloadMode.Minimal;
@@ -79,7 +95,8 @@ public sealed record class AvaloniaHotReloadConfig
         bool? skipInitialPatching = null,
         AvaloniaProjectLocator? projectLocator = null,
         HotReloadMode? mode = null,
-        TimeSpan? timeout = null
+        TimeSpan? timeout = null,
+        bool? useHostCompiledXaml = null
     ) => this with
     {
         AppDomain = appDomain ?? AppDomain,
@@ -89,5 +106,6 @@ public sealed record class AvaloniaHotReloadConfig
         ProjectLocator = projectLocator ?? ProjectLocator,
         Mode = mode ?? Mode,
         Timeout = timeout ?? Timeout,
+        UseHostCompiledXaml = useHostCompiledXaml ?? UseHostCompiledXaml,
     };
 }

@@ -153,19 +153,19 @@ internal sealed partial class RemoteFileSystemWatcher : IFileSystemWatcher
     }
 
     /// <inheritdoc/>
-    public event FileSystemEventHandler? Created;
+    public event FileChangeEventHandler? Created;
 
     /// <inheritdoc/>
-    public event FileSystemEventHandler? Deleted;
+    public event FileChangeEventHandler? Deleted;
 
     /// <inheritdoc/>
-    public event FileSystemEventHandler? Changed;
+    public event FileChangeEventHandler? Changed;
 
     /// <inheritdoc/>
-    public event RenamedEventHandler? Renamed;
+    public event FileRenameEventHandler? Renamed;
 
     /// <inheritdoc/>
-    public event ErrorEventHandler? Error;
+    public event FileWatcherErrorEventHandler? Error;
 
     /// <summary>
     /// Sets a field to a new value and sends a packet to the remote file system if the value changes.
@@ -243,7 +243,7 @@ internal sealed partial class RemoteFileSystemWatcher : IFileSystemWatcher
             }
             catch (Exception e)
             {
-                Error?.Invoke(this, new(e));
+                Error?.Invoke(this, e);
                 break;
             }
 
@@ -281,21 +281,21 @@ internal sealed partial class RemoteFileSystemWatcher : IFileSystemWatcher
                 break;
 
             case ActionType.RaiseRenamed:
-                Renamed?.Invoke(this, (RenamedEventArgs)ToFileSystemEventArgs(data));
+                Renamed?.Invoke(this, (FileRenameEventArgs)ToFileSystemEventArgs(data));
                 break;
 
             case ActionType.RaiseError:
-                Error?.Invoke(this, new(RemoteFileSystemException.ToException(data)));
+                Error?.Invoke(this, RemoteFileSystemException.ToException(data));
                 break;
         }
     }
 
     /// <summary>
-    /// Converts serialized event data represented as a byte array back to a <see cref="FileSystemEventArgs"/> instance.
+    /// Converts serialized event data represented as a byte array back to a <see cref="FileChangeEventArgs"/> instance.
     /// </summary>
     /// <param name="data">The byte array representing the serialized event data.</param>
-    /// <returns>A <see cref="FileSystemEventArgs"/> instance based on the byte array content.</returns>
-    private FileSystemEventArgs ToFileSystemEventArgs(byte[] data)
+    /// <returns>A <see cref="FileChangeEventArgs"/> instance based on the byte array content.</returns>
+    private FileChangeEventArgs ToFileSystemEventArgs(byte[] data)
     {
         int fullPathByteCount = BitConverter.ToInt32(data.AsSpan(sizeof(byte), sizeof(int)));
         int mainByteCount = sizeof(byte) + sizeof(int) + fullPathByteCount;
@@ -304,10 +304,10 @@ internal sealed partial class RemoteFileSystemWatcher : IFileSystemWatcher
         WatcherChangeTypes changeType = (WatcherChangeTypes)data[0];
         string fullPath = Encoding.UTF8.GetString(data, sizeof(byte) + sizeof(int), fullPathByteCount);
         if (oldFullPathByteCount <= 0)
-            return _fileSystem.CreateFileSystemEventArgs(changeType, fullPath);
+            return _fileSystem.CreateFileChangeEventArgs(changeType, fullPath);
 
         string oldFullPath = Encoding.UTF8.GetString(data, mainByteCount, oldFullPathByteCount);
-        return _fileSystem.CreateFileSystemEventArgs(changeType, fullPath, oldFullPath);
+        return _fileSystem.CreateFileChangeEventArgs(changeType, fullPath, oldFullPath);
     }
 
     /// <inheritdoc/>

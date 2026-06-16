@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.LogicalTree;
@@ -86,6 +87,35 @@ internal sealed class AvaloniaControlManager : IDisposable
         cancellationToken.ThrowIfCancellationRequested();
         CompiledXamlDocument compiledXaml = XamlCompiler.Compile(xaml, _document._uri, _document._rootType.Assembly);
         _recompiledDocument = new(compiledXaml._uri, compiledXaml._build, compiledXaml._populate, compiledXaml._populateOverride, _document._refresh);
+    }
+
+    /// <summary>
+    /// Asynchronously reloads the controls from a host-compiled (Mac-produced) populate assembly,
+    /// bypassing the on-device XAML compiler (which relies on Reflection.Emit, unavailable on iOS).
+    /// </summary>
+    /// <param name="assemblyBytes">The raw bytes of the host-compiled populate assembly.</param>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    public Task ReloadFromAssemblyAsync(byte[] assemblyBytes, CancellationToken cancellationToken = default)
+        => Dispatcher.UIThread.InvokeAsync(() => ReloadFromAssembly(assemblyBytes, cancellationToken), DispatcherPriority.Render, cancellationToken).GetTask();
+
+    private void ReloadFromAssembly(byte[] assemblyBytes, CancellationToken cancellationToken)
+    {
+        RecompileFromAssembly(assemblyBytes, cancellationToken);
+        Reload(cancellationToken);
+    }
+
+    private void RecompileFromAssembly(byte[] assemblyBytes, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // Assembly.Load(byte[]) is supported under the iOS Mono interpreter (read-only load; no Reflection.Emit).
+        Assembly assembly = Assembly.Load(assemblyBytes);
+        if (!HostCompiledXamlLoader.TryFindResourceMethods(assembly, _document._rootType, out MethodBase build, out MethodInfo populate))
+            throw new InvalidOperationException($"Host-compiled assembly '{assembly.GetName().Name}' has no build/populate pair for '{_document._rootType}'.");
+
+        // Reuse the original document's populate-override field (the live device type's
+        // !XamlIlPopulateOverride) and refresh delegate; only the build/populate logic is swapped.
+        _recompiledDocument = new(_document._uri, build, populate, _document._populateOverride, _document._refresh);
     }
 
     private void Reload(string xaml, CancellationToken cancellationToken)

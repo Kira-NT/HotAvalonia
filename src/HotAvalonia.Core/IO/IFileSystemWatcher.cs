@@ -41,25 +41,25 @@ public interface IFileSystemWatcher : IDisposable
     /// <summary>
     /// Occurs when a file or directory in the specified <see cref="Path"/> is created.
     /// </summary>
-    event FileSystemEventHandler Created;
+    event FileChangeEventHandler Created;
 
     /// <summary>
     /// Occurs when a file or directory in the specified <see cref="Path"/> is deleted.
     /// </summary>
-    event FileSystemEventHandler Deleted;
+    event FileChangeEventHandler Deleted;
 
     /// <summary>
     /// Occurs when a file or directory in the specified <see cref="Path"/> is changed.
     /// </summary>
-    event FileSystemEventHandler Changed;
+    event FileChangeEventHandler Changed;
 
     /// <summary>
     /// Occurs when a file or directory in the specified <see cref="Path"/> is renamed.
     /// </summary>
-    event RenamedEventHandler Renamed;
+    event FileRenameEventHandler Renamed;
 
     /// <summary>
     /// Occurs when this instance is unable to continue monitoring changes.
     /// </summary>
-    event ErrorEventHandler Error;
+    event FileWatcherErrorEventHandler Error;
 }

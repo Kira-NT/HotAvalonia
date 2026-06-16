@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>HotAvalonia</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RollForward>LatestMajor</RollForward>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Single source of truth for the host/device naming contract (prefix + sidecar suffix). -->
+    <Compile Include="../HotAvalonia.Core/Xaml/HostCompiledXamlNaming.cs" Link="HostCompiledXamlNaming.cs" />
+  </ItemGroup>
+
+</Project>

@@ -122,6 +122,14 @@
     <DefineConstants Condition="!$(HotAvaloniaIncludeExtensions)">$(DefineConstants)$(_HotAvaloniaDefineConstantsSeparator)HOTAVALONIA_EXCLUDE_EXTENSIONS</DefineConstants>
   </PropertyGroup>
 
+  <!-- Bake the project's source root into the assembly so the runtime locator can find the .axaml
+       sources on iOS, where the Full linker strips the debug info it would otherwise read.
+       Use Contains('-ios') (not _HotAvaloniaIsIOS, which is EndsWith) so versioned TFMs like
+       net10.0-ios26.5 are matched. -->
+  <ItemGroup Condition="$(HotAvalonia) And $(TargetFramework.Contains('-ios'))">
+    <AssemblyMetadata Include="HotAvalonia.SourceRoot" Value="$(MSBuildProjectDirectory)" />
+  </ItemGroup>
+
   <PropertyGroup Label="HotAvalonia: iOS Properties" Condition="$(HotAvalonia) And $(_HotAvaloniaIsIOS)">
     <!-- Force-enable Mono Interpreter on iOS to accommodate the platform's fundamental design flaws. -->
     <MtouchInterpreter>all</MtouchInterpreter>

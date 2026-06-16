@@ -178,10 +178,15 @@ public static class XamlScanner
         Type? xamlLoader = assembly.GetType("CompiledAvaloniaXaml.!XamlLoader");
         MethodInfo? tryLoad = xamlLoader?.GetStaticMethods("TryLoad").OrderByDescending(x => x.GetParameters().Length).FirstOrDefault();
         byte[]? tryLoadBody = tryLoad?.GetMethodBody()?.GetILAsByteArray();
-        if (tryLoad is null || tryLoadBody is null)
-            return [];
 
-        IEnumerable<CompiledXamlDocument> extractedDocuments = ExtractDocuments(tryLoadBody, tryLoad.Module);
+        // The iOS Full linker can trim CompiledAvaloniaXaml.!XamlLoader from assemblies whose views are
+        // populated directly (e.g. an app's views assembly), leaving the per-view !XamlIlPopulate methods
+        // intact. Don't bail when TryLoad is absent — fall through to the type-scan (FindDocuments) path,
+        // which discovers those views. Bailing here was why iOS hot reload found 0 documents for the
+        // views assembly and never created a watcher.
+        IEnumerable<CompiledXamlDocument> extractedDocuments = tryLoad is null || tryLoadBody is null
+            ? []
+            : ExtractDocuments(tryLoadBody, tryLoad.Module);
         IEnumerable<CompiledXamlDocument> foundDocuments = FindDocuments(assembly);
         return extractedDocuments.Concat(foundDocuments).Distinct();
     }

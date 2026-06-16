@@ -7,7 +7,7 @@ namespace HotAvalonia.IO;
 /// Provides an observable mechanism for monitoring a file, notifying subscribers of updates.
 /// </summary>
 /// <typeparam name="T">The type of data provided to observers.</typeparam>
-internal sealed class FileObserver<T> : IObservable<T>, IObserver<FileSystemEventArgs>
+internal sealed class FileObserver<T> : IObservable<T>, IObserver<FileChangeEventArgs>
 {
     /// <summary>
     /// A function that provides the data to be observed.
@@ -42,7 +42,7 @@ internal sealed class FileObserver<T> : IObservable<T>, IObserver<FileSystemEven
         => _entries.GetOrAdd(observer, x => new(this, x));
 
     /// <inheritdoc/>
-    void IObserver<FileSystemEventArgs>.OnCompleted()
+    void IObserver<FileChangeEventArgs>.OnCompleted()
     {
         foreach (IObserver<T> observer in _entries.Keys)
         {
@@ -58,7 +58,7 @@ internal sealed class FileObserver<T> : IObservable<T>, IObserver<FileSystemEven
     }
 
     /// <inheritdoc/>
-    void IObserver<FileSystemEventArgs>.OnError(Exception error)
+    void IObserver<FileChangeEventArgs>.OnError(Exception error)
     {
         foreach (IObserver<T> observer in _entries.Keys)
         {
@@ -74,7 +74,7 @@ internal sealed class FileObserver<T> : IObservable<T>, IObserver<FileSystemEven
     }
 
     /// <inheritdoc/>
-    void IObserver<FileSystemEventArgs>.OnNext(FileSystemEventArgs value)
+    void IObserver<FileChangeEventArgs>.OnNext(FileChangeEventArgs value)
     {
         T nextValue;
         try
@@ -83,7 +83,7 @@ internal sealed class FileObserver<T> : IObservable<T>, IObserver<FileSystemEven
         }
         catch (Exception error)
         {
-            ((IObserver<FileSystemEventArgs>)this).OnError(error);
+            ((IObserver<FileChangeEventArgs>)this).OnError(error);
             return;
         }
 
@@ -189,7 +189,7 @@ file sealed class SharedFileObserver : IDisposable
     /// A dictionary that maintains a mapping of the monitored files to their
     /// corresponding observers.
     /// </summary>
-    private readonly ConcurrentDictionary<string, ConcurrentBag<WeakReference<IObserver<FileSystemEventArgs>>>> _observers;
+    private readonly ConcurrentDictionary<string, ConcurrentBag<WeakReference<IObserver<FileChangeEventArgs>>>> _observers;
 
     /// <summary>
     /// A synchronization lock for managing concurrent access
@@ -229,7 +229,7 @@ file sealed class SharedFileObserver : IDisposable
     /// <param name="observer">The observer to be notified of file events.</param>
     /// <param name="fileName">The name of the file to monitor.</param>
     /// <param name="fileSystem">The file system where <paramref name="fileName"/> can be found.</param>
-    public static void Subscribe(IObserver<FileSystemEventArgs> observer, string fileName, IFileSystem fileSystem)
+    public static void Subscribe(IObserver<FileChangeEventArgs> observer, string fileName, IFileSystem fileSystem)
     {
         ArgumentNullException.ThrowIfNull(observer);
         ArgumentNullException.ThrowIfNull(fileName);
@@ -245,7 +245,7 @@ file sealed class SharedFileObserver : IDisposable
     }
 
     /// <inheritdoc cref="Subscribe"/>
-    private void SubscribeCore(IObserver<FileSystemEventArgs> observer, string fileName)
+    private void SubscribeCore(IObserver<FileChangeEventArgs> observer, string fileName)
     {
         fileName = _watcher.FileSystem.GetFullPath(fileName);
         _observers.AddOrUpdate(
@@ -284,11 +284,11 @@ file sealed class SharedFileObserver : IDisposable
     /// </summary>
     /// <param name="sender">The source of the event.</param>
     /// <param name="args">The file system event data.</param>
-    private void OnChanged(object sender, FileSystemEventArgs args)
+    private void OnChanged(object sender, FileChangeEventArgs args)
     {
         OnNext(args.FullPath, args);
 
-        if (args is RenamedEventArgs renamedArgs)
+        if (args is FileRenameEventArgs renamedArgs)
             OnNext(renamedArgs.OldFullPath, renamedArgs);
     }
 
@@ -297,17 +297,17 @@ file sealed class SharedFileObserver : IDisposable
     /// </summary>
     /// <param name="fileName">The name of the file affected by the event.</param>
     /// <param name="args">The event data.</param>
-    private void OnNext(string fileName, FileSystemEventArgs args)
+    private void OnNext(string fileName, FileChangeEventArgs args)
     {
         fileName = FileSystem.GetFullPath(fileName);
-        if (!_observers.TryGetValue(fileName, out ConcurrentBag<WeakReference<IObserver<FileSystemEventArgs>>>? weakObservers))
+        if (!_observers.TryGetValue(fileName, out ConcurrentBag<WeakReference<IObserver<FileChangeEventArgs>>>? weakObservers))
             return;
 
         int hits = 0;
         int misses = 0;
-        foreach (WeakReference<IObserver<FileSystemEventArgs>> weakObserver in weakObservers)
+        foreach (WeakReference<IObserver<FileChangeEventArgs>> weakObserver in weakObservers)
         {
-            if (!weakObserver.TryGetTarget(out IObserver<FileSystemEventArgs>? observer) || observer is null)
+            if (!weakObserver.TryGetTarget(out IObserver<FileChangeEventArgs>? observer) || observer is null)
             {
                 ++misses;
                 continue;
@@ -334,8 +334,8 @@ file sealed class SharedFileObserver : IDisposable
         {
             _observers.AddOrUpdate(
                 fileName,
-                key => new(weakObservers.Where(static x => x.TryGetTarget(out IObserver<FileSystemEventArgs>? y) && y is not null)),
-                static (key, value) => new(value.Where(static x => x.TryGetTarget(out IObserver<FileSystemEventArgs>? y) && y is not null))
+                key => new(weakObservers.Where(static x => x.TryGetTarget(out IObserver<FileChangeEventArgs>? y) && y is not null)),
+                static (key, value) => new(value.Where(static x => x.TryGetTarget(out IObserver<FileChangeEventArgs>? y) && y is not null))
             );
         }
     }
@@ -345,9 +345,9 @@ file sealed class SharedFileObserver : IDisposable
     /// propagating the error to observers.
     /// </summary>
     /// <param name="sender">The source of the event.</param>
-    /// <param name="e">The error event data.</param>
-    private void OnError(object sender, ErrorEventArgs e)
-        => OnError(e.GetException());
+    /// <param name="error">The error that occurred.</param>
+    private void OnError(object sender, Exception error)
+        => OnError(error);
 
     /// <summary>
     /// Propagates an error to all observers.
@@ -355,10 +355,10 @@ file sealed class SharedFileObserver : IDisposable
     /// <param name="error">The exception representing the error.</param>
     private void OnError(Exception error)
     {
-        IEnumerable<WeakReference<IObserver<FileSystemEventArgs>>> weakObservers = _observers.Values.SelectMany(static x => x);
-        foreach (WeakReference<IObserver<FileSystemEventArgs>> weakObserver in weakObservers)
+        IEnumerable<WeakReference<IObserver<FileChangeEventArgs>>> weakObservers = _observers.Values.SelectMany(static x => x);
+        foreach (WeakReference<IObserver<FileChangeEventArgs>> weakObserver in weakObservers)
         {
-            if (!weakObserver.TryGetTarget(out IObserver<FileSystemEventArgs>? observer) || observer is null)
+            if (!weakObserver.TryGetTarget(out IObserver<FileChangeEventArgs>? observer) || observer is null)
                 continue;
 
             observer.OnError(error);
@@ -370,10 +370,10 @@ file sealed class SharedFileObserver : IDisposable
     /// </summary>
     private void OnCompleted()
     {
-        IEnumerable<WeakReference<IObserver<FileSystemEventArgs>>> weakObservers = _observers.Values.SelectMany(static x => x);
-        foreach (WeakReference<IObserver<FileSystemEventArgs>> weakObserver in weakObservers)
+        IEnumerable<WeakReference<IObserver<FileChangeEventArgs>>> weakObservers = _observers.Values.SelectMany(static x => x);
+        foreach (WeakReference<IObserver<FileChangeEventArgs>> weakObserver in weakObservers)
         {
-            if (!weakObserver.TryGetTarget(out IObserver<FileSystemEventArgs>? observer) || observer is null)
+            if (!weakObserver.TryGetTarget(out IObserver<FileChangeEventArgs>? observer) || observer is null)
                 continue;
 
             observer.OnCompleted();

@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
     <HarfsTargetFramework>net7.0</HarfsTargetFramework>
+    <HostCompilerTargetFramework>net10.0</HostCompilerTargetFramework>
     <BuildOutputTargetFolder>tasks</BuildOutputTargetFolder>
     <NoWarn>$(NoWarn);NU5100;NU5128</NoWarn>
     <DisableFody>true</DisableFody>
@@ -24,11 +25,14 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.0.0" PrivateAssets="All" ExcludeAssets="Runtime" />
     <ProjectReference Include="../HotAvalonia.Remote/HotAvalonia.Remote.csproj" SetTargetFramework="TargetFramework=$(HarfsTargetFramework)" SkipGetTargetFrameworkProperties="True" ReferenceOutputAssembly="False" />
+    <ProjectReference Include="../HotAvalonia.HostCompiler/HotAvalonia.HostCompiler.csproj" SetTargetFramework="TargetFramework=$(HostCompilerTargetFramework)" SkipGetTargetFrameworkProperties="True" ReferenceOutputAssembly="False" />
   </ItemGroup>
 
   <ItemGroup>
     <None Include="../HotAvalonia.Remote/bin/$(Configuration)/$(HarfsTargetFramework)/HotAvalonia.Remote.dll" PackagePath="tools/" Pack="true" Visible="false" />
     <None Include="../HotAvalonia.Remote/bin/$(Configuration)/$(HarfsTargetFramework)/HotAvalonia.Remote.runtimeconfig.json" PackagePath="tools/" Pack="true" Visible="false" />
+    <None Include="../HotAvalonia.HostCompiler/bin/$(Configuration)/$(HostCompilerTargetFramework)/HotAvalonia.HostCompiler.dll" PackagePath="tools/" Pack="true" Visible="false" />
+    <None Include="../HotAvalonia.HostCompiler/bin/$(Configuration)/$(HostCompilerTargetFramework)/HotAvalonia.HostCompiler.runtimeconfig.json" PackagePath="tools/" Pack="true" Visible="false" />
   </ItemGroup>
 
   <Target Name="ExpandProps">

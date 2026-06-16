@@ -130,7 +130,10 @@ internal sealed class AvaloniaSolutionHotReloadContext : IHotReloadContext, ISup
     private void OnAssemblyLoad(object sender, AssemblyLoadEventArgs eventArgs)
     {
         Assembly? assembly = eventArgs?.LoadedAssembly;
-        if (assembly is null || !TryLoadAvaloniaProject(assembly, out AvaloniaProjectHotReloadContext? project))
+
+        // Host-compiled populate DLLs carry Avalonia documents too, but they're transient reload
+        // carriers, not projects to watch — skip them (also dodges a native Mono load-hook assertion on iOS).
+        if (assembly is null || Xaml.HostCompiledXamlLoader.IsHostCompiledAssembly(assembly) || !TryLoadAvaloniaProject(assembly, out AvaloniaProjectHotReloadContext? project))
             return;
 
         State state;
