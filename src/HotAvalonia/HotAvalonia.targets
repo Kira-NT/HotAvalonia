@@ -1,9 +1,9 @@
 <Project>
 
   <PropertyGroup Label="HotAvalonia: Private Properties">
-    <_HotAvaloniaIsAndroid>$(TargetFramework.EndsWith('-android'))</_HotAvaloniaIsAndroid>
-    <_HotAvaloniaIsIOS>$(TargetFramework.EndsWith('-ios'))</_HotAvaloniaIsIOS>
-    <_HotAvaloniaIsBrowser>$(TargetFramework.EndsWith('-browser'))</_HotAvaloniaIsBrowser>
+    <_HotAvaloniaIsAndroid>$(TargetFramework.Contains('-android'))</_HotAvaloniaIsAndroid>
+    <_HotAvaloniaIsIOS>$(TargetFramework.Contains('-ios'))</_HotAvaloniaIsIOS>
+    <_HotAvaloniaIsBrowser>$(TargetFramework.Contains('-browser'))</_HotAvaloniaIsBrowser>
     <_HotAvaloniaIsNotDesktop Condition="'$(_HotAvaloniaIsNotDesktop)' == '' And ($(_HotAvaloniaIsAndroid) Or $(_HotAvaloniaIsIOS) Or $(_HotAvaloniaIsBrowser))">true</_HotAvaloniaIsNotDesktop>
     <_HotAvaloniaIsNotDesktop Condition="'$(_HotAvaloniaIsNotDesktop)' != 'true'">false</_HotAvaloniaIsNotDesktop>
 
