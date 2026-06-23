@@ -126,7 +126,14 @@
     <!-- Force-enable Mono Interpreter on iOS to accommodate the platform's fundamental design flaws. -->
     <MtouchInterpreter>all</MtouchInterpreter>
     <UseInterpreter>true</UseInterpreter>
-    <PublishAot>false</PublishAot>
+    <MtouchLink>None</MtouchLink>
+    <TrimMode>copy</TrimMode>
+  </PropertyGroup>
+
+  <PropertyGroup Label="HotAvalonia: AOT Properties" Condition="$(HotAvalonia) And !$(_HotAvaloniaIsIOS)">
+    <!-- Disable trimming for platforms that use the publishing routine even for Debug builds. -->
+    <!-- iOS is handled separately, as it requires trimming to always be enabled for technical reasons. -->
+    <PublishTrimmed>false</PublishTrimmed>
   </PropertyGroup>
 
   <PropertyGroup Label="HotAvalonia: MSBuild Properties">
