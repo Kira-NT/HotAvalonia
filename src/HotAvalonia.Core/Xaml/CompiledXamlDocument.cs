@@ -33,13 +33,18 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
 
     internal readonly Action<object>? _refresh;
 
-    /// <inheritdoc cref="CompiledXamlDocument(Uri, MethodBase, MethodInfo, FieldInfo?, Action{object}?)"/>
+    /// <inheritdoc cref="CompiledXamlDocument(Uri, MethodBase, MethodInfo)"/>
     public CompiledXamlDocument(string uri, MethodBase build, MethodInfo populate)
         : this(new Uri(uri), AsBuildMethod(build), ToPopulateDelegate(populate), null, null)
     {
     }
 
-    /// <inheritdoc cref="CompiledXamlDocument(Uri, MethodBase, MethodInfo, FieldInfo?, Action{object}?)"/>
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CompiledXamlDocument"/> class.
+    /// </summary>
+    /// <param name="uri">The URI associated with the XAML document.</param>
+    /// <param name="build">The method used to create a new instance of the root control.</param>
+    /// <param name="populate">The method used to populate an existing root control.</param>
     public CompiledXamlDocument(Uri uri, MethodBase build, MethodInfo populate)
         : this(uri, AsBuildMethod(build), ToPopulateDelegate(populate), null, null)
     {
@@ -74,19 +79,6 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
             populate is null ? baseDocument._populate : ToPopulateDelegate(populate),
             baseDocument._populateOverride,
             baseDocument._refresh)
-    {
-    }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="CompiledXamlDocument"/> class.
-    /// </summary>
-    /// <param name="uri">The URI associated with the XAML document.</param>
-    /// <param name="build">The method used to create a new instance of the root control.</param>
-    /// <param name="populate">The method used to populate an existing root control.</param>
-    /// <param name="populateOverride">An optional field representing an override for the populate method.</param>
-    /// <param name="refresh">A delegate that defines a refresh action for the root control.</param>
-    internal CompiledXamlDocument(Uri uri, MethodBase build, MethodInfo populate, FieldInfo? populateOverride, Action<object>? refresh)
-        : this(uri, build, populate.CreateUnsafeDelegate<Action<IServiceProvider?, object>>(), populateOverride, refresh)
     {
     }
 

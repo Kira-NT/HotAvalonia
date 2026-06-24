@@ -291,23 +291,30 @@ internal static class DynamicSreTypeSystem
 
         //     private void OnAssemblyLoad(object? sender, AssemblyLoadEventArgs eventArgs)
         //     {
-        //         Assembly? assembly = eventArgs?.LoadedAssembly;
-        //         if (assembly is not { IsDynamic: false })
-        //             return;
-        //
-        //         List<IXamlAssembly> assemblies = _assemblies;
-        //         SreAssembly publicAssembly = CreateSreAssembly(assembly, this);
-        //         SreAssembly internalAssembly = _internalAssembly;
-        //         IEnumerable<Type> loadedTypes = assembly.GetLoadedTypes();
-        //         Type[] types = loadedTypes as Type[] ?? loadedTypes.ToArray();
-        //         lock (_lock)
+        //         try
         //         {
-        //             LoadSreTypes(types, publicAssembly, internalAssembly);
-        //             if (publicAssembly._typeDic.Count == 0)
+        //             Assembly? assembly = eventArgs?.LoadedAssembly;
+        //             if (assembly is not { IsDynamic: false })
         //                 return;
         //
-        //             int i = assemblies.BinarySearch(0, assemblies.Count - 1, publicAssembly, s_xamlAssemblyNameComparer);
-        //             assemblies.Insert(i ^ (i >> 31), publicAssembly);
+        //             List<IXamlAssembly> assemblies = _assemblies;
+        //             SreAssembly publicAssembly = CreateSreAssembly(assembly, this);
+        //             SreAssembly internalAssembly = _internalAssembly;
+        //             IEnumerable<Type> loadedTypes = assembly.GetLoadedTypes();
+        //             Type[] types = loadedTypes as Type[] ?? loadedTypes.ToArray();
+        //             lock (_lock)
+        //             {
+        //                 LoadSreTypes(types, publicAssembly, internalAssembly);
+        //                 if (publicAssembly._typeDic.Count == 0)
+        //                     return;
+        //
+        //                 int i = assemblies.BinarySearch(0, assemblies.Count - 1, publicAssembly, s_xamlAssemblyNameComparer);
+        //                 assemblies.Insert(i ^ (i >> 31), publicAssembly);
+        //             }
+        //         }
+        //         catch
+        //         {
+        //             // We cannot afford to throw an exception during an assembly load event, as that would crash the entire app.
         //         }
         //     }
         MethodBuilder OnAssemblyLoad = DynamicSreTypeSystem.DefineMethod(
@@ -333,6 +340,7 @@ internal static class DynamicSreTypeSystem
         il.DeclareLocal(typeof(object));
         il.DeclareLocal(typeof(bool));
         il.DeclareLocal(typeof(int));
+        il.BeginExceptionBlock();
         il.Emit(OpCodes.Ldarg_2);
         il.Emit(OpCodes.Brtrue_S, onAssemblyLoadEventArgsNotNull);
         il.Emit(OpCodes.Ldnull);
@@ -348,7 +356,7 @@ internal static class DynamicSreTypeSystem
         il.Emit(OpCodes.Callvirt, typeof(Assembly).GetProperty(nameof(Assembly.IsDynamic))!.GetMethod!);
         il.Emit(OpCodes.Brfalse_S, onAssemblyLoadLoadedAssemblyIsNotDynamic);
         il.MarkLabel(onAssemblyLoadLoadedAssemblyIsNullOrDynamic);
-        il.Emit(OpCodes.Ret);
+        il.Emit(OpCodes.Leave, onAssemblyLoadRet);
         il.MarkLabel(onAssemblyLoadLoadedAssemblyIsNotDynamic);
         il.Emit(OpCodes.Ldarg_0);
         il.Emit(OpCodes.Ldfld, _assemblies);
@@ -415,6 +423,9 @@ internal static class DynamicSreTypeSystem
         il.Emit(OpCodes.Ldloc_S, (byte)6);
         il.Emit(OpCodes.Call, new Action<object>(Monitor.Exit).Method);
         il.MarkLabel(onAssemblyLoadEndFinally);
+        il.EndExceptionBlock();
+        il.BeginCatchBlock(typeof(object));
+        il.Emit(OpCodes.Pop);
         il.EndExceptionBlock();
         il.MarkLabel(onAssemblyLoadRet);
         il.Emit(OpCodes.Ret);

@@ -82,11 +82,12 @@ public static class XamlScanner
     /// <param name="rootControl">The root control instance.</param>
     /// <param name="uri">The output parameter that receives the associated URI.</param>
     /// <returns><c>true</c> if the URI is successfully extracted; otherwise, <c>false</c>.</returns>
-    public static bool TryExtractDocumentUri(object? rootControl, [NotNullWhen(true)] out Uri? uri)
+    public static bool TryExtractDocumentUri([NotNullWhen(true)] object? rootControl, [NotNullWhen(true)] out Uri? uri)
         => TryExtractDocumentUri(rootControl?.GetType(), out uri);
 
     /// <inheritdoc cref="TryExtractDocumentUri(object?, out Uri?)"/>
-    public static bool TryExtractDocumentUri(object? rootControl, [NotNullWhen(true)] out string? uri)
+    [Obsolete("Use 'TryExtractDocumentUri(object?, out Uri?)' instead.")]
+    public static bool TryExtractDocumentUri([NotNullWhen(true)] object? rootControl, [NotNullWhen(true)] out string? uri)
         => TryExtractDocumentUri(rootControl?.GetType(), out uri);
 
     /// <summary>
@@ -96,22 +97,7 @@ public static class XamlScanner
     /// <param name="rootControlType">The root control type.</param>
     /// <param name="uri">The output parameter that receives the associated URI.</param>
     /// <returns><c>true</c> if the URI is successfully extracted; otherwise, <c>false</c>.</returns>
-    public static bool TryExtractDocumentUri(Type? rootControlType, [NotNullWhen(true)] out Uri? uri)
-    {
-        if (TryExtractDocumentUri(rootControlType, out string? uriStr))
-        {
-            uri = new(uriStr);
-            return true;
-        }
-        else
-        {
-            uri = null;
-            return false;
-        }
-    }
-
-    /// <inheritdoc cref="TryExtractDocumentUri(Type?, out Uri?)"/>
-    public static bool TryExtractDocumentUri(Type? rootControlType, [NotNullWhen(true)] out string? uri)
+    public static bool TryExtractDocumentUri([NotNullWhen(true)] Type? rootControlType, [NotNullWhen(true)] out Uri? uri)
     {
         uri = null;
         if (rootControlType is null)
@@ -121,13 +107,29 @@ public static class XamlScanner
         return populate is not null && TryExtractDocumentUri(populate, out uri);
     }
 
+    /// <inheritdoc cref="TryExtractDocumentUri(Type?, out Uri?)"/>
+    [Obsolete("Use 'TryExtractDocumentUri(Type?, out Uri?)' instead.")]
+    public static bool TryExtractDocumentUri([NotNullWhen(true)] Type? rootControlType, [NotNullWhen(true)] out string? uri)
+    {
+        if (TryExtractDocumentUri(rootControlType, out Uri? wellFormedUri))
+        {
+            uri = wellFormedUri.ToString();
+            return true;
+        }
+        else
+        {
+            uri = null;
+            return false;
+        }
+    }
+
     /// <summary>
     /// Attempts to extract the URI from the given populate method.
     /// </summary>
     /// <param name="populateMethod">The populate method.</param>
     /// <param name="uri">The output parameter that receives the associated URI.</param>
     /// <returns><c>true</c> if the URI is successfully extracted; otherwise, <c>false</c>.</returns>
-    private static bool TryExtractDocumentUri(MethodInfo populateMethod, [NotNullWhen(true)] out string? uri)
+    private static bool TryExtractDocumentUri(MethodInfo populateMethod, [NotNullWhen(true)] out Uri? uri)
     {
         // "Populate" methods created by Avalonia usually start like this:
         // IL_0000: ldarg.0
@@ -156,9 +158,8 @@ public static class XamlScanner
 
         try
         {
-            int inlineStringToken = BitConverter.ToInt32(methodBody.AsSpan(uriTokenLocation));
-            uri = populateMethod.Module.ResolveString(inlineStringToken);
-            return uri is not null;
+            int uriToken = BitConverter.ToInt32(methodBody.AsSpan(uriTokenLocation));
+            return Uri.TryCreate(populateMethod.Module.ResolveString(uriToken), UriKind.Absolute, out uri);
         }
         catch
         {
@@ -196,7 +197,7 @@ public static class XamlScanner
     {
         MethodBodyReader reader = new(methodBody);
         string? str = null;
-        string? uri = null;
+        Uri? uri = null;
 
         while (reader.Next())
         {
@@ -218,21 +219,15 @@ public static class XamlScanner
             MethodBase method = reader.ResolveMethod(module);
             if (method.DeclaringType == typeof(string) && method.Name is nameof(string.Equals))
             {
-                uri = str;
+                uri = Uri.TryCreate(str, UriKind.Absolute, out uri) ? uri : null;
                 str = null;
                 continue;
             }
 
-            if (uri is null || !IsBuildMethod(method))
+            if (uri is null || !IsBuildMethod(method) || !TryCreatePopulateDelegate(FindPopulateMethod(method), out Action<IServiceProvider?, object>? populateDelegate))
                 continue;
 
-            MethodInfo? populateMethod = FindPopulateMethod(method);
-            FieldInfo? populateOverrideField = FindPopulateOverrideField(method);
-            Action<object> refresh = GetControlRefreshCallback(method);
-            if (populateMethod is null)
-                continue;
-
-            yield return new(new(uri), method, populateMethod, populateOverrideField, refresh);
+            yield return new(uri, method, populateDelegate, FindPopulateOverrideField(method), GetControlRefreshCallback(method));
             (str, uri) = (null, null);
         }
     }
@@ -247,10 +242,10 @@ public static class XamlScanner
         foreach (Type type in assembly.GetLoadedTypes())
         {
             MethodInfo? populateMethod = FindPopulateControlMethod(type);
-            if (populateMethod is null)
+            if (!TryCreatePopulateDelegate(populateMethod, out Action<IServiceProvider?, object>? populateDelegate))
                 continue;
 
-            if (!TryExtractDocumentUri(populateMethod, out string? uri))
+            if (!TryExtractDocumentUri(populateMethod, out Uri? uri))
                 continue;
 
             MethodBase? buildMethod = type.GetInstanceConstructor();
@@ -261,7 +256,7 @@ public static class XamlScanner
 
             FieldInfo? populateOverrideField = FindPopulateOverrideField(buildMethod);
             Action<object> refresh = GetControlRefreshCallback(buildMethod);
-            yield return new(new(uri), buildMethod, populateMethod, populateOverrideField, refresh);
+            yield return new(uri, buildMethod, populateDelegate, populateOverrideField, refresh);
         }
     }
 
@@ -414,6 +409,26 @@ public static class XamlScanner
     /// <returns>The <see cref="MethodInfo"/> object representing the populate method, or <c>null</c> if not found.</returns>
     private static MethodInfo? FindPopulateControlMethod(Type userControlType)
         => userControlType.GetStaticMethod("!XamlIlPopulate", [typeof(IServiceProvider), userControlType]);
+
+    private static bool TryCreatePopulateDelegate([NotNullWhen(true)] MethodInfo? populateMethod, [NotNullWhen(true)] out Action<IServiceProvider?, object>? populateDelegate)
+    {
+        if (populateMethod is not null)
+        {
+            try
+            {
+                populateDelegate = populateMethod.CreateUnsafeDelegate<Action<IServiceProvider?, object>>();
+                return true;
+            }
+            catch
+            {
+                // If the provided method contains malformed IL, attempting to create a delegate from it
+                // will result in an exception. Simply ignore such methods, as controls that define them
+                // cannot be used in a functioning codebase anyway.
+            }
+        }
+        populateDelegate = null;
+        return false;
+    }
 
     /// <summary>
     /// Determines whether the specified member is generated by Avalonia.

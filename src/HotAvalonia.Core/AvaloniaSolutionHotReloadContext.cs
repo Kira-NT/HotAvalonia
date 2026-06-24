@@ -130,25 +130,34 @@ internal sealed class AvaloniaSolutionHotReloadContext : IHotReloadContext, ISup
     private void OnAssemblyLoad(object sender, AssemblyLoadEventArgs eventArgs)
     {
         Assembly? assembly = eventArgs?.LoadedAssembly;
-        if (assembly is null || !TryLoadAvaloniaProject(assembly, out AvaloniaProjectHotReloadContext? project))
-            return;
-
-        State state;
-        lock (_lock)
+        try
         {
-            AvaloniaProjectHotReloadContext[] projects = _projects;
-            Array.Resize(ref projects, projects.Length + 1);
-            projects[^1] = project;
+            if (assembly is null || !TryLoadAvaloniaProject(assembly, out AvaloniaProjectHotReloadContext? project))
+                return;
 
-            state = _state;
-            _projects = projects;
+            State state;
+            lock (_lock)
+            {
+                AvaloniaProjectHotReloadContext[] projects = _projects;
+                Array.Resize(ref projects, projects.Length + 1);
+                projects[^1] = project;
+
+                state = _state;
+                _projects = projects;
+            }
+
+            if ((state & State.Initializing) != 0)
+                project.BeginInit();
+
+            if ((state & State.Initialized) != 0)
+                project.EndInit();
         }
-
-        if ((state & State.Initializing) != 0)
-            project.BeginInit();
-
-        if ((state & State.Initialized) != 0)
-            project.EndInit();
+        catch (Exception e)
+        {
+            // We cannot afford to throw an exception during an assembly load event, as that would crash the entire app.
+            // So, if anything goes wrong, simply log the exception and move on.
+            Logger.Log(LogLevel.Error, this, "Failed to process '{Assembly}': {Exception}", assembly?.GetName()?.Name, e);
+        }
     }
 
     private bool TryLoadAvaloniaProject(Assembly assembly, [NotNullWhen(true)] out AvaloniaProjectHotReloadContext? project)
