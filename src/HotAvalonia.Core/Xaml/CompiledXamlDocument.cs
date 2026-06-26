@@ -4,9 +4,11 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml.XamlIl.Runtime;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using HotAvalonia.Helpers;
 
 namespace HotAvalonia.Xaml;
@@ -17,6 +19,10 @@ namespace HotAvalonia.Xaml;
 [DebuggerDisplay($"{{{nameof(Uri)},nq}}")]
 public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
 {
+    private static readonly FieldInfo? s_childField = typeof(ContentPresenter).GetInstanceField("_child");
+
+    private static readonly FieldInfo? s_createdChildField = typeof(ContentPresenter).GetInstanceField("_createdChild", typeof(bool));
+
     private static readonly FieldInfo? s_stylesAppliedField = typeof(StyledElement).GetInstanceField("_stylesApplied", typeof(bool));
 
     private static readonly Func<AvaloniaObject, AvaloniaObject?>? s_getInheritanceParent = typeof(AvaloniaObject).GetInstanceProperty("InheritanceParent")?.GetMethod?.CreateDelegate<Func<AvaloniaObject, AvaloniaObject?>>();
@@ -271,6 +277,17 @@ public sealed class CompiledXamlDocument : IEquatable<CompiledXamlDocument>
         };
         resources?.Clear();
         styles?.Clear();
+
+        foreach (ContentPresenter presenter in (control as Visual)?.GetVisualDescendants().OfType<ContentPresenter>().Reverse() ?? [])
+        {
+            if (presenter.Child is not Visual child)
+                continue;
+
+            (child.GetVisualParent()?.GetVisualChildren() as IList<Visual>)?.Remove(child);
+            (child.GetLogicalParent()?.GetLogicalChildren() as IList<ILogical>)?.Remove(child);
+            s_createdChildField?.SetValue(presenter, false);
+            s_childField?.SetValue(presenter, null);
+        }
     }
 
     private static void Detach(object? control, out ILogical? logicalParent, out AvaloniaObject? inheritanceParent)
