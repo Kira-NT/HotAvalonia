@@ -12,13 +12,7 @@
 
 ## Installation
 
-Add the following package reference to your project file *(e.g., `.csproj`, `.fsproj`, `.vbproj`)*:
-
-```xml
-<PackageReference Include="HotAvalonia" Version="3.*" PrivateAssets="All" Publish="True" />
-```
-
-Alternatively, if you've already successfully migrated to **Avalonia 12**:
+Add the following package references to your project file *(e.g., `.csproj`, `.fsproj`, `.vbproj`)*:
 
 ```xml
 <!-- Don't forget to replace $(AvaloniaVersion) with the actual Avalonia package version. -->
