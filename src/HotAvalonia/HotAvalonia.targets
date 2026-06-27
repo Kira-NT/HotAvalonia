@@ -130,7 +130,7 @@
     <TrimMode>copy</TrimMode>
   </PropertyGroup>
 
-  <PropertyGroup Label="HotAvalonia: AOT Properties" Condition="$(HotAvalonia) And !$(_HotAvaloniaIsIOS)">
+  <PropertyGroup Label="HotAvalonia: AOT Properties" Condition="$(HotAvalonia) And $(_HotAvaloniaIsNotDesktop) And !$(_HotAvaloniaIsIOS)">
     <!-- Disable trimming for platforms that use the publishing routine even for Debug builds. -->
     <!-- iOS is handled separately, as it requires trimming to always be enabled for technical reasons. -->
     <PublishTrimmed>false</PublishTrimmed>
